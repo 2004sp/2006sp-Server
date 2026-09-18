@@ -83,6 +83,11 @@ extends Player {
         World.getTaskScheduler().schedule(new DropPartyBotHideTask(this, 2, (BotPlayer)value));
     }
 
+    public final void startMinigameBot() {
+        MinigameBotManager.startMinigameBot(this);
+        World.getTaskScheduler().schedule(new MinigameBotJoinTask(2, this));
+    }
+
     public final void startClanWarsBot(int value2) {
         BotPlayer botPlayer = this;
         this.clanWarsBot = true;
