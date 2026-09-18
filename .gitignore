@@ -1,0 +1,6 @@
+data/err.log
+dist/
+/data/characters
+/data/server.db
+/data/server.db-shm
+/data/server.db-wal

@@ -1,0 +1,21 @@
+package com.rs2.model.combat.special;
+
+import com.rs2.model.Entity;
+import com.rs2.model.combat.WeaponProfile;
+import com.rs2.model.combat.attack.WeaponCombatAttack;
+import com.rs2.model.combat.special.SpecialAttackDefinition;
+import com.rs2.model.combat.special.ZamorakGodswordSpecialAttack;
+import com.rs2.model.player.Player;
+
+public final class ZamorakGodswordSpecialDefinition
+extends SpecialAttackDefinition {
+    public ZamorakGodswordSpecialDefinition(int value2, String ... stringValues2) {
+        super(value2, stringValues2);
+    }
+
+    @Override
+    public final WeaponCombatAttack createAttack(Player player, Entity entity, WeaponProfile weaponProfile) {
+        return new ZamorakGodswordSpecialAttack(this, player, entity, weaponProfile);
+    }
+}
+
