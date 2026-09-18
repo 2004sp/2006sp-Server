@@ -14,7 +14,13 @@ public final class MinigameBotManager {
         CastleWarsManager.leaveWaitingRoom(botPlayer);
     }
 
-    public static void joinCastleWars(BotPlayer botPlayer) {
-        CastleWarsManager.handleLobbyPortal(botPlayer, CastleWarsManager.GUTHIX_PORTAL_ID);
+    public static boolean joinCastleWars(BotPlayer botPlayer) {
+        if (CastleWarsManager.getWaitingTeam(botPlayer) != null) {
+            return true;
+        }
+        if (CastleWarsManager.hasMinimumPlayersToStart()) {
+            return false;
+        }
+        return CastleWarsManager.handleLobbyPortal(botPlayer, CastleWarsManager.GUTHIX_PORTAL_ID);
     }
 }
