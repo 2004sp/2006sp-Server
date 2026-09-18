@@ -13,7 +13,7 @@ database server is not needed.
 ## Requirements
 
 - Windows (the included build and run scripts are batch files)
-- A Java Development Kit (JDK), preferably **JDK 8**
+- JDK 1.8.0\_101 (Java SE Development Kit 8u101) - [Oracle Java SE 8 Archive Downloads](https://www.oracle.com/java/technologies/javase/javase8-archive-downloads.html)
 - `java`, `javac`, and `jar` available on `PATH`
 - The matching `2006sp client` project to connect and play
 - About 1 GB of free memory for the default server JVM settings
