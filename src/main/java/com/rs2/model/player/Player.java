@@ -2164,6 +2164,8 @@ extends Entity {
                     botPlayer.startProgressiveBot();
                 } else if (this.botMode == 5 || this.botMode == 6) {
                     botPlayer.startClanWarsBot(this.botMode);
+                } else if (this.botMode == 7) {
+                    botPlayer.startMinigameBot();
                 }
             }
         } else if (text4.equals("modern")) {
