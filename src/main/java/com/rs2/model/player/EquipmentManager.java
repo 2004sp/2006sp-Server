@@ -5,6 +5,7 @@ import com.rs2.model.EntityTargetMovement;
 import com.rs2.model.GameplayHelper;
 import com.rs2.model.combat.WeaponProfile;
 import com.rs2.model.combat.special.SpecialAttackDefinition;
+import com.rs2.model.gameplay.castlewars.CastleWarsManager;
 import com.rs2.model.gameplay.duel.DuelRule;
 import com.rs2.model.item.ItemContainer;
 import com.rs2.model.item.ItemContainerType;
@@ -145,6 +146,10 @@ public final class EquipmentManager {
                             value2 = itemStack.getDefinition().getEquipmentSlot();
                             if (GameplayTrace.enabled()) {
                                 GameplayTrace.log("equipment equip request player=" + GameplayTrace.describe(this.player) + " inventorySlot=" + slot + " itemId=" + itemStack.getId() + " item=" + itemStack.getDefinition().getName() + " equipmentSlot=" + value2);
+                            }
+                            if (CastleWarsManager.isWaitingPlayer(this.player) && CastleWarsManager.isTeamColourEquipmentSlot(value2)) {
+                                this.player.getPacketSender().sendGameMessage("You can't wear headgear or a cape while waiting for Castle Wars.");
+                                return;
                             }
                             if (!this.player.getInventoryManager().containsItemStack(itemStack)) {
                                 if (GameplayTrace.enabled()) {
