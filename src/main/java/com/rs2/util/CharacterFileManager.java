@@ -86,18 +86,34 @@ public final class CharacterFileManager {
         if (!LoginProtocol.activeLoginUsernames.contains(player.getUsername())) {
             LoginProtocol.activeLoginUsernames.add(player.getUsername());
         }
-        File file = new File("./data/characters/");
-        CharacterFileManager.writePlayerFile(player);
-        boolean path = CharacterFileManager.validateCharacterFile(String.valueOf(file.getPath()) + "/", player.getUsername());
-        while (!path) {
-            System.out.println("Something went wrong while saving: " + player.getUsername() + " trying again.");
-            CharacterFileManager.writePlayerFile(player);
-            path = CharacterFileManager.validateCharacterFile(String.valueOf(file.getPath()) + "/", player.getUsername());
+
+        try {
+            File characterDirectory = new File("./data/characters/");
+            if ((!characterDirectory.exists() && !characterDirectory.mkdirs()) || !characterDirectory.isDirectory()) {
+                System.err.println("Unable to save " + player.getUsername() + ": character save directory is unavailable: " + characterDirectory.getAbsolutePath());
+                return false;
+            }
+
+            final int maxSaveAttempts = 3;
+            for (int attempt = 1; attempt <= maxSaveAttempts; attempt++) {
+                CharacterFileManager.writePlayerFile(player);
+                boolean valid = CharacterFileManager.validateCharacterFile(String.valueOf(characterDirectory.getPath()) + "/", player.getUsername());
+                if (valid) {
+                    return true;
+                }
+
+                if (attempt < maxSaveAttempts) {
+                    System.out.println("Something went wrong while saving: " + player.getUsername() + " (attempt " + attempt + "/" + maxSaveAttempts + "), trying again.");
+                }
+            }
+
+            System.err.println("Failed to save " + player.getUsername() + " after " + maxSaveAttempts + " attempts.");
+            return false;
+        } finally {
+            if (LoginProtocol.activeLoginUsernames.contains(player.getUsername())) {
+                LoginProtocol.activeLoginUsernames.remove(player.getUsername());
+            }
         }
-        if (LoginProtocol.activeLoginUsernames.contains(player.getUsername())) {
-            LoginProtocol.activeLoginUsernames.remove(player.getUsername());
-        }
-        return true;
     }
 
     /*
