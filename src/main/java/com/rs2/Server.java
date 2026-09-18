@@ -26,6 +26,7 @@ import com.rs2.model.area.MultiwayAreaDefinition;
 import com.rs2.model.c.ProjectileDefinition;
 import com.rs2.model.clue.TreasureTrailManager;
 import com.rs2.model.combat.CombatManager;
+import com.rs2.model.gameplay.castlewars.CastleWarsManager;
 import com.rs2.model.gameplay.duel.DuelSession;
 import com.rs2.model.gameplay.godwars.GodWarsDungeonManager;
 import com.rs2.model.gameplay.magetrainingarena.AlchemistPlaygroundController;
@@ -365,6 +366,7 @@ implements Runnable {
             BotTaskDefinition.initializeProgressiveTaskPool();
             BotTaskDefinition.initializeTradeAdvertTaskPool();
             BotTaskDefinition.initializeDropPartyTaskPool();
+            CastleWarsManager.initialize();
             QuestEventRegistry.initializeEventHooks();
             BotPlayer.removeConfiguredBotNames();
             if (ServerSettings.progressiveBotsPrioritizeExisting && ServerSettings.progressiveBotsEnabled && ServerSettings.progressiveBotCount > 0) {
