@@ -147,8 +147,9 @@ public final class EquipmentManager {
                             if (GameplayTrace.enabled()) {
                                 GameplayTrace.log("equipment equip request player=" + GameplayTrace.describe(this.player) + " inventorySlot=" + slot + " itemId=" + itemStack.getId() + " item=" + itemStack.getDefinition().getName() + " equipmentSlot=" + value2);
                             }
-                            if (CastleWarsManager.isWaitingPlayer(this.player) && CastleWarsManager.isTeamColourEquipmentSlot(value2)) {
-                                this.player.getPacketSender().sendGameMessage("You can't wear headgear or a cape while waiting for Castle Wars.");
+                            if ((CastleWarsManager.isWaitingPlayer(this.player) || CastleWarsManager.isInGame(this.player))
+                                    && CastleWarsManager.isTeamColourEquipmentSlot(value2)) {
+                                this.player.getPacketSender().sendGameMessage("You can't change your head or cape equipment during Castle Wars.");
                                 return;
                             }
                             if (!this.player.getInventoryManager().containsItemStack(itemStack)) {
@@ -420,6 +421,10 @@ public final class EquipmentManager {
         }
         if (GameplayTrace.enabled()) {
             GameplayTrace.log("equipment unequip request player=" + GameplayTrace.describe(this.player) + " equipmentSlot=" + slot + " itemId=" + itemStack.getId() + " item=" + itemStack.getDefinition().getName() + " inventoryFree=" + this.player.getInventoryManager().getContainer().getFreeSlots());
+        }
+        if (CastleWarsManager.isInGame(this.player) && CastleWarsManager.isTeamColourEquipmentSlot(slot)) {
+            this.player.getPacketSender().sendGameMessage("You can't remove your Castle Wars team colours during the game.");
+            return;
         }
         if (this.player.getInventoryManager().getContainer().getFirstFreeSlot() == -1) {
             Player player = this.player;
