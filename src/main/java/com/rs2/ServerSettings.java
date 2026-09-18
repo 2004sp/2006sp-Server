@@ -58,6 +58,8 @@ public final class ServerSettings {
     public static boolean clanWarsBotsEnabled = false;
     public static int clanWarsTeamSize = 20;
     public static int clanWarsEventChanceDivisor = 24;
+    public static boolean minigameBotsEnabled = false;
+    public static int minigameBotCount = 2;
     public static boolean progressiveBotsPrioritizeExisting = false;
     public static boolean instantGrandExchangePriceFluctuationEnabled = true;
     public static boolean instantGrandExchangeEnabled = false;
