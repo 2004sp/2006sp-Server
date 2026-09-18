@@ -4,3 +4,6 @@ dist/
 /data/server.db
 /data/server.db-shm
 /data/server.db-wal
+data/minutes.log
+config/server.cfg
+config/server.cfg.bak
