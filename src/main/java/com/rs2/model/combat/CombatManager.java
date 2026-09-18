@@ -343,8 +343,13 @@ extends TickTask {
     }
 
     public static void finishDeath(Entity entity, Entity killer, boolean dropItems) {
-        if (entity.isPlayer() && CastleWarsManager.isInGame((Player)entity)) {
+        boolean castleWarsDeath = entity.isPlayer() && CastleWarsManager.isInGame((Player)entity);
+        if (castleWarsDeath) {
             dropItems = false;
+            if (entity.getPoisonDamage() > 0.0) {
+                entity.setPoisonDamage(0.0);
+            }
+            entity.setDeathPosition(null);
         }
         if (dropItems) {
             entity.dropDeathItems(killer);
