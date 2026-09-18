@@ -36,6 +36,7 @@ public final class BotPopulationPanel extends JPanel implements ActionListener {
     private final JTextField progressiveBotCountField = new JTextField(8);
     private final JTextField tradeBotCountField = new JTextField(8);
     private final JTextField clanWarsBotCountField = new JTextField(8);
+    private final JTextField minigameBotCountField = new JTextField(8);
     private final JTextField otherBotCountField = new JTextField(8);
     private final JTextField[] populationFields = new JTextField[]{
         this.pvpBotCountField,
@@ -43,6 +44,7 @@ public final class BotPopulationPanel extends JPanel implements ActionListener {
         this.progressiveBotCountField,
         this.tradeBotCountField,
         this.clanWarsBotCountField,
+        this.minigameBotCountField,
         this.otherBotCountField
     };
     private final JButton saveButton = new JButton("Save Bot Population");
@@ -81,6 +83,7 @@ public final class BotPopulationPanel extends JPanel implements ActionListener {
         row = this.addPopulationRow("Progressive:", this.progressiveBotCountField, row, constraints, font);
         row = this.addPopulationRow("Trade:", this.tradeBotCountField, row, constraints, font);
         row = this.addPopulationRow("Clan Wars (per team):", this.clanWarsBotCountField, row, constraints, font);
+        row = this.addPopulationRow("Minigames:", this.minigameBotCountField, row, constraints, font);
         row = this.addPopulationRow("Other / social:", this.otherBotCountField, row, constraints, font);
 
         JLabel zeroNote = new JLabel("Set a population to 0 to disable that bot style.");
@@ -135,6 +138,7 @@ public final class BotPopulationPanel extends JPanel implements ActionListener {
         this.progressiveBotCountField.setText(Integer.toString(ServerSettings.progressiveBotsEnabled ? ServerSettings.progressiveBotCount : 0));
         this.tradeBotCountField.setText(Integer.toString(ServerSettings.tradeBotsEnabled ? ServerSettings.tradeBotCount : 0));
         this.clanWarsBotCountField.setText(Integer.toString(ServerSettings.clanWarsBotsEnabled ? ServerSettings.clanWarsTeamSize : 0));
+        this.minigameBotCountField.setText(Integer.toString(ServerSettings.minigameBotsEnabled ? ServerSettings.minigameBotCount : 0));
         this.otherBotCountField.setText(Integer.toString(ServerSettings.otherBotsEnabled ? ServerSettings.otherBotCount : 0));
         this.updateTotalLabel();
     }
@@ -158,10 +162,11 @@ public final class BotPopulationPanel extends JPanel implements ActionListener {
             int progressiveCount = this.parsePopulation(this.progressiveBotCountField, "Progressive");
             int tradeCount = this.parsePopulation(this.tradeBotCountField, "Trade");
             int clanWarsTeamSize = this.parsePopulation(this.clanWarsBotCountField, "Clan Wars");
+            int minigameCount = this.parsePopulation(this.minigameBotCountField, "Minigames");
             int otherCount = this.parsePopulation(this.otherBotCountField, "Other / social");
 
             long totalCount = (long)pvpCount + (long)skillingCount + (long)progressiveCount
-                + (long)tradeCount + (long)clanWarsTeamSize * 2L + (long)otherCount;
+                + (long)tradeCount + (long)clanWarsTeamSize * 2L + (long)minigameCount + (long)otherCount;
             if (totalCount >= (long)ServerSettings.botLoginIdLimit) {
                 JOptionPane.showMessageDialog(
                     this,
@@ -186,6 +191,9 @@ public final class BotPopulationPanel extends JPanel implements ActionListener {
 
             ServerSettings.clanWarsTeamSize = clanWarsTeamSize;
             ServerSettings.clanWarsBotsEnabled = clanWarsTeamSize > 0;
+
+            ServerSettings.minigameBotCount = minigameCount;
+            ServerSettings.minigameBotsEnabled = minigameCount > 0;
 
             ServerSettings.otherBotCount = otherCount;
             ServerSettings.otherBotsEnabled = otherCount > 0;
@@ -259,6 +267,7 @@ public final class BotPopulationPanel extends JPanel implements ActionListener {
                 + Integer.parseInt(this.progressiveBotCountField.getText().trim())
                 + Integer.parseInt(this.tradeBotCountField.getText().trim())
                 + Integer.parseInt(this.clanWarsBotCountField.getText().trim()) * 2
+                + Integer.parseInt(this.minigameBotCountField.getText().trim())
                 + Integer.parseInt(this.otherBotCountField.getText().trim());
             this.totalLabel.setText("Total configured bots: " + total);
         }
@@ -307,6 +316,11 @@ public final class BotPopulationPanel extends JPanel implements ActionListener {
             "[CLANWAR_BOTS];" + (ServerSettings.clanWarsBotsEnabled ? 1 : 0)
                 + ";" + ServerSettings.clanWarsTeamSize
                 + ";" + ServerSettings.clanWarsEventChanceDivisor
+        );
+        replacements.put(
+            "MINIGAME_BOTS",
+            "[MINIGAME_BOTS];" + (ServerSettings.minigameBotsEnabled ? 1 : 0)
+                + ";" + ServerSettings.minigameBotCount
         );
 
         File configFile = new File("config/server.cfg");
