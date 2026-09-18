@@ -120,7 +120,11 @@ extends Player {
 
     @Override
     public final void initializeNewPlayer() {
-        this.moveTo(new Position(ServerSettings.respawnX, ServerSettings.respawnY, ServerSettings.respawnPlane));
+        if (this.botMode == 7) {
+            MinigameBotManager.placeAtCastleWarsLobby(this);
+        } else {
+            this.moveTo(new Position(ServerSettings.respawnX, ServerSettings.respawnY, ServerSettings.respawnPlane));
+        }
         this.randomizeAppearance();
         this.completeTutorial();
         this.completeAllQuestStates();
