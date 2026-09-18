@@ -70,6 +70,13 @@
 
 [CLANWAR_BOTS];0;0;24
 
+//MINIGAME_BOTS - Parameters for customization:
+//1 = enable, 0 = disable
+//# = amount of minigame bots
+//Castle Wars needs at least 2 total, one on each team, to start.
+
+[MINIGAME_BOTS];1;2
+
 //DROP_PARTY_CHANCE - Parameters for customization:
 //# = chance for a drop party to trigger
 //Drop party event is checked every 5mins
