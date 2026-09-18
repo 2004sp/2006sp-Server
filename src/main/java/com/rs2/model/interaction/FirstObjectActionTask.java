@@ -13,6 +13,7 @@ import com.rs2.model.combat.AttackStyleDefinition;
 import com.rs2.model.dialogue.DialogueManager;
 import com.rs2.model.gameplay.abyss.AbyssManager;
 import com.rs2.model.gameplay.barrows.BarrowsManager;
+import com.rs2.model.gameplay.castlewars.CastleWarsManager;
 import com.rs2.model.gameplay.duel.DuelHistory;
 import com.rs2.model.gameplay.godwars.GodWarsDungeonManager;
 import com.rs2.model.gameplay.partyroom.PartyRoomManager;
@@ -203,6 +204,10 @@ extends TickTask {
             return;
         }
         if (ServerSettings.content2007Enabled && GodWarsDungeonManager.handleFirstObjectAction(this.player, this.objectId, this.objectX, this.objectY)) {
+            this.stop();
+            return;
+        }
+        if (CastleWarsManager.handleLobbyPortal(this.player, this.objectId)) {
             this.stop();
             return;
         }
