@@ -13,6 +13,7 @@ public final class CastleWarsManager {
     public static final int SARADOMIN_PORTAL_ID = 4387;
     public static final int ZAMORAK_PORTAL_ID = 4388;
     public static final int GUTHIX_PORTAL_ID = 4408;
+    public static final int MINIMUM_PLAYERS_PER_TEAM = 1;
 
     private static final Position SARADOMIN_WAITING_ROOM = new Position(2377, 9485, 0);
     private static final Position ZAMORAK_WAITING_ROOM = new Position(2421, 9524, 0);
@@ -85,6 +86,11 @@ public final class CastleWarsManager {
             }
         }
         return count;
+    }
+
+    public static boolean hasMinimumPlayersToStart() {
+        return getWaitingPlayerCount(Team.SARADOMIN) >= MINIMUM_PLAYERS_PER_TEAM
+                && getWaitingPlayerCount(Team.ZAMORAK) >= MINIMUM_PLAYERS_PER_TEAM;
     }
 
     private static void cleanupWaitingPlayers() {
