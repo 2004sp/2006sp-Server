@@ -93,7 +93,10 @@ public final class CastleWarsEngineeringManager {
     private static final int SIDE_DOOR_LEVEL_NINETY_NINE_THRESHOLD = 256;
     private static final long GAME_TICK_MILLIS = 600L;
     private static final int CLIMBING_ROPE_LIFETIME_TICKS = 100;
-    private static final int CLIMBING_ROPE_OBJECT_TYPE = 4;
+    // Object 4444 is a normal scenery model. Spawning it as a wall-decoration
+    // type leaves the model invisible in this cache; type 10 renders the rope
+    // without replacing the type-0 battlement underneath it.
+    private static final int CLIMBING_ROPE_OBJECT_TYPE = 10;
     private static final int CLIMBING_ROPE_PLANE = 0;
     private static final int CLIMBING_ROPE_DESTINATION_PLANE = 1;
     private static final long BARRICADE_BURN_DURATION_MILLIS = 20L * 1000L;
