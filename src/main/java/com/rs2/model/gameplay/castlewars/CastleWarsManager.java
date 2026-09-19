@@ -1909,6 +1909,7 @@ public final class CastleWarsManager {
             return;
         }
         dropCarriedFlag(player);
+        player.clearPvpCombatReferences();
         moveToTeamSpawn(player, team);
         player.getPacketSender().sendGameMessage("You respawn in your team's castle.");
     }
@@ -1958,6 +1959,7 @@ public final class CastleWarsManager {
                 equipTeamColours(player, team);
             }
             setCastleWarsAttackOption(player, true);
+            player.clearPvpCombatReferences();
             moveToTeamSpawn(player, team);
             player.getPacketSender().sendGameMessage("The Castle Wars game has begun!");
             updateGameInterface(player, now);
