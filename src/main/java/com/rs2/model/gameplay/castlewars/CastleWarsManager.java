@@ -211,6 +211,9 @@ public final class CastleWarsManager {
         if (CastleWarsEngineeringManager.operateCatapult(player, objectId)) {
             return true;
         }
+        if (CastleWarsEngineeringManager.handleMainDoor(player, objectId, objectX, objectY)) {
+            return true;
+        }
         if (objectId == SARADOMIN_ENERGY_BARRIER_ID) {
             passEnergyBarrier(player, Team.SARADOMIN, objectX, objectY);
             return true;
@@ -252,6 +255,9 @@ public final class CastleWarsManager {
     public static boolean handleSecondObjectAction(Player player, int objectId, int objectX, int objectY) {
         if (objectId == BANDAGE_TABLE_ID) {
             takeBandages(player, 5);
+            return true;
+        }
+        if (CastleWarsEngineeringManager.attackMainDoor(player, objectId, objectX, objectY)) {
             return true;
         }
         return false;
