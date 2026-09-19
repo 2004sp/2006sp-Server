@@ -31,6 +31,8 @@ public final class CastleWarsManager {
     public static final int SARADOMIN_CLOAK_ID = 4514;
     public static final int ZAMORAK_HOOD_ID = 4515;
     public static final int ZAMORAK_CLOAK_ID = 4516;
+    public static final int SARADOMIN_FLAG_ID = 4037;
+    public static final int ZAMORAK_FLAG_ID = 4039;
     public static final int CASTLE_WARS_TICKET_ID = 4067;
 
     public static final int MINIMUM_PLAYERS_PER_TEAM = 1;
@@ -42,7 +44,11 @@ public final class CastleWarsManager {
     private static final int WAITING_ZAMORAK_TEXT_ID = 6572;
     private static final int WAITING_SARADOMIN_TEXT_ID = 6664;
     private static final int GAME_INTERFACE_ID = 11344;
+    private static final int GAME_ZAMORAK_SCORE_TEXT_ID = 11345;
+    private static final int GAME_SARADOMIN_SCORE_TEXT_ID = 11346;
     private static final int GAME_TIMER_TEXT_ID = 11353;
+    private static final int GAME_ZAMORAK_FLAG_TEXT_ID = 11349;
+    private static final int GAME_SARADOMIN_FLAG_TEXT_ID = 11350;
 
     private static final Position CASTLE_WARS_LOBBY = new Position(2441, 3090, 0);
     private static final Position SARADOMIN_WAITING_ROOM = new Position(2377, 9485, 0);
@@ -58,6 +64,10 @@ public final class CastleWarsManager {
     private static long lastProcessedSecond = -1L;
     private static int saradominScore;
     private static int zamorakScore;
+    private static boolean saradominFlagAtBase = true;
+    private static boolean zamorakFlagAtBase = true;
+    private static Player saradominFlagHolder;
+    private static Player zamorakFlagHolder;
 
     private CastleWarsManager() {
     }
@@ -132,6 +142,14 @@ public final class CastleWarsManager {
         }
         if (objectId == ZAMORAK_SPAWN_TRAPDOOR_ID) {
             useSpawnRoomLadder(player, Team.ZAMORAK, false);
+            return true;
+        }
+        if (objectId == 4900 || objectId == 4902 || objectId == 4377) {
+            handleFlagObject(player, Team.SARADOMIN);
+            return true;
+        }
+        if (objectId == 4901 || objectId == 4903 || objectId == 4378) {
+            handleFlagObject(player, Team.ZAMORAK);
             return true;
         }
         if (handleCastleWarsTraversal(player, objectId, objectX, objectY)) {
@@ -301,6 +319,7 @@ public final class CastleWarsManager {
         if (gamePlayers.remove(player) == null) {
             return;
         }
+        returnCarriedFlagToBase(player);
         removeTeamColours(player);
         removeBandages(player);
         clearCastleWarsInterface(player);
@@ -357,23 +376,195 @@ public final class CastleWarsManager {
         }
     }
 
+    public static boolean isFlagAtBase(Team team) {
+        return team == Team.SARADOMIN ? saradominFlagAtBase : zamorakFlagAtBase;
+    }
+
+    public static Player getFlagHolder(Team team) {
+        return team == Team.SARADOMIN ? saradominFlagHolder : zamorakFlagHolder;
+    }
+
+    public static boolean isCarryingEnemyFlag(Player player) {
+        return saradominFlagHolder == player || zamorakFlagHolder == player;
+    }
+
+    public static boolean isInTeamSpawnArea(Player player, Team team) {
+        Position position = player.getPosition();
+        if (position.getPlane() != 1) {
+            return false;
+        }
+        if (team == Team.SARADOMIN) {
+            return position.getX() >= 2422 && position.getX() <= 2429
+                    && position.getY() >= 3074 && position.getY() <= 3081;
+        }
+        return position.getX() >= 2369 && position.getX() <= 2378
+                && position.getY() >= 3126 && position.getY() <= 3134;
+    }
+
+    public static int giveBandages(Player player, int requestedAmount) {
+        if (!isInGame(player) || requestedAmount <= 0) {
+            return 0;
+        }
+        int freeSlots = player.getInventoryManager().getContainer().getFreeSlots();
+        if (freeSlots <= 0) {
+            return 0;
+        }
+        int amount = Math.min(requestedAmount, freeSlots);
+        return player.getInventoryManager().addItemPartial(new ItemStack(4049, amount));
+    }
+
+    public static boolean useBandage(Player player) {
+        if (!isInGame(player) || player.getInventoryManager().getItemAmount(4049) <= 0) {
+            return false;
+        }
+        int maxHitpoints = player.getMaxHitpoints();
+        int healAmount = Math.max(1, (int)Math.ceil(maxHitpoints * 0.10));
+        int healed = Math.min(maxHitpoints, player.getCurrentHitpoints() + healAmount);
+        player.getInventoryManager().removeItem(new ItemStack(4049, 1));
+        player.setCurrentHitpoints(healed);
+        player.setPoisonDamage(0.0);
+        player.addRunEnergyPercent(30);
+        return true;
+    }
+
+    public static boolean takeEnemyFlag(Player player) {
+        Team team = gamePlayers.get(player);
+        if (team == null) {
+            return false;
+        }
+        Team flagTeam = team == Team.SARADOMIN ? Team.ZAMORAK : Team.SARADOMIN;
+        return takeFlag(player, flagTeam);
+    }
+
+    public static boolean tryCaptureFlag(Player player) {
+        Team team = gamePlayers.get(player);
+        if (team == null) {
+            return false;
+        }
+        Team enemyFlagTeam = team == Team.SARADOMIN ? Team.ZAMORAK : Team.SARADOMIN;
+        Player holder = getFlagHolder(enemyFlagTeam);
+        if (holder != player) {
+            return false;
+        }
+        if (!isFlagAtBase(team)) {
+            player.getPacketSender().sendGameMessage("Your team's flag must be at its stand before you can score.");
+            return false;
+        }
+
+        clearFlagWeapon(player);
+        setFlagAtBase(enemyFlagTeam, true, null);
+        scorePoint(team);
+        player.getPacketSender().sendGameMessage("You capture the " + getTeamName(enemyFlagTeam) + " flag!");
+        return true;
+    }
+
+    private static void handleFlagObject(Player player, Team flagTeam) {
+        Team team = gamePlayers.get(player);
+        if (team == null) {
+            player.getPacketSender().sendGameMessage("You can only use the standards during a Castle Wars game.");
+            return;
+        }
+        if (team == flagTeam) {
+            if (!tryCaptureFlag(player)) {
+                player.getPacketSender().sendGameMessage(isFlagAtBase(flagTeam)
+                        ? "Your team's flag is safe."
+                        : "Your team's flag has been taken.");
+            }
+            return;
+        }
+        takeFlag(player, flagTeam);
+    }
+
+    private static boolean takeFlag(Player player, Team flagTeam) {
+        if (!isFlagAtBase(flagTeam) || getFlagHolder(flagTeam) != null) {
+            player.getPacketSender().sendGameMessage("That flag has already been taken.");
+            return false;
+        }
+        if (isCarryingEnemyFlag(player)) {
+            player.getPacketSender().sendGameMessage("You are already carrying a flag.");
+            return false;
+        }
+
+        int neededSlots = 0;
+        if (player.getEquipmentManager().getContainer().getItemAt(3) != null) {
+            ++neededSlots;
+        }
+        if (player.getEquipmentManager().getContainer().getItemAt(5) != null) {
+            ++neededSlots;
+        }
+        if (player.getInventoryManager().getContainer().getFreeSlots() < neededSlots) {
+            player.getPacketSender().sendGameMessage("You need enough inventory space for your weapon and shield.");
+            return false;
+        }
+
+        if (player.getEquipmentManager().getContainer().getItemAt(5) != null) {
+            player.getEquipmentManager().unequipSlot(5);
+        }
+        if (player.getEquipmentManager().getContainer().getItemAt(3) != null) {
+            player.getEquipmentManager().unequipSlot(3);
+        }
+
+        int flagId = flagTeam == Team.SARADOMIN ? SARADOMIN_FLAG_ID : ZAMORAK_FLAG_ID;
+        player.getEquipmentManager().getContainer().setItem(3, new ItemStack(flagId));
+        player.getEquipmentManager().refresh();
+        player.setAppearanceUpdateRequired(true);
+        setFlagAtBase(flagTeam, false, player);
+        player.getPacketSender().sendGameMessage("You take the " + getTeamName(flagTeam) + " flag!");
+        return true;
+    }
+
+    private static void setFlagAtBase(Team flagTeam, boolean atBase, Player holder) {
+        if (flagTeam == Team.SARADOMIN) {
+            saradominFlagAtBase = atBase;
+            saradominFlagHolder = holder;
+        } else {
+            zamorakFlagAtBase = atBase;
+            zamorakFlagHolder = holder;
+        }
+    }
+
+    private static Team getCarriedFlagTeam(Player player) {
+        if (saradominFlagHolder == player) {
+            return Team.SARADOMIN;
+        }
+        if (zamorakFlagHolder == player) {
+            return Team.ZAMORAK;
+        }
+        return null;
+    }
+
+    private static void returnCarriedFlagToBase(Player player) {
+        Team flagTeam = getCarriedFlagTeam(player);
+        if (flagTeam == null) {
+            return;
+        }
+        clearFlagWeapon(player);
+        setFlagAtBase(flagTeam, true, null);
+    }
+
+    private static void clearFlagWeapon(Player player) {
+        ItemStack weapon = player.getEquipmentManager().getContainer().getItemAt(3);
+        if (weapon != null && (weapon.getId() == SARADOMIN_FLAG_ID || weapon.getId() == ZAMORAK_FLAG_ID)) {
+            player.getEquipmentManager().getContainer().setItem(3, null);
+            player.getEquipmentManager().refresh();
+            player.setAppearanceUpdateRequired(true);
+        }
+    }
+
     private static void takeBandages(Player player, int requestedAmount) {
         if (!isInGame(player)) {
             player.getPacketSender().sendGameMessage("You can only take bandages during a Castle Wars game.");
             return;
         }
-        int freeSlots = player.getInventoryManager().getContainer().getFreeSlots();
-        if (freeSlots <= 0) {
+        int amount = giveBandages(player, requestedAmount);
+        if (amount <= 0) {
             player.getPacketSender().sendGameMessage("Not enough space in your inventory.");
             return;
         }
-        int amount = Math.min(requestedAmount, freeSlots);
-        if (player.getInventoryManager().addItemPartial(new ItemStack(4049, amount)) > 0) {
-            player.getUpdateState().setAnimation(881);
-            player.getPacketSender().sendGameMessage(amount == 1
-                    ? "You take a bandage."
-                    : "You take " + amount + " bandages.");
-        }
+        player.getUpdateState().setAnimation(881);
+        player.getPacketSender().sendGameMessage(amount == 1
+                ? "You take a bandage."
+                : "You take " + amount + " bandages.");
     }
 
     private static void passEnergyBarrier(Player player, Team barrierTeam, int objectX, int objectY) {
@@ -585,6 +776,7 @@ public final class CastleWarsManager {
         if (team == null) {
             return;
         }
+        returnCarriedFlagToBase(player);
         moveToTeamSpawn(player, team);
         player.getPacketSender().sendGameMessage("You respawn in your team's castle.");
     }
@@ -609,6 +801,10 @@ public final class CastleWarsManager {
 
         saradominScore = 0;
         zamorakScore = 0;
+        saradominFlagAtBase = true;
+        zamorakFlagAtBase = true;
+        saradominFlagHolder = null;
+        zamorakFlagHolder = null;
         gameInProgress = true;
         gameEndMillis = now + GAME_DURATION_SECONDS * 1000L;
         nextGameStartMillis = -1L;
@@ -643,6 +839,7 @@ public final class CastleWarsManager {
                 continue;
             }
 
+            returnCarriedFlagToBase(player);
             removeTeamColours(player);
             removeBandages(player);
             clearCastleWarsInterface(player);
@@ -744,6 +941,7 @@ public final class CastleWarsManager {
         while (iterator.hasNext()) {
             Map.Entry<Player, Team> entry = iterator.next();
             if (!isOnline(entry.getKey())) {
+                returnCarriedFlagToBase(entry.getKey());
                 iterator.remove();
             }
         }
@@ -815,7 +1013,11 @@ public final class CastleWarsManager {
 
     private static void updateGameInterface(Player player, long now) {
         player.getPacketSender().showWalkableInterface(GAME_INTERFACE_ID);
+        player.getPacketSender().sendInterfaceText("Zamorak = " + zamorakScore, GAME_ZAMORAK_SCORE_TEXT_ID);
+        player.getPacketSender().sendInterfaceText(saradominScore + " = Saradomin", GAME_SARADOMIN_SCORE_TEXT_ID);
         player.getPacketSender().sendInterfaceText(formatTime(Math.max(0L, gameEndMillis - now)), GAME_TIMER_TEXT_ID);
+        player.getPacketSender().sendInterfaceText(zamorakFlagAtBase ? "Safe" : "Taken", GAME_ZAMORAK_FLAG_TEXT_ID);
+        player.getPacketSender().sendInterfaceText(saradominFlagAtBase ? "Safe" : "Taken", GAME_SARADOMIN_FLAG_TEXT_ID);
     }
 
     private static void clearCastleWarsInterface(Player player) {
