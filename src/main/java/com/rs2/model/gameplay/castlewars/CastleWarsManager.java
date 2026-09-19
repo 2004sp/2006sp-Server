@@ -53,6 +53,8 @@ public final class CastleWarsManager {
     private static final int GAME_TIMER_TEXT_ID = 11353;
     private static final int GAME_ZAMORAK_FLAG_TEXT_ID = 11349;
     private static final int GAME_SARADOMIN_FLAG_TEXT_ID = 11350;
+    private static final int GAME_MAIN_GATE_TEXT_ID = 11352;
+    private static final int GAME_SIDE_DOOR_TEXT_ID = 11356;
     private static final int GAME_TUNNEL_ONE_TEXT_ID = 11358;
     private static final int GAME_TUNNEL_TWO_TEXT_ID = 11360;
     private static final int GAME_CATAPULT_TEXT_ID = 11362;
@@ -1684,6 +1686,12 @@ public final class CastleWarsManager {
         Team team = gamePlayers.get(player);
         updateEnemyFlagHint(player, team);
         if (team != null) {
+            player.getPacketSender().sendInterfaceText(
+                    "Health " + CastleWarsEngineeringManager.getMainDoorHitpoints(team) + "%",
+                    GAME_MAIN_GATE_TEXT_ID);
+            player.getPacketSender().sendInterfaceText(
+                    CastleWarsEngineeringManager.isSideDoorOpen(team) ? "Unlocked" : "Locked",
+                    GAME_SIDE_DOOR_TEXT_ID);
             player.getPacketSender().sendInterfaceText(
                     CastleWarsEngineeringManager.isHomeTunnelCollapsed(team, 0) ? "Collapsed" : "Cleared",
                     GAME_TUNNEL_ONE_TEXT_ID);
