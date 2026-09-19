@@ -1122,9 +1122,10 @@ public final class CastleWarsManager {
 
     private static void returnDroppedFlagToBase(Team flagTeam) {
         GroundItem droppedFlag = getDroppedFlag(flagTeam);
-        if (droppedFlag != null) {
-            GroundItemManager.getInstance().remove(droppedFlag);
+        if (droppedFlag == null) {
+            return;
         }
+        GroundItemManager.getInstance().remove(droppedFlag);
         setDroppedFlag(flagTeam, null);
         setDroppedFlagReturnMillis(flagTeam, 0L);
         setFlagAtBase(flagTeam, true, null);
