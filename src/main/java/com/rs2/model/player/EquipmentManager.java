@@ -149,9 +149,7 @@ public final class EquipmentManager {
                             }
                             if (CastleWarsManager.isCarryingFlag(this.player)
                                     && (value2 == 3 || value2 == 5)) {
-                                this.player.getPacketSender().sendGameMessage(
-                                        "You cannot equip a weapon or shield while carrying a Castle Wars flag.");
-                                return;
+                                CastleWarsManager.dropCarriedFlagManually(this.player);
                             }
                             if ((CastleWarsManager.isWaitingPlayer(this.player) || CastleWarsManager.isInGame(this.player))
                                     && CastleWarsManager.isTeamColourEquipmentSlot(value2)) {
@@ -430,8 +428,7 @@ public final class EquipmentManager {
         }
         if (slot == 3 && CastleWarsManager.isCarryingFlag(this.player)
                 && CastleWarsManager.isFlagItemId(itemStack.getId())) {
-            this.player.getPacketSender().sendGameMessage(
-                    "You cannot unequip the Castle Wars flag while carrying it.");
+            CastleWarsManager.dropCarriedFlagManually(this.player);
             return;
         }
         if ((CastleWarsManager.isWaitingPlayer(this.player) || CastleWarsManager.isInGame(this.player))
