@@ -179,6 +179,7 @@ public final class CastleWarsManager {
         initialize();
         if (objectId == SARADOMIN_EXIT_PORTAL_ID || objectId == ZAMORAK_EXIT_PORTAL_ID) {
             leaveWaitingRoom(player);
+            removeTeamColours(player);
             clearCastleWarsInterface(player);
             moveToLobby(player);
             player.getPacketSender().sendGameMessage("You leave the Castle Wars waiting room.");
@@ -255,6 +256,7 @@ public final class CastleWarsManager {
 
         gamePlayers.remove(player);
         waitingPlayers.put(player, team);
+        equipTeamColours(player, team);
         Position destination = team == Team.SARADOMIN ? SARADOMIN_WAITING_ROOM : ZAMORAK_WAITING_ROOM;
         player.moveTo(new Position(destination.getX(), destination.getY(), destination.getPlane()));
         player.getPacketSender().sendGameMessage("You join the " + getTeamName(team) + " team.");
@@ -828,7 +830,9 @@ public final class CastleWarsManager {
                 continue;
             }
             gamePlayers.put(player, team);
-            equipTeamColours(player, team);
+            if (!isWearingTeamColours(player, team)) {
+                equipTeamColours(player, team);
+            }
             moveToTeamSpawn(player, team);
             player.getPacketSender().sendGameMessage("The Castle Wars game has begun!");
             updateGameInterface(player, now);
@@ -896,6 +900,13 @@ public final class CastleWarsManager {
         if (amount > 0) {
             player.getInventoryManager().removeItem(new ItemStack(4049, amount));
         }
+    }
+
+    private static boolean isWearingTeamColours(Player player, Team team) {
+        int expectedHood = team == Team.SARADOMIN ? SARADOMIN_HOOD_ID : ZAMORAK_HOOD_ID;
+        int expectedCloak = team == Team.SARADOMIN ? SARADOMIN_CLOAK_ID : ZAMORAK_CLOAK_ID;
+        return player.getEquipmentManager().getItemIdAtSlot(0) == expectedHood
+                && player.getEquipmentManager().getItemIdAtSlot(1) == expectedCloak;
     }
 
     private static void removeTeamColours(Player player) {
