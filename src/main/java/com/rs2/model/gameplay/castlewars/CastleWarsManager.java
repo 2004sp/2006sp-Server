@@ -395,10 +395,10 @@ public final class CastleWarsManager {
         }
         if (team == Team.SARADOMIN) {
             return position.getX() >= 2422 && position.getX() <= 2429
-                    && position.getY() >= 3074 && position.getY() <= 3081;
+                    && position.getY() >= 3074 && position.getY() <= 3080;
         }
         return position.getX() >= 2369 && position.getX() <= 2378
-                && position.getY() >= 3126 && position.getY() <= 3134;
+                && position.getY() >= 3127 && position.getY() <= 3134;
     }
 
     public static int giveBandages(Player player, int requestedAmount) {
