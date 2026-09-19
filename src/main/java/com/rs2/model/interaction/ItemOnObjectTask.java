@@ -6,6 +6,7 @@ import com.rs2.model.Entity;
 import com.rs2.model.GameplayHelper;
 import com.rs2.model.Position;
 import com.rs2.model.combat.AttackStyleDefinition;
+import com.rs2.model.gameplay.castlewars.CastleWarsEngineeringManager;
 import com.rs2.model.gameplay.godwars.GodWarsDungeonManager;
 import com.rs2.model.interaction.InteractionDispatcher;
 import com.rs2.model.item.ItemDefinition;
@@ -96,6 +97,12 @@ extends TickTask {
             GameplayTrace.log("item-on-object task reached player=" + GameplayTrace.describe(this.player) + " itemId=" + this.itemId + " item=" + ItemDefinition.forId(this.itemId).getName() + " objectId=" + this.objectId + " object=" + ((ObjectDefinition)interactionTargetId).name + " x=" + this.objectX + " y=" + this.objectY + " plane=" + this.objectPlane);
         }
         if (this.player.getQuestManager().handleItemOnObject(this.itemId, this.objectId)) {
+            this.stop();
+            return;
+        }
+        if (CastleWarsEngineeringManager.handleItemOnObject(
+                this.player, this.itemId, this.objectId,
+                this.objectX, this.objectY, this.objectPlane)) {
             this.stop();
             return;
         }
