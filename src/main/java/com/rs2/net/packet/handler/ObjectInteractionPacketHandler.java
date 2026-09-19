@@ -39,6 +39,7 @@ implements PacketHandler {
                 player.setInteractionTargetX(incomingPacket.getReader().readShort(true, ByteTransform.ADD, ByteOrder.LITTLE));
                 player.setInteractionTargetPlane(player.getPosition().getPlane());
                 player.setSelectedItemId(incomingPacket.getReader().readSignedShort());
+                sendInteractionDebug(player, "item");
                 if (player.getSelectedItemSlot() <= 28) {
                     ItemStack itemStack = player.getInventoryManager().getContainer().getItemAt(player.getSelectedItemSlot());
                     if (itemStack == null || itemStack.getId() != player.getSelectedItemId()) {
@@ -68,6 +69,7 @@ implements PacketHandler {
                 player.setInteractionTargetId(incomingPacket.getReader().readSignedShort());
                 player.setInteractionTargetY(incomingPacket.getReader().readSignedShort(ByteTransform.ADD));
                 player.setInteractionTargetPlane(player.getPosition().getPlane());
+                sendInteractionDebug(player, "first");
                 if (GameplayTrace.enabled()) {
                     GameplayTrace.log("object first-click decoded player=" + GameplayTrace.describe(player) + " objectId=" + player.getInteractionTargetId() + " x=" + player.getInteractionTargetX() + " y=" + player.getInteractionTargetY() + " plane=" + player.getInteractionTargetPlane() + " objectType=" + SkillActionHelper.getObjectType(player.getInteractionTargetId(), player.getInteractionTargetX(), player.getInteractionTargetY(), player.getPosition().getPlane()));
                 }
@@ -86,6 +88,7 @@ implements PacketHandler {
                 player.setInteractionTargetY(incomingPacket.getReader().readSignedShort(true, ByteOrder.LITTLE));
                 player.setInteractionTargetX(incomingPacket.getReader().readSignedShort(ByteTransform.ADD));
                 player.setInteractionTargetPlane(player.getPosition().getPlane());
+                sendInteractionDebug(player, "second");
                 if (GameplayTrace.enabled()) {
                     GameplayTrace.log("object second-click decoded player=" + GameplayTrace.describe(player) + " objectId=" + player.getInteractionTargetId() + " x=" + player.getInteractionTargetX() + " y=" + player.getInteractionTargetY() + " plane=" + player.getInteractionTargetPlane());
                 }
@@ -104,6 +107,7 @@ implements PacketHandler {
                 player.setInteractionTargetY(incomingPacket.getReader().readSignedShort());
                 player.setInteractionTargetId(incomingPacket.getReader().readSignedShort(ByteTransform.ADD, ByteOrder.LITTLE));
                 player.setInteractionTargetPlane(player.getPosition().getPlane());
+                sendInteractionDebug(player, "third");
                 if (GameplayTrace.enabled()) {
                     GameplayTrace.log("object third-click decoded player=" + GameplayTrace.describe(player) + " objectId=" + player.getInteractionTargetId() + " x=" + player.getInteractionTargetX() + " y=" + player.getInteractionTargetY() + " plane=" + player.getInteractionTargetPlane());
                 }
@@ -122,6 +126,7 @@ implements PacketHandler {
                 player.setInteractionTargetId(incomingPacket.getReader().readSignedShort(ByteTransform.ADD));
                 player.setInteractionTargetY(incomingPacket.getReader().readSignedShort(ByteTransform.ADD, ByteOrder.LITTLE));
                 player.setInteractionTargetPlane(player.getPosition().getPlane());
+                sendInteractionDebug(player, "fourth");
                 if (GameplayTrace.enabled()) {
                     GameplayTrace.log("object fourth-click decoded player=" + GameplayTrace.describe(player) + " objectId=" + player.getInteractionTargetId() + " x=" + player.getInteractionTargetX() + " y=" + player.getInteractionTargetY() + " plane=" + player.getInteractionTargetPlane());
                 }
@@ -146,6 +151,7 @@ implements PacketHandler {
                 player.setInteractionTargetY(value3);
                 player.setInteractionTargetPlane(player.getPosition().getPlane());
                 player.setInteractionSpellButtonId(value2);
+                sendInteractionDebug(player, "spell");
                 if (!SkillActionHelper.isObjectPresent(value4, value, value3, player.getPosition().getPlane())) break;
                 EntityTargetMovement.clearMovementTarget(player);
                 ObjectManager.prepareObjectInteractionMovement(player, player.getInteractionTargetId(), player.getInteractionTargetX(), player.getInteractionTargetY());
@@ -154,6 +160,21 @@ implements PacketHandler {
                 InteractionDispatcher.dispatchCurrentInteraction(player);
             }
         }
+    }
+
+    private static void sendInteractionDebug(Player player, String action) {
+        if (!player.isInteractionDebugEnabled()) {
+            return;
+        }
+        int objectId = player.getInteractionTargetId();
+        int objectX = player.getInteractionTargetX();
+        int objectY = player.getInteractionTargetY();
+        int plane = player.getInteractionTargetPlane();
+        int type = SkillActionHelper.getObjectType(objectId, objectX, objectY, plane);
+        player.getPacketSender().sendGameMessage(
+                "Debug " + action + ": id=" + objectId
+                + " x=" + objectX + " y=" + objectY
+                + " plane=" + plane + " type=" + type);
     }
 
     private static void queueObjectInteractionMovement(Player player) {
