@@ -28,6 +28,7 @@ public final class MinigameBotManager {
     public static void startMinigameBot(BotPlayer botPlayer) {
         randomizeCombatLevels(botPlayer);
         preparePvpLoadout(botPlayer);
+        botPlayer.setAutoRetaliate(true);
         placeAtCastleWarsLobby(botPlayer);
         CastleWarsManager.leaveWaitingRoom(botPlayer);
     }
@@ -56,6 +57,12 @@ public final class MinigameBotManager {
         }
 
         if (CastleWarsManager.isInGame(botPlayer)) {
+            // Castle Wars bots should always fight back when attacked. Keep this
+            // asserted every AI cycle because generic combat/escape code can
+            // temporarily switch auto-retaliate off.
+            if (!botPlayer.isAutoRetaliate()) {
+                botPlayer.setAutoRetaliate(true);
+            }
             spreadWaitingBots.remove(botPlayer);
             clearWaitingSocial(botPlayer);
             if (CastleWarsBotRoleAi.process(botPlayer)) {
