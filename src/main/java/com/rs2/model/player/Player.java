@@ -2249,7 +2249,13 @@ extends Entity {
     public final void handleCommand(String password, String[] stringValues2, String text22) {
         Object value;
         int value2;
-        if ((password = password.toLowerCase()).equals("debug")) {
+        if ((password = password.toLowerCase()).equals("pos")) {
+            this.packetSender.sendGameMessage(
+                    this.getPosition().getX() + ", "
+                    + this.getPosition().getY() + ", "
+                    + this.getPosition().getPlane());
+            return;
+        } else if (password.equals("debug")) {
             this.interactionDebugEnabled = !this.interactionDebugEnabled;
             this.packetSender.sendGameMessage(
                     "Debug is " + (this.interactionDebugEnabled ? "on" : "off") + ".");
