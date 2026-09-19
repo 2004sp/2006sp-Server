@@ -755,10 +755,12 @@ public final class CastleWarsManager {
             return false;
         }
         if (team == Team.SARADOMIN) {
-            return position.getX() >= 2422 && position.getX() <= 2429
+            // x=2422 is already outside the west energy barrier.
+            return position.getX() >= 2423 && position.getX() <= 2429
                     && position.getY() >= 3074 && position.getY() <= 3080;
         }
-        return position.getX() >= 2369 && position.getX() <= 2378
+        // x=2377/2378 are already outside the east energy barrier.
+        return position.getX() >= 2369 && position.getX() <= 2376
                 && position.getY() >= 3127 && position.getY() <= 3134;
     }
 
@@ -1341,15 +1343,9 @@ public final class CastleWarsManager {
 
     public static boolean isCastleBattlementFiringPosition(Position position) {
         Team team = getCastleTeamAtPosition(position);
-        if (team == null || position.getPlane() != 0) {
-            return false;
-        }
-        int x = position.getX();
-        int y = position.getY();
-        return getCastleTeamAtPosition(new Position(x - 1, y, 0)) != team
-                || getCastleTeamAtPosition(new Position(x + 1, y, 0)) != team
-                || getCastleTeamAtPosition(new Position(x, y - 1, 0)) != team
-                || getCastleTeamAtPosition(new Position(x, y + 1, 0)) != team;
+        return team != null
+                && position.getPlane() == 0
+                && CastleWarsEngineeringManager.isBattlementWalkwayTile(position, team);
     }
 
     private static boolean isFacingOutFromBattlement(Position wallPosition,
