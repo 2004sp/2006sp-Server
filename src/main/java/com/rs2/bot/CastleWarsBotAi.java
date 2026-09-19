@@ -60,12 +60,14 @@ public final class CastleWarsBotAi {
             if (hasActiveOpponent(bot)) {
                 return;
             }
-            if (tryEngageNearbyOpponent(bot, state, 11)) {
+            // Melee flag runners only stop for opponents immediately blocking
+            // their route instead of being pulled away from the flag.
+            if (tryEngageNearbyOpponent(bot, state, 2)) {
                 return;
             }
         }
 
-        Position enemyBarricade = CastleWarsEngineeringManager.findNearestEnemyBarricade(bot, 3);
+        Position enemyBarricade = CastleWarsEngineeringManager.findNearestEnemyBarricade(bot, 1);
         if (enemyBarricade != null
                 && bot.getInventoryManager().getItemAmount(
                         CastleWarsEngineeringManager.EXPLOSIVE_POTION_ID) > 0
@@ -182,15 +184,13 @@ public final class CastleWarsBotAi {
     private static void processExitBarrier(BotPlayer bot, BotState state) {
         if (state.team == CastleWarsManager.Team.SARADOMIN) {
             Position approach = new Position(2426, 3079, 1);
-            if (!near(bot, approach, 1)) {
-                walk(bot, state, approach);
+            if (!reachInteractionApproach(bot, state, approach)) {
                 return;
             }
             CastleWarsManager.handleFirstObjectAction(bot, CastleWarsManager.SARADOMIN_ENERGY_BARRIER_ID, 2426, 3080);
         } else {
             Position approach = new Position(2373, 3127, 1);
-            if (!near(bot, approach, 1)) {
-                walk(bot, state, approach);
+            if (!reachInteractionApproach(bot, state, approach)) {
                 return;
             }
             CastleWarsManager.handleFirstObjectAction(bot, CastleWarsManager.ZAMORAK_ENERGY_BARRIER_ID, 2373, 3126);
@@ -207,32 +207,28 @@ public final class CastleWarsBotAi {
 
         if (state.routeVariant == 2) {
             if (state.team == CastleWarsManager.Team.SARADOMIN) {
-                Position ladder = new Position(2421, 3073, 1);
-                if (!near(bot, ladder, 1)) {
-                    walk(bot, state, ladder);
+                Position approach = new Position(2421, 3074, 1);
+                if (!reachInteractionApproach(bot, state, approach)) {
                     return;
                 }
                 CastleWarsManager.handleFirstObjectAction(bot, 4911, 2421, 3073);
             } else {
-                Position ladder = new Position(2378, 3134, 1);
-                if (!near(bot, ladder, 1)) {
-                    walk(bot, state, ladder);
+                Position approach = new Position(2378, 3133, 1);
+                if (!reachInteractionApproach(bot, state, approach)) {
                     return;
                 }
                 CastleWarsManager.handleFirstObjectAction(bot, 4911, 2378, 3134);
             }
         } else {
             if (state.team == CastleWarsManager.Team.SARADOMIN) {
-                Position stairs = new Position(2419, 3080, 1);
-                if (!near(bot, stairs, 1)) {
-                    walk(bot, state, stairs);
+                Position approach = new Position(2420, 3080, 1);
+                if (!reachInteractionApproach(bot, state, approach)) {
                     return;
                 }
                 CastleWarsManager.handleFirstObjectAction(bot, 4415, 2419, 3080);
             } else {
-                Position stairs = new Position(2380, 3127, 1);
-                if (!near(bot, stairs, 1)) {
-                    walk(bot, state, stairs);
+                Position approach = new Position(2379, 3127, 1);
+                if (!reachInteractionApproach(bot, state, approach)) {
                     return;
                 }
                 CastleWarsManager.handleFirstObjectAction(bot, 4415, 2380, 3127);
@@ -255,8 +251,7 @@ public final class CastleWarsBotAi {
         Position approach = castleTeam == CastleWarsManager.Team.SARADOMIN
                 ? new Position(2417, 3077, 0)
                 : new Position(2382, 3130, 0);
-        if (!near(bot, approach, 1)) {
-            walk(bot, state, approach);
+        if (!reachInteractionApproach(bot, state, approach)) {
             return;
         }
         if (!CastleWarsManager.moveBotThroughGroundCastleStairs(bot, castleTeam, false)) {
@@ -281,8 +276,10 @@ public final class CastleWarsBotAi {
                     CastleWarsEngineeringManager.findNearestClimbableBattlement(
                             bot, castleTeam);
             if (battlement != null) {
-                if (!near(bot, battlement, 2)) {
-                    walk(bot, state, battlement);
+                Position ropeApproach =
+                        CastleWarsManager.getNearestAdjacentInteractionTile(bot, battlement);
+                if (ropeApproach == null
+                        || !reachInteractionApproach(bot, state, ropeApproach)) {
                     return;
                 }
                 if (CastleWarsEngineeringManager.useClimbingRopeForBot(bot, battlement)) {
@@ -298,8 +295,7 @@ public final class CastleWarsBotAi {
         Position outside = castleTeam == CastleWarsManager.Team.SARADOMIN
                 ? new Position(2416, 3074, 0)
                 : new Position(2383, 3133, 0);
-        if (!near(bot, outside, 1)) {
-            walk(bot, state, outside);
+        if (!reachInteractionApproach(bot, state, outside)) {
             return;
         }
         if (!CastleWarsManager.moveBotThroughGroundCastleStairs(bot, castleTeam, true)) {
@@ -454,8 +450,7 @@ public final class CastleWarsBotAi {
 
     private static void useTraversal(BotPlayer bot, BotState state, Position approach,
                                      int objectId, int objectX, int objectY) {
-        if (!near(bot, approach, 0)) {
-            walk(bot, state, approach);
+        if (!reachInteractionApproach(bot, state, approach)) {
             return;
         }
         CastleWarsManager.handleFirstObjectAction(bot, objectId, objectX, objectY);
@@ -468,8 +463,8 @@ public final class CastleWarsBotAi {
                 ? new Position(2429, 3074, 3)
                 : new Position(2370, 3133, 3);
 
-        if (!near(bot, flag, 2)) {
-            walk(bot, state, flag);
+        Position approach = CastleWarsManager.getNearestAdjacentInteractionTile(bot, flag);
+        if (approach == null || !reachInteractionApproach(bot, state, approach)) {
             return;
         }
 
@@ -485,8 +480,8 @@ public final class CastleWarsBotAi {
                 ? new Position(2429, 3074, 3)
                 : new Position(2370, 3133, 3);
 
-        if (!near(bot, ownFlag, 2)) {
-            walk(bot, state, ownFlag);
+        Position approach = CastleWarsManager.getNearestAdjacentInteractionTile(bot, ownFlag);
+        if (approach == null || !reachInteractionApproach(bot, state, approach)) {
             return;
         }
 
@@ -556,7 +551,8 @@ public final class CastleWarsBotAi {
             CombatManager.stopCombat(bot);
             return false;
         }
-        if (GameUtil.getDistance(bot.getPosition(), targetPlayer.getPosition()) > 12) {
+        int maxDistance = bot.botPrimaryCombatStyle == 0 ? 2 : 12;
+        if (GameUtil.getDistance(bot.getPosition(), targetPlayer.getPosition()) > maxDistance) {
             CombatManager.stopCombat(bot);
             return false;
         }
@@ -645,6 +641,25 @@ public final class CastleWarsBotAi {
                 bot.getEquipmentManager().equipFromInventorySlot(shieldSlot);
             }
         }
+    }
+
+    private static boolean reachInteractionApproach(BotPlayer bot, BotState state,
+                                                     Position approach) {
+        if (approach == null || bot.getPosition().getPlane() != approach.getPlane()) {
+            return false;
+        }
+        if (near(bot, approach, 0)) {
+            return true;
+        }
+        if (GameUtil.isWithinDistance(bot.getPosition(), approach, 1)) {
+            bot.getMovementQueue().reset();
+            bot.moveTo(approach.copy());
+            bot.getMovementQueue().clearMovementActions();
+            state.repathDelay = 0;
+            return false;
+        }
+        walk(bot, state, approach);
+        return false;
     }
 
     private static void walk(BotPlayer bot, BotState state, Position target) {

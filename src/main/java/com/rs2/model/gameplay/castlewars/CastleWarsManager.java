@@ -1454,6 +1454,39 @@ public final class CastleWarsManager {
                 ? first : second;
     }
 
+    public static Position getNearestAdjacentInteractionTile(Player player, Position target) {
+        if (player == null || target == null
+                || player.getPosition().getPlane() != target.getPlane()) {
+            return null;
+        }
+        Position current = player.getPosition();
+        if (GameUtil.getDistance(current, target) == 1) {
+            return current.copy();
+        }
+
+        Position best = null;
+        int bestDistance = Integer.MAX_VALUE;
+        for (int dx = -1; dx <= 1; ++dx) {
+            for (int dy = -1; dy <= 1; ++dy) {
+                if (dx == 0 && dy == 0) {
+                    continue;
+                }
+                int x = target.getX() + dx;
+                int y = target.getY() + dy;
+                if ((WalkingCollisionMap.getTileFlags(x, y, target.getPlane()) & 0x1280100) != 0) {
+                    continue;
+                }
+                Position candidate = new Position(x, y, target.getPlane());
+                int distance = GameUtil.getDistance(current, candidate);
+                if (distance < bestDistance) {
+                    bestDistance = distance;
+                    best = candidate;
+                }
+            }
+        }
+        return best == null ? null : best.copy();
+    }
+
     private static boolean samePosition(Position first, Position second) {
         return first != null && second != null
                 && first.getX() == second.getX()
@@ -1496,9 +1529,14 @@ public final class CastleWarsManager {
                     : new Position(2383, 3133, 0);
         }
 
-        // PathFinder's move-near fallback can stop a bot one tile short of the
-        // exact approach tile when the staircase clipping blocks that tile.
-        if (!GameUtil.isWithinDistance(player.getPosition(), approach, 1)) {
+        // Only traverse from the known-safe approach square. A move-near
+        // fallback beside it can be inside the staircase footprint.
+        if (!samePosition(player.getPosition(), approach)) {
+            if (GameUtil.isWithinDistance(player.getPosition(), approach, 1)) {
+                player.getMovementQueue().reset();
+                player.moveTo(approach.copy());
+                player.getMovementQueue().clearMovementActions();
+            }
             return false;
         }
 
@@ -1511,6 +1549,12 @@ public final class CastleWarsManager {
         int plane = player.getPosition().getPlane();
         Position stairApproach = getStairTraversalApproach(player, objectId, objectX, objectY);
         if (stairApproach != null && !samePosition(player.getPosition(), stairApproach)) {
+            if (player.isBot
+                    && GameUtil.isWithinDistance(player.getPosition(), stairApproach, 1)) {
+                player.getMovementQueue().reset();
+                player.moveTo(stairApproach.copy());
+                player.getMovementQueue().clearMovementActions();
+            }
             return false;
         }
 
