@@ -327,13 +327,11 @@ public final class CastleWarsBotRoleAi {
     }
 
     private static void processGroundCastleExit(BotPlayer bot, RoleState state) {
-        Position approach = state.team == CastleWarsManager.Team.SARADOMIN
-                ? new Position(2417, 3077, 0)
-                : new Position(2382, 3130, 0);
-        if (!reachInteractionApproach(bot, state, approach)) {
-            return;
-        }
-        if (!CastleWarsManager.moveBotThroughGroundCastleStairs(bot, state.team, false)) {
+        Position exterior = state.team == CastleWarsManager.Team.SARADOMIN
+                ? new Position(2414, 3073, 0)
+                : new Position(2385, 3134, 0);
+        CastleWarsManager.routeBotThroughGroundCastle(bot, state.team, false);
+        if (!near(bot, exterior, 0)) {
             state.repathDelay = 0;
             return;
         }
