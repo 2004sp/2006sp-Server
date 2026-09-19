@@ -25,6 +25,7 @@ import com.rs2.model.combat.hit.HitDefinition;
 import com.rs2.model.combat.hit.HitType;
 import com.rs2.model.dialogue.DialogueManager;
 import com.rs2.model.gameplay.barrows.BarrowsManager;
+import com.rs2.model.gameplay.castlewars.CastleWarsEngineeringManager;
 import com.rs2.model.gameplay.castlewars.CastleWarsManager;
 import com.rs2.model.gameplay.godwars.GodWarsDungeonManager;
 import com.rs2.model.gameplay.magetrainingarena.MageTrainingArenaRewardShop;
@@ -894,6 +895,15 @@ implements PacketHandler {
                 return;
             }
             ++pairIndex;
+        }
+        if (itemStack.getId() == CastleWarsEngineeringManager.EXPLOSIVE_POTION_ID) {
+            ItemStack explosivePotion = new ItemStack(itemStack.getId(), 1, itemStack.getMetadata());
+            if (!player.getInventoryManager().removeItemFromSlot(explosivePotion, player.getSelectedItemSlot())) {
+                player.getInventoryManager().removeItem(explosivePotion);
+            }
+            player.applyDirectHit(15, HitType.NORMAL);
+            player.getEquipmentManager().refreshCarriedValue();
+            return;
         }
         BarrowsRepairHandler barrowsRepairHandler = BarrowsRepairHandler.forItem(itemStack);
         if (itemStack.getDefinition().hasDestroyOption() || barrowsRepairHandler != null && itemStack.getDefinition().isUntradeable()) {
