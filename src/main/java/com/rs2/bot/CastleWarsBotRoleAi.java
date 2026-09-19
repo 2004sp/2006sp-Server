@@ -159,29 +159,76 @@ public final class CastleWarsBotRoleAi {
 
     private static void processSpawnSupply(BotPlayer bot, RoleState state) {
         if (!CastleWarsManager.isInTeamSpawnArea(bot, state.team)) {
-            state.phase = Phase.LEAVE_SPAWN;
+            if (state.role == Role.UNDERGROUND) {
+                state.phase = Phase.UNDERGROUND_DESCEND;
+            } else if (state.role == Role.MIDFIGHTER) {
+                state.phase = Phase.MID_RUSH;
+            } else if (state.role == Role.CATAPULT) {
+                state.phase = Phase.CATAPULT_MOVE;
+            } else {
+                state.phase = Phase.DEFENDER_CLIMB;
+            }
             return;
         }
+
         if (!state.bandagesStocked) {
-            makeInventorySpace(bot, 9);
+            makeInventorySpace(bot, 10);
             int amount = 6 + GameUtil.randomInt(4);
             if (CastleWarsManager.giveBandages(bot, amount) > 0) {
                 bot.getUpdateState().setAnimation(881);
             }
             state.bandagesStocked = true;
             state.delayTicks = 1 + GameUtil.randomInt(4);
+            return;
+        }
+
+        if (!state.utilityStocked) {
+            if (state.role == Role.UNDERGROUND) {
+                makeInventorySpace(bot, 7);
+                CastleWarsEngineeringManager.giveSupply(bot,
+                        CastleWarsEngineeringManager.EXPLOSIVE_POTION_ID, 4);
+                CastleWarsEngineeringManager.giveSupply(bot,
+                        CastleWarsEngineeringManager.BRONZE_PICKAXE_ID, 1);
+                CastleWarsEngineeringManager.giveSupply(bot,
+                        CastleWarsEngineeringManager.BARRICADE_ITEM_ID, 1);
+            } else if (state.role == Role.CATAPULT) {
+                makeInventorySpace(bot, 8);
+                CastleWarsEngineeringManager.giveSupply(bot,
+                        CastleWarsEngineeringManager.ROCK_ITEM_ID, 6);
+                CastleWarsEngineeringManager.giveSupply(bot,
+                        CastleWarsEngineeringManager.EXPLOSIVE_POTION_ID, 1);
+                CastleWarsEngineeringManager.giveSupply(bot,
+                        CastleWarsEngineeringManager.TOOLKIT_ID, 1);
+            } else if (state.role == Role.DEFENDER) {
+                makeInventorySpace(bot, 5);
+                CastleWarsEngineeringManager.giveSupply(bot,
+                        CastleWarsEngineeringManager.BARRICADE_ITEM_ID, 3);
+                CastleWarsEngineeringManager.giveSupply(bot,
+                        CastleWarsEngineeringManager.EXPLOSIVE_POTION_ID, 2);
+            }
+            state.utilityStocked = true;
+            state.delayTicks = 1 + GameUtil.randomInt(3);
+            return;
         }
 
         if (state.role == Role.DEFENDER) {
-            makeInventorySpace(bot, 5);
-            CastleWarsEngineeringManager.giveSupply(bot,
-                    CastleWarsEngineeringManager.BARRICADE_ITEM_ID, 3);
-            CastleWarsEngineeringManager.giveSupply(bot,
-                    CastleWarsEngineeringManager.EXPLOSIVE_POTION_ID, 2);
             state.phase = Phase.DEFENDER_CLIMB;
-        } else {
-            state.phase = Phase.LEAVE_SPAWN;
+            return;
         }
+
+        if (state.role == Role.UNDERGROUND) {
+            CastleWarsManager.moveBotToUndergroundEntrance(bot, state.team);
+            state.phase = Phase.UNDERGROUND_DESCEND;
+            state.undergroundStage = 0;
+        } else if (state.role == Role.CATAPULT) {
+            CastleWarsManager.moveBotToGroundBattlefield(bot, state.team);
+            state.phase = Phase.CATAPULT_MOVE;
+        } else {
+            CastleWarsManager.moveBotToGroundBattlefield(bot, state.team);
+            state.phase = Phase.MID_RUSH;
+            CastleWarsBotChat.sayMid(bot);
+        }
+        state.repathDelay = 0;
     }
 
     private static void processLeaveSpawn(BotPlayer bot, RoleState state) {
