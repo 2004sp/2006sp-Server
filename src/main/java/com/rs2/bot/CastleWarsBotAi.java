@@ -38,7 +38,9 @@ public final class CastleWarsBotAi {
 
         if (CastleWarsManager.isInTeamSpawnArea(bot, team)
                 && !CastleWarsManager.isCarryingEnemyFlag(bot)
-                && state.phase != Phase.SUPPLY) {
+                && state.phase != Phase.SUPPLY
+                && state.phase != Phase.EXIT_BARRIER
+                && state.phase != Phase.DESCEND_HOME) {
             state.resetForSpawn();
         }
 
