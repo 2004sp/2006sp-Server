@@ -335,9 +335,7 @@ public final class CastleWarsBotRoleAi {
     }
 
     private static void processGroundCastleExit(BotPlayer bot, RoleState state) {
-        Position exterior = state.team == CastleWarsManager.Team.SARADOMIN
-                ? new Position(2414, 3073, 0)
-                : new Position(2385, 3134, 0);
+        Position exterior = CastleWarsManager.getBotMainDoorExteriorPosition(bot, state.team);
         CastleWarsManager.routeBotThroughGroundCastle(bot, state.team, false);
         if (!near(bot, exterior, 0)) {
             state.repathDelay = 0;
