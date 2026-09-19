@@ -14,6 +14,8 @@ import com.rs2.util.GameUtil;
 public final class ClanWarsBotCombatTickTask
 extends TickTask {
     private final Player player;
+    private Position lastRallyPosition;
+    private int rallyStuckTicks;
 
     public ClanWarsBotCombatTickTask(int value2, Player player) {
         super(3);
@@ -44,7 +46,7 @@ extends TickTask {
         }
         if (BotCombatHelper.hasExternalCombatTarget(this.player) && this.player.botCombatState == null && !this.player.botCombatEscapeActive && (value = GameUtil.getDistance(this.player.getPosition(), ClanWarsBotManager.clanWarsRallyPosition)) > 20) {
             CombatManager.stopCombat(this.player);
-            BotCombatHelper.walkBotTowardPosition(this.player, ClanWarsBotManager.clanWarsRallyPosition);
+            this.walkTowardPositionWithDoorHandling(ClanWarsBotManager.clanWarsRallyPosition);
             return;
         }
         if (!BotCombatHelper.hasExternalCombatTarget(this.player) && this.player.botCombatState == null && !this.player.botCombatEscapeActive) {
@@ -99,6 +101,8 @@ extends TickTask {
                 if (GameUtil.randomInt(3) == 0) {
                     this.player.queuePublicChatMessage("atk " + player.getUsername());
                 }
+                this.lastRallyPosition = null;
+                this.rallyStuckTicks = 0;
                 CombatManager.startCombat(this.player, player);
             }
             if (healAmount == 0) {
@@ -106,9 +110,24 @@ extends TickTask {
                 if (this.player.getPosition().getY() >= 3885 && this.player.getPosition().getY() <= 3901) {
                     position.setY(this.player.getPosition().getY());
                 }
-                BotCombatHelper.walkBotTowardPosition(this.player, position);
+                this.walkTowardPositionWithDoorHandling(position);
             }
         }
     }
-}
 
+    private void walkTowardPositionWithDoorHandling(Position target) {
+        Position currentPosition = this.player.getPosition();
+        if (this.lastRallyPosition != null && currentPosition.equals(this.lastRallyPosition)) {
+            ++this.rallyStuckTicks;
+        } else {
+            this.rallyStuckTicks = 0;
+        }
+        this.lastRallyPosition = currentPosition.copy();
+
+        if (this.rallyStuckTicks >= 2 && ClanWarsBotManager.tryOpenNearbyDoor(this.player)) {
+            this.rallyStuckTicks = 0;
+        }
+
+        BotCombatHelper.walkBotTowardPosition(this.player, target);
+    }
+}
