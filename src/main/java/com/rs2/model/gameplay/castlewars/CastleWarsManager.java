@@ -17,6 +17,15 @@ public final class CastleWarsManager {
     public static final int GUTHIX_PORTAL_ID = 4408;
     public static final int SARADOMIN_EXIT_PORTAL_ID = 4389;
     public static final int ZAMORAK_EXIT_PORTAL_ID = 4390;
+    public static final int SARADOMIN_GAME_EXIT_PORTAL_ID = 4406;
+    public static final int ZAMORAK_GAME_EXIT_PORTAL_ID = 4407;
+    public static final int BANDAGE_TABLE_ID = 4458;
+    public static final int SARADOMIN_ENERGY_BARRIER_ID = 4469;
+    public static final int ZAMORAK_ENERGY_BARRIER_ID = 4470;
+    public static final int SARADOMIN_SPAWN_LADDER_ID = 6280;
+    public static final int ZAMORAK_SPAWN_LADDER_ID = 6281;
+    public static final int SARADOMIN_SPAWN_TRAPDOOR_ID = 4471;
+    public static final int ZAMORAK_SPAWN_TRAPDOOR_ID = 4472;
 
     public static final int SARADOMIN_HOOD_ID = 4513;
     public static final int SARADOMIN_CLOAK_ID = 4514;
@@ -93,6 +102,49 @@ public final class CastleWarsManager {
         updateGameInterfaces(now);
     }
 
+    public static boolean handleFirstObjectAction(Player player, int objectId, int objectX, int objectY) {
+        if (handlePortal(player, objectId)) {
+            return true;
+        }
+        if (objectId == BANDAGE_TABLE_ID) {
+            takeBandages(player, 1);
+            return true;
+        }
+        if (objectId == SARADOMIN_ENERGY_BARRIER_ID) {
+            passEnergyBarrier(player, Team.SARADOMIN, objectX, objectY);
+            return true;
+        }
+        if (objectId == ZAMORAK_ENERGY_BARRIER_ID) {
+            passEnergyBarrier(player, Team.ZAMORAK, objectX, objectY);
+            return true;
+        }
+        if (objectId == SARADOMIN_SPAWN_LADDER_ID) {
+            useSpawnRoomLadder(player, Team.SARADOMIN, true);
+            return true;
+        }
+        if (objectId == ZAMORAK_SPAWN_LADDER_ID) {
+            useSpawnRoomLadder(player, Team.ZAMORAK, true);
+            return true;
+        }
+        if (objectId == SARADOMIN_SPAWN_TRAPDOOR_ID) {
+            useSpawnRoomLadder(player, Team.SARADOMIN, false);
+            return true;
+        }
+        if (objectId == ZAMORAK_SPAWN_TRAPDOOR_ID) {
+            useSpawnRoomLadder(player, Team.ZAMORAK, false);
+            return true;
+        }
+        return false;
+    }
+
+    public static boolean handleSecondObjectAction(Player player, int objectId, int objectX, int objectY) {
+        if (objectId == BANDAGE_TABLE_ID) {
+            takeBandages(player, 5);
+            return true;
+        }
+        return false;
+    }
+
     public static boolean handlePortal(Player player, int objectId) {
         initialize();
         if (objectId == SARADOMIN_EXIT_PORTAL_ID || objectId == ZAMORAK_EXIT_PORTAL_ID) {
@@ -100,6 +152,20 @@ public final class CastleWarsManager {
             clearCastleWarsInterface(player);
             moveToLobby(player);
             player.getPacketSender().sendGameMessage("You leave the Castle Wars waiting room.");
+            return true;
+        }
+        if (objectId == SARADOMIN_GAME_EXIT_PORTAL_ID || objectId == ZAMORAK_GAME_EXIT_PORTAL_ID) {
+            Team requiredTeam = objectId == SARADOMIN_GAME_EXIT_PORTAL_ID ? Team.SARADOMIN : Team.ZAMORAK;
+            Team playerTeam = gamePlayers.get(player);
+            if (playerTeam == null) {
+                player.getPacketSender().sendGameMessage("You are not currently in a Castle Wars game.");
+                return true;
+            }
+            if (playerTeam != requiredTeam) {
+                player.getPacketSender().sendGameMessage("You cannot use the other team's exit portal.");
+                return true;
+            }
+            leaveGame(player);
             return true;
         }
         return handleLobbyPortal(player, objectId);
@@ -223,6 +289,18 @@ public final class CastleWarsManager {
         waitingPlayers.remove(player);
     }
 
+    public static void leaveGame(Player player) {
+        if (gamePlayers.remove(player) == null) {
+            return;
+        }
+        removeTeamColours(player);
+        removeBandages(player);
+        clearCastleWarsInterface(player);
+        player.resetCombatState();
+        moveToLobby(player);
+        player.getPacketSender().sendGameMessage("You leave Castle Wars and return to the lobby.");
+    }
+
     public static boolean isTeamColourEquipmentSlot(int slot) {
         return slot == 0 || slot == 1;
     }
@@ -268,6 +346,82 @@ public final class CastleWarsManager {
             ++saradominScore;
         } else {
             ++zamorakScore;
+        }
+    }
+
+    private static void takeBandages(Player player, int requestedAmount) {
+        if (!isInGame(player)) {
+            player.getPacketSender().sendGameMessage("You can only take bandages during a Castle Wars game.");
+            return;
+        }
+        int freeSlots = player.getInventoryManager().getContainer().getFreeSlots();
+        if (freeSlots <= 0) {
+            player.getPacketSender().sendGameMessage("Not enough space in your inventory.");
+            return;
+        }
+        int amount = Math.min(requestedAmount, freeSlots);
+        if (player.getInventoryManager().addItemPartial(new ItemStack(4049, amount)) > 0) {
+            player.getUpdateState().setAnimation(881);
+            player.getPacketSender().sendGameMessage(amount == 1
+                    ? "You take a bandage."
+                    : "You take " + amount + " bandages.");
+        }
+    }
+
+    private static void passEnergyBarrier(Player player, Team barrierTeam, int objectX, int objectY) {
+        Team playerTeam = gamePlayers.get(player);
+        if (playerTeam == null) {
+            player.getPacketSender().sendGameMessage("You can only pass this barrier during a Castle Wars game.");
+            return;
+        }
+        if (playerTeam != barrierTeam) {
+            player.getPacketSender().sendGameMessage("You are not allowed in the other team's spawn room.");
+            return;
+        }
+
+        Position position = player.getPosition();
+        if (barrierTeam == Team.SARADOMIN) {
+            if (objectX == 2426 && objectY == 3080) {
+                int y = position.getY() <= 3080 ? 3081 : 3080;
+                player.moveTo(new Position(2426, y, 1));
+                return;
+            }
+            if (objectX == 2422 && objectY == 3076) {
+                int x = position.getX() <= 2422 ? 2423 : 2422;
+                player.moveTo(new Position(x, 3076, 1));
+                return;
+            }
+        } else {
+            if (objectX == 2373 && objectY == 3126) {
+                int y = position.getY() <= 3126 ? 3127 : 3126;
+                player.moveTo(new Position(2373, y, 1));
+                return;
+            }
+            if (objectX == 2377 && objectY == 3131) {
+                int x = position.getX() <= 2376 ? 2377 : 2376;
+                player.moveTo(new Position(x, 3131, 1));
+                return;
+            }
+        }
+        player.getPacketSender().sendGameMessage("You cannot pass the barrier from here.");
+    }
+
+    private static void useSpawnRoomLadder(Player player, Team ladderTeam, boolean climbUp) {
+        Team playerTeam = gamePlayers.get(player);
+        if (playerTeam == null) {
+            player.getPacketSender().sendGameMessage("You can only use this during a Castle Wars game.");
+            return;
+        }
+        if (playerTeam != ladderTeam) {
+            player.getPacketSender().sendGameMessage("You are not allowed in the other team's spawn room.");
+            return;
+        }
+
+        player.getUpdateState().setAnimation(climbUp ? 828 : 827);
+        if (ladderTeam == Team.SARADOMIN) {
+            player.moveTo(new Position(2429, 3075, climbUp ? 2 : 1));
+        } else {
+            player.moveTo(new Position(2370, 3132, climbUp ? 2 : 1));
         }
     }
 
@@ -335,6 +489,7 @@ public final class CastleWarsManager {
             }
 
             removeTeamColours(player);
+            removeBandages(player);
             clearCastleWarsInterface(player);
 
             int reward = team == Team.SARADOMIN ? saradominReward : zamorakReward;
@@ -368,6 +523,13 @@ public final class CastleWarsManager {
         player.getEquipmentManager().getContainer().setItem(1, new ItemStack(cloakId));
         player.getEquipmentManager().refresh();
         player.setAppearanceUpdateRequired(true);
+    }
+
+    private static void removeBandages(Player player) {
+        int amount = player.getInventoryManager().getItemAmount(4049);
+        if (amount > 0) {
+            player.getInventoryManager().removeItem(new ItemStack(4049, amount));
+        }
     }
 
     private static void removeTeamColours(Player player) {
