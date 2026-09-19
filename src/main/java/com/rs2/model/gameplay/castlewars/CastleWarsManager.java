@@ -1001,6 +1001,20 @@ public final class CastleWarsManager {
         player.setAppearanceUpdateRequired(true);
     }
 
+    public static void moveBotToGroundBattlefield(Player player, Team team) {
+        if (player == null || team == null) {
+            return;
+        }
+        player.getMovementQueue().reset();
+        player.resetInteractionState();
+        player.resetCombatState();
+        if (team == Team.SARADOMIN) {
+            player.moveTo(new Position(2416 + GameUtil.randomInt(3), 3073 + GameUtil.randomInt(3), 0));
+        } else {
+            player.moveTo(new Position(2381 + GameUtil.randomInt(3), 3132 + GameUtil.randomInt(3), 0));
+        }
+    }
+
     private static void moveToTeamSpawn(Player player, Team team) {
         if (team == Team.SARADOMIN) {
             player.moveTo(new Position(2424 + GameUtil.randomInt(5), 3075 + GameUtil.randomInt(4), 1));
@@ -1102,8 +1116,8 @@ public final class CastleWarsManager {
 
         player.getPacketSender().showWalkableInterface(WAITING_INTERFACE_ID);
         player.getPacketSender().sendInterfaceText(timerText, WAITING_TIMER_TEXT_ID);
-        player.getPacketSender().sendInterfaceText("Zamorak Players: " + getWaitingPlayerCountInternal(Team.ZAMORAK), WAITING_ZAMORAK_TEXT_ID);
-        player.getPacketSender().sendInterfaceText("Saradomin Players: " + getWaitingPlayerCountInternal(Team.SARADOMIN), WAITING_SARADOMIN_TEXT_ID);
+        player.getPacketSender().sendInterfaceText("", WAITING_ZAMORAK_TEXT_ID);
+        player.getPacketSender().sendInterfaceText("", WAITING_SARADOMIN_TEXT_ID);
     }
 
     private static void updateGameInterfaces(long now) {
