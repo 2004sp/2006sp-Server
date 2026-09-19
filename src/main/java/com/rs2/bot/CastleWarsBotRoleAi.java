@@ -6,6 +6,7 @@ import com.rs2.model.World;
 import com.rs2.model.combat.CombatManager;
 import com.rs2.model.gameplay.castlewars.CastleWarsEngineeringManager;
 import com.rs2.model.gameplay.castlewars.CastleWarsManager;
+import com.rs2.model.ground.GroundItem;
 import com.rs2.model.item.ItemStack;
 import com.rs2.model.player.Player;
 import com.rs2.util.GameUtil;
@@ -69,6 +70,9 @@ public final class CastleWarsBotRoleAi {
         }
 
         if (processFlagCarrierFocus(bot, state)) {
+            return true;
+        }
+        if (processOwnDroppedFlagRecovery(bot, state)) {
             return true;
         }
 
@@ -1139,6 +1143,66 @@ public final class CastleWarsBotRoleAi {
                 bot.getInventoryManager().removeItem(new ItemStack(4049, remove));
             }
         }
+    }
+
+    private static boolean processOwnDroppedFlagRecovery(BotPlayer bot, RoleState state) {
+        if (CastleWarsManager.isCarryingFlag(bot)
+                || CastleWarsManager.isInTeamSpawnArea(bot, state.team)) {
+            return false;
+        }
+        GroundItem droppedFlag = CastleWarsManager.getDroppedFlagGroundItem(state.team);
+        if (droppedFlag == null) {
+            return false;
+        }
+
+        Position flagPosition = droppedFlag.getPosition();
+        if (bot.getCombatTarget() != null) {
+            CombatManager.stopCombat(bot);
+        }
+        bot.getMovementQueue().setRunning(true);
+
+        if (bot.getPosition().getPlane() == flagPosition.getPlane()
+                && GameUtil.getDistance(bot.getPosition(), flagPosition) <= 1) {
+            CastleWarsManager.handleDroppedFlagPickup(bot, droppedFlag);
+            state.repathDelay = 0;
+            return true;
+        }
+
+        if (navigateFlagRecovery(bot, state, flagPosition)) {
+            state.repathDelay = 0;
+            return true;
+        }
+        walk(bot, state, flagPosition);
+        return true;
+    }
+
+    private static boolean navigateFlagRecovery(BotPlayer bot, RoleState state,
+                                                Position targetPosition) {
+        Position botPosition = bot.getPosition();
+        CastleWarsManager.Team botCastle =
+                CastleWarsManager.getCastleTeamAtPosition(botPosition);
+        CastleWarsManager.Team targetCastle =
+                CastleWarsManager.getCastleTeamAtPosition(targetPosition);
+        int botPlane = botPosition.getPlane();
+        int targetPlane = targetPosition.getPlane();
+
+        if (botPlane > 0 && botCastle != null
+                && (botPlane > targetPlane || botCastle != targetCastle)) {
+            return CastleWarsManager.routeBotOneCastleLevel(bot, botCastle, false);
+        }
+        if (botPlane == 0 && botCastle != null && botCastle != targetCastle) {
+            return CastleWarsManager.routeBotThroughGroundCastle(bot, botCastle, false);
+        }
+        if (botPlane == 0 && botCastle == null && targetCastle != null) {
+            return CastleWarsManager.routeBotThroughGroundCastle(bot, targetCastle, true);
+        }
+        if (botPlane < targetPlane && botCastle != null && botCastle == targetCastle) {
+            return CastleWarsManager.routeBotOneCastleLevel(bot, botCastle, true);
+        }
+        if (botPlane > targetPlane && botCastle != null) {
+            return CastleWarsManager.routeBotOneCastleLevel(bot, botCastle, false);
+        }
+        return false;
     }
 
     private static boolean processFlagCarrierFocus(BotPlayer bot, RoleState state) {
