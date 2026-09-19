@@ -52,11 +52,21 @@ public final class CastleWarsEngineeringManager {
     public static final int ZAMORAK_MAIN_DOOR_LEFT_BROKEN_ID = 4433;
     public static final int ZAMORAK_MAIN_DOOR_RIGHT_BROKEN_ID = 4434;
 
+    public static final int SARADOMIN_SIDE_DOOR_CLOSED_ID = 4465;
+    public static final int SARADOMIN_SIDE_DOOR_OPEN_ID = 4466;
+    public static final int ZAMORAK_SIDE_DOOR_CLOSED_ID = 4467;
+    public static final int ZAMORAK_SIDE_DOOR_OPEN_ID = 4468;
+
     public static final Position SARADOMIN_CATAPULT = new Position(2413, 3088, 0);
     public static final Position ZAMORAK_CATAPULT = new Position(2384, 3117, 0);
 
     private static final int MAIN_DOOR_MAX_HITPOINTS = 100;
     private static final int MAIN_DOOR_PLANE = 0;
+    private static final int THIEVING_SKILL_INDEX = 17;
+    private static final int SIDE_DOOR_MIN_THIEVING_LEVEL = 1;
+    private static final int SIDE_DOOR_ROLL_SIZE = 256;
+    private static final int SIDE_DOOR_LEVEL_ONE_THRESHOLD = 16;
+    private static final int SIDE_DOOR_LEVEL_NINETY_NINE_THRESHOLD = 256;
     private static final long GAME_TICK_MILLIS = 600L;
 
     private static final Position[] ROCKSLIDE_POSITIONS = new Position[]{
@@ -90,6 +100,14 @@ public final class CastleWarsEngineeringManager {
             new MainDoorLeaf(ZAMORAK_MAIN_DOOR_RIGHT_CLOSED_ID,
                     ZAMORAK_MAIN_DOOR_RIGHT_OPEN_ID, ZAMORAK_MAIN_DOOR_RIGHT_BROKEN_ID,
                     2372, 3119, 1, 2372, 3120, 0));
+    private static final SideDoorState saradominSideDoor = new SideDoorState(
+            CastleWarsManager.Team.SARADOMIN,
+            SARADOMIN_SIDE_DOOR_CLOSED_ID, SARADOMIN_SIDE_DOOR_OPEN_ID,
+            2415, 3073, 0, 2414, 3073, 1);
+    private static final SideDoorState zamorakSideDoor = new SideDoorState(
+            CastleWarsManager.Team.ZAMORAK,
+            ZAMORAK_SIDE_DOOR_CLOSED_ID, ZAMORAK_SIDE_DOOR_OPEN_ID,
+            2384, 3134, 2, 2385, 3134, 3);
 
     private CastleWarsEngineeringManager() {
     }
@@ -102,6 +120,7 @@ public final class CastleWarsEngineeringManager {
         setCatapultOperational(CastleWarsManager.Team.SARADOMIN, true);
         setCatapultOperational(CastleWarsManager.Team.ZAMORAK, true);
         resetMainDoors();
+        resetSideDoors();
         saradominCatapultReadyAt = 0L;
         zamorakCatapultReadyAt = 0L;
         mainDoorAttackReadyAt.clear();
@@ -115,6 +134,7 @@ public final class CastleWarsEngineeringManager {
         setCatapultOperational(CastleWarsManager.Team.SARADOMIN, true);
         setCatapultOperational(CastleWarsManager.Team.ZAMORAK, true);
         resetMainDoors();
+        resetSideDoors();
         mainDoorAttackReadyAt.clear();
     }
 
@@ -223,6 +243,56 @@ public final class CastleWarsEngineeringManager {
         } else {
             player.getPacketSender().sendGameMessage("You fire the catapult!");
         }
+        return true;
+    }
+
+    public static boolean handleSideDoor(Player player, int objectId, int objectX, int objectY) {
+        SideDoorState door = findSideDoor(objectId, objectX, objectY);
+        if (door == null) {
+            return false;
+        }
+
+        CastleWarsManager.Team team = CastleWarsManager.getGameTeam(player);
+        if (team == null) {
+            player.getPacketSender().sendGameMessage("The side doors can only be used during a Castle Wars game.");
+            return true;
+        }
+
+        if (team == door.team) {
+            setSideDoorOpen(door, !door.open);
+            player.getPacketSender().sendSoundEffect(318, 1, 0);
+            player.getPacketSender().sendGameMessage(door.open
+                    ? "You unlock the side door."
+                    : "You lock the side door.");
+            return true;
+        }
+
+        if (door.open) {
+            player.getPacketSender().sendGameMessage("Only the defending team can lock this door.");
+            return true;
+        }
+
+        if (!ServerSettings.thievingEnabled) {
+            player.getPacketSender().sendGameMessage("This skill is currently disabled.");
+            return true;
+        }
+
+        int thievingLevel = player.getSkillManager().getCurrentLevels()[THIEVING_SKILL_INDEX];
+        if (thievingLevel < SIDE_DOOR_MIN_THIEVING_LEVEL) {
+            player.getPacketSender().sendGameMessage("You need a Thieving level of 1 to pick this lock.");
+            return true;
+        }
+
+        player.getUpdateState().setAnimation(2246);
+        player.getPacketSender().sendGameMessage("You attempt to pick the lock...");
+        if (!rollSideDoorUnlock(thievingLevel)) {
+            player.getPacketSender().sendGameMessage("You fail to pick the lock.");
+            return true;
+        }
+
+        setSideDoorOpen(door, true);
+        player.getPacketSender().sendSoundEffect(1502, 1, 0);
+        player.getPacketSender().sendGameMessage("You manage to pick the lock.");
         return true;
     }
 
@@ -352,6 +422,55 @@ public final class CastleWarsEngineeringManager {
         zamorakMainDoor.hitpoints = MAIN_DOOR_MAX_HITPOINTS;
         setMainDoorMode(saradominMainDoor, MainDoorMode.CLOSED);
         setMainDoorMode(zamorakMainDoor, MainDoorMode.CLOSED);
+    }
+
+    private static void resetSideDoors() {
+        setSideDoorOpen(saradominSideDoor, false);
+        setSideDoorOpen(zamorakSideDoor, false);
+    }
+
+    private static SideDoorState findSideDoor(int objectId, int objectX, int objectY) {
+        if (saradominSideDoor.matches(objectId, objectX, objectY)) {
+            return saradominSideDoor;
+        }
+        if (zamorakSideDoor.matches(objectId, objectX, objectY)) {
+            return zamorakSideDoor;
+        }
+        return null;
+    }
+
+    private static boolean rollSideDoorUnlock(int thievingLevel) {
+        int level = Math.max(1, Math.min(99, thievingLevel));
+        int range = SIDE_DOOR_LEVEL_NINETY_NINE_THRESHOLD - SIDE_DOOR_LEVEL_ONE_THRESHOLD;
+        int threshold = SIDE_DOOR_LEVEL_ONE_THRESHOLD
+                + (int) Math.round((level - 1) * (double) range / 98.0);
+        return GameUtil.randomInt(SIDE_DOOR_ROLL_SIZE) < threshold;
+    }
+
+    private static void setSideDoorOpen(SideDoorState door, boolean open) {
+        removeSideDoorDynamicObject(door.closedX, door.closedY);
+        removeSideDoorDynamicObject(door.openX, door.openY);
+
+        if (open) {
+            new DynamicObject(ServerSettings.placeholderObjectId,
+                    door.closedX, door.closedY, MAIN_DOOR_PLANE,
+                    door.closedOrientation, 0, ServerSettings.placeholderObjectId, 999999999);
+            new DynamicObject(door.openId, door.openX, door.openY, MAIN_DOOR_PLANE,
+                    door.openOrientation, 0, door.openId, 999999999);
+        } else {
+            new DynamicObject(door.closedId, door.closedX, door.closedY, MAIN_DOOR_PLANE,
+                    door.closedOrientation, 0, door.closedId, 999999999);
+            new DynamicObject(ServerSettings.placeholderObjectId,
+                    door.openX, door.openY, MAIN_DOOR_PLANE,
+                    door.openOrientation, 0, ServerSettings.placeholderObjectId, 999999999);
+        }
+        door.open = open;
+    }
+
+    private static void removeSideDoorDynamicObject(int x, int y) {
+        if (ObjectManager.findDynamicObjectAt(x, y, MAIN_DOOR_PLANE) != null) {
+            ObjectManager.getInstance().removeDynamicObjectAt(x, y, MAIN_DOOR_PLANE, 0);
+        }
     }
 
     private static MainDoorState getMainDoorState(CastleWarsManager.Team team) {
@@ -849,6 +968,39 @@ public final class CastleWarsEngineeringManager {
 
     private static String key(Position position) {
         return position.getX() + ":" + position.getY() + ":" + position.getPlane();
+    }
+
+    private static final class SideDoorState {
+        private final CastleWarsManager.Team team;
+        private final int closedId;
+        private final int openId;
+        private final int closedX;
+        private final int closedY;
+        private final int closedOrientation;
+        private final int openX;
+        private final int openY;
+        private final int openOrientation;
+        private boolean open;
+
+        private SideDoorState(CastleWarsManager.Team team,
+                              int closedId, int openId,
+                              int closedX, int closedY, int closedOrientation,
+                              int openX, int openY, int openOrientation) {
+            this.team = team;
+            this.closedId = closedId;
+            this.openId = openId;
+            this.closedX = closedX;
+            this.closedY = closedY;
+            this.closedOrientation = closedOrientation;
+            this.openX = openX;
+            this.openY = openY;
+            this.openOrientation = openOrientation;
+        }
+
+        private boolean matches(int objectId, int x, int y) {
+            return objectId == closedId && x == closedX && y == closedY
+                    || objectId == openId && x == openX && y == openY;
+        }
     }
 
     private enum MainDoorMode {
