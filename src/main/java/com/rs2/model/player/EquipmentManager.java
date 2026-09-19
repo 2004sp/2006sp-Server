@@ -147,6 +147,12 @@ public final class EquipmentManager {
                             if (GameplayTrace.enabled()) {
                                 GameplayTrace.log("equipment equip request player=" + GameplayTrace.describe(this.player) + " inventorySlot=" + slot + " itemId=" + itemStack.getId() + " item=" + itemStack.getDefinition().getName() + " equipmentSlot=" + value2);
                             }
+                            if (CastleWarsManager.isCarryingFlag(this.player)
+                                    && (value2 == 3 || value2 == 5)) {
+                                this.player.getPacketSender().sendGameMessage(
+                                        "You cannot equip a weapon or shield while carrying a Castle Wars flag.");
+                                return;
+                            }
                             if ((CastleWarsManager.isWaitingPlayer(this.player) || CastleWarsManager.isInGame(this.player))
                                     && CastleWarsManager.isTeamColourEquipmentSlot(value2)) {
                                 this.player.getPacketSender().sendGameMessage("You can't change your head or cape equipment during Castle Wars.");
@@ -421,6 +427,12 @@ public final class EquipmentManager {
         }
         if (GameplayTrace.enabled()) {
             GameplayTrace.log("equipment unequip request player=" + GameplayTrace.describe(this.player) + " equipmentSlot=" + slot + " itemId=" + itemStack.getId() + " item=" + itemStack.getDefinition().getName() + " inventoryFree=" + this.player.getInventoryManager().getContainer().getFreeSlots());
+        }
+        if (slot == 3 && CastleWarsManager.isCarryingFlag(this.player)
+                && CastleWarsManager.isFlagItemId(itemStack.getId())) {
+            this.player.getPacketSender().sendGameMessage(
+                    "You cannot unequip the Castle Wars flag while carrying it.");
+            return;
         }
         if ((CastleWarsManager.isWaitingPlayer(this.player) || CastleWarsManager.isInGame(this.player))
                 && CastleWarsManager.isTeamColourEquipmentSlot(slot)) {
