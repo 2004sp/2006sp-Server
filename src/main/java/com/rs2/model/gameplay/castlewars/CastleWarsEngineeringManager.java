@@ -689,9 +689,10 @@ public final class CastleWarsEngineeringManager {
         for (int x = objectX - 2; x <= objectX + 2; ++x) {
             for (int y = objectY - 2; y <= objectY + 2; ++y) {
                 Position candidate = new Position(x, y, CLIMBING_ROPE_DESTINATION_PLANE);
+                int clipping = WalkingCollisionMap.getTileFlags(
+                        x, y, CLIMBING_ROPE_DESTINATION_PLANE);
                 if (!CastleWarsManager.isCastleBattlementPosition(candidate)
-                        || WalkingCollisionMap.getTileFlags(
-                        x, y, CLIMBING_ROPE_DESTINATION_PLANE) != 0) {
+                        || (clipping & 0x1280100) != 0) {
                     continue;
                 }
                 int distance = Math.abs(x - objectX) + Math.abs(y - objectY);
