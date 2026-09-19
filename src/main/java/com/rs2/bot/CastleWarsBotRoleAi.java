@@ -275,6 +275,13 @@ public final class CastleWarsBotRoleAi {
     private static void processOwnFlagClimb(BotPlayer bot, RoleState state) {
         int plane = bot.getPosition().getPlane();
         if (plane == 1) {
+            Position ladder = state.team == CastleWarsManager.Team.SARADOMIN
+                    ? new Position(2429, 3075, 1)
+                    : new Position(2370, 3132, 1);
+            if (!near(bot, ladder, 1)) {
+                walk(bot, state, ladder);
+                return;
+            }
             if (state.team == CastleWarsManager.Team.SARADOMIN) {
                 CastleWarsManager.handleFirstObjectAction(bot,
                         CastleWarsManager.SARADOMIN_SPAWN_LADDER_ID, 2429, 3075);
@@ -414,8 +421,10 @@ public final class CastleWarsBotRoleAi {
 
         if (state.pendingCollapseRock >= 0) {
             Position previous = CastleWarsEngineeringManager.getRockslidePosition(state.pendingCollapseRock);
+            int previousDistance = previous == null ? Integer.MAX_VALUE
+                    : GameUtil.getDistance(bot.getPosition(), previous);
             if (previous != null
-                    && GameUtil.getDistance(bot.getPosition(), previous) > 4
+                    && previousDistance >= 2 && previousDistance <= 4
                     && !CastleWarsEngineeringManager.isRockslideCollapsed(state.pendingCollapseRock)
                     && bot.getInventoryManager().getItemAmount(
                             CastleWarsEngineeringManager.EXPLOSIVE_POTION_ID) > 1
