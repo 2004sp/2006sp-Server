@@ -1,12 +1,14 @@
 package com.rs2.model.gameplay.castlewars;
 
 import com.rs2.model.Position;
+import com.rs2.model.GameplayHelper;
 import com.rs2.model.combat.CombatType;
 import com.rs2.model.World;
 import com.rs2.model.ground.GroundItem;
 import com.rs2.model.ground.GroundItemManager;
 import com.rs2.model.item.ItemStack;
 import com.rs2.model.item.consumable.PotionHandler;
+import com.rs2.model.npc.Npc;
 import com.rs2.model.player.Player;
 import com.rs2.util.GameUtil;
 import com.rs2.util.path.WalkingCollisionMap;
@@ -46,6 +48,7 @@ public final class CastleWarsManager {
     public static final int SARADOMIN_FLAG_ID = 4037;
     public static final int ZAMORAK_FLAG_ID = 4039;
     public static final int CASTLE_WARS_TICKET_ID = 4067;
+    public static final int LANTHUS_NPC_ID = 1526;
 
     private static final int GUTHIX_SHEEP_TRANSFORMATION_ID = 5726;
     private static final int SARADOMIN_RABBIT_TRANSFORMATION_ID = 5727;
@@ -137,7 +140,16 @@ public final class CastleWarsManager {
         }
         initialized = true;
         loadScoreboardState();
+        spawnLanthus();
         World.scheduleTickTask(new CastleWarsTickTask());
+    }
+
+    private static void spawnLanthus() {
+        if (Npc.findByDefinitionId(LANTHUS_NPC_ID) != null) {
+            return;
+        }
+        // Keep Lanthus beside the lobby return tile so players never spawn on top of him.
+        GameplayHelper.spawnNpc(LANTHUS_NPC_ID, 2440, 3089, 0, 2);
     }
 
     public static boolean relocatePlayerOnLogin(Player player) {
