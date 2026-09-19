@@ -216,18 +216,7 @@ public final class CastleWarsBotRoleAi {
             return;
         }
 
-        if (state.role == Role.UNDERGROUND) {
-            CastleWarsManager.moveBotToUndergroundEntrance(bot, state.team);
-            state.phase = Phase.UNDERGROUND_DESCEND;
-            state.undergroundStage = 0;
-        } else if (state.role == Role.CATAPULT) {
-            CastleWarsManager.moveBotToGroundBattlefield(bot, state.team);
-            state.phase = Phase.CATAPULT_MOVE;
-        } else {
-            CastleWarsManager.moveBotToGroundBattlefield(bot, state.team);
-            state.phase = Phase.MID_RUSH;
-            CastleWarsBotChat.sayMid(bot);
-        }
+        state.phase = Phase.LEAVE_SPAWN;
         state.repathDelay = 0;
     }
 
@@ -895,6 +884,10 @@ public final class CastleWarsBotRoleAi {
 
     private static void walk(BotPlayer bot, RoleState state, Position target) {
         if (bot.getPosition().getPlane() != target.getPlane() || bot.isMovementLocked()) {
+            return;
+        }
+        if (CastleWarsEngineeringManager.tryHandleNearbyDoorForBot(bot)) {
+            state.repathDelay = 0;
             return;
         }
 
