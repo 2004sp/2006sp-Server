@@ -16,6 +16,7 @@ import com.rs2.model.combat.hit.HitType;
 import com.rs2.model.combat.requirement.AmmunitionRequirement;
 import com.rs2.model.combat.requirement.CombatRequirement;
 import com.rs2.model.combat.special.SpecialAttackDefinition;
+import com.rs2.model.gameplay.castlewars.CastleWarsManager;
 import com.rs2.model.gameplay.duel.DuelRule;
 import com.rs2.model.item.ItemDefinition;
 import com.rs2.model.item.ItemStack;
@@ -97,6 +98,9 @@ public class WeaponCombatAttack extends BaseCombatAttack {
             this.poisonEffect = WeaponCombatAttack.getWeaponPoisonEffect(player, CombatType.MELEE, 3);
         }
         double maxHit = this.calculateMaxHit();
+        if (weaponItem != null && CastleWarsManager.isFlagItemId(weaponItem.getId())) {
+            maxHit = Math.min(maxHit, 3.0);
+        }
         if (GameplayTrace.enabled()) {
             GameplayTrace.log("weapon prepare player=" + GameplayTrace.describe(player) + " target=" + GameplayTrace.describe(this.getTarget()) + " profile=" + this.weaponProfile + " style=" + this.attackStyle.getXpMode() + "/" + this.attackStyle.getCombatType() + " maxHit=" + maxHit + " attackStyleIndex=" + this.attackStyleIndex);
         }
