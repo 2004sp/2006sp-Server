@@ -77,7 +77,8 @@ public final class CastleWarsBotRoleAi {
                 CombatManager.stopCombat(bot);
             }
         } else if (!CastleWarsManager.isInTeamSpawnArea(bot, team)
-                && !prioritizeTraversal) {
+                && !prioritizeTraversal
+                && !CastleWarsManager.isGroundCastleExteriorTransitionTile(bot.getPosition())) {
             if (hasActiveOpponent(bot, state)) {
                 return true;
             }
@@ -1177,7 +1178,7 @@ public final class CastleWarsBotRoleAi {
             bot.moveTo(approach.copy());
             bot.getMovementQueue().clearMovementActions();
             state.repathDelay = 0;
-            return false;
+            return true;
         }
         walk(bot, state, approach);
         return false;
