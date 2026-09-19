@@ -37,6 +37,7 @@ import com.rs2.model.combat.hit.HitType;
 import com.rs2.model.combat.special.SpecialAttackDefinition;
 import com.rs2.model.dialogue.DialogueManager;
 import com.rs2.model.gameplay.barrows.BarrowsManager;
+import com.rs2.model.gameplay.castlewars.CastleWarsManager;
 import com.rs2.model.gameplay.duel.DuelArenaLocationManager;
 import com.rs2.model.gameplay.duel.DuelController;
 import com.rs2.model.gameplay.duel.DuelInterfaceManager;
@@ -3291,6 +3292,7 @@ extends Entity {
             this.membershipExpiresMillis = 0L;
             player2.applyTeleportPosition(TeleportManager.RESPAWN_TELEPORT_POSITION);
         }
+        boolean relocatedFromCastleWars = CastleWarsManager.relocatePlayerOnLogin(this);
         Player player3 = this;
         int index = 0;
         while (index < player3.configStates.length) {
@@ -3305,6 +3307,9 @@ extends Entity {
         player = this;
         this.actionLocked = true;
         World.registerPlayer(this);
+        if (relocatedFromCastleWars) {
+            this.packetSender.sendGameMessage("You logged out during Castle Wars and have been returned to the lobby.");
+        }
         this.packetSender.sendPostLoginState().syncPlayerConfigs();
         this.getPoisonDamage();
         this.getMovementQueue().isRunning();
