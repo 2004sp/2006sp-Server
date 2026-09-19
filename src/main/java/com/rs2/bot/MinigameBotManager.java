@@ -1,6 +1,7 @@
 package com.rs2.bot;
 
 import com.rs2.bot.combat.BotCombatHelper;
+import com.rs2.bot.combat.BotCombatLoadoutManager;
 import com.rs2.model.Position;
 import com.rs2.model.gameplay.castlewars.CastleWarsManager;
 import com.rs2.util.GameUtil;
@@ -8,12 +9,38 @@ import com.rs2.util.GameUtil;
 public final class MinigameBotManager {
     private static final Position CASTLE_WARS_LOBBY = new Position(2440, 3089, 0);
 
+    private static final String[] WAITING_CHAT = new String[]{
+        "gl all",
+        "how long left",
+        "ready",
+        "lets go",
+        "good luck",
+        "rush mid",
+        "def flag",
+        "who got flag",
+        "lol",
+        "nice"
+    };
+
+    private static final String[] GAME_CHAT = new String[]{
+        "rush mid",
+        "get the flag",
+        "def base",
+        "nice one",
+        "incoming",
+        "help mid",
+        "push",
+        "lol",
+        "gf",
+        "go go go"
+    };
+
     private MinigameBotManager() {
     }
 
     public static void startMinigameBot(BotPlayer botPlayer) {
         randomizeCombatLevels(botPlayer);
-        prepareCastleWarsEquipment(botPlayer);
+        preparePvpLoadout(botPlayer);
         placeAtCastleWarsLobby(botPlayer);
         CastleWarsManager.leaveWaitingRoom(botPlayer);
     }
@@ -26,6 +53,32 @@ public final class MinigameBotManager {
         ));
     }
 
+    public static void processMinigameBot(BotPlayer botPlayer) {
+        joinCastleWars(botPlayer);
+
+        if (!botPlayer.isRegistered() || botPlayer.isDead()) {
+            return;
+        }
+        if (!CastleWarsManager.isWaitingPlayer(botPlayer) && !CastleWarsManager.isInGame(botPlayer)) {
+            return;
+        }
+
+        // This task runs every two game ticks. A 1/180 roll keeps a large
+        // Castle Wars population chatty without flooding public chat.
+        if (GameUtil.randomInt(180) != 0) {
+            return;
+        }
+
+        CastleWarsManager.Team team = CastleWarsManager.getTeam(botPlayer);
+        if (GameUtil.randomInt(5) == 0 && team != null) {
+            botPlayer.queuePublicChatMessage(team == CastleWarsManager.Team.SARADOMIN ? "sara ftw" : "zammy ftw");
+            return;
+        }
+
+        String[] chat = CastleWarsManager.isInGame(botPlayer) ? GAME_CHAT : WAITING_CHAT;
+        botPlayer.queuePublicChatMessage(chat[GameUtil.randomInt(chat.length)]);
+    }
+
     public static boolean joinCastleWars(BotPlayer botPlayer) {
         if (!botPlayer.isRegistered()) {
             return false;
@@ -36,7 +89,17 @@ public final class MinigameBotManager {
 
         prepareCastleWarsEquipment(botPlayer);
         placeAtCastleWarsLobby(botPlayer);
-        return CastleWarsManager.handleLobbyPortal(botPlayer, CastleWarsManager.GUTHIX_PORTAL_ID);
+        boolean handled = CastleWarsManager.handleLobbyPortal(botPlayer, CastleWarsManager.GUTHIX_PORTAL_ID);
+        if (handled && CastleWarsManager.isWaitingPlayer(botPlayer)) {
+            CastleWarsManager.spreadWaitingPlayer(botPlayer);
+        }
+        return handled;
+    }
+
+    private static void preparePvpLoadout(BotPlayer botPlayer) {
+        BotCombatLoadoutManager.selectCombatStyleFromStats(botPlayer, false);
+        BotCombatLoadoutManager.prepareCombatLoadout(botPlayer, false);
+        prepareCastleWarsEquipment(botPlayer);
     }
 
     private static void prepareCastleWarsEquipment(BotPlayer botPlayer) {
