@@ -3,6 +3,8 @@ package com.rs2.net.packet.handler;
 import com.rs2.ServerSettings;
 import com.rs2.cache.InterfaceDefinition;
 import com.rs2.model.EntityTargetMovement;
+import com.rs2.model.Position;
+import com.rs2.model.gameplay.castlewars.CastleWarsManager;
 import com.rs2.model.interaction.InteractionDispatcher;
 import com.rs2.model.interaction.InteractionType;
 import com.rs2.model.item.ItemStack;
@@ -162,6 +164,22 @@ implements PacketHandler {
         if (!SkillActionHelper.isObjectPresent(objectId, objectX, objectY, plane)) {
             if (GameplayTrace.enabled()) {
                 GameplayTrace.log("object movement skipped missing-object player=" + GameplayTrace.describe(player) + " objectId=" + objectId + " x=" + objectX + " y=" + objectY + " plane=" + plane);
+            }
+            return;
+        }
+        Position castleWarsStairApproach =
+                CastleWarsManager.getStairTraversalApproach(player, objectId, objectX, objectY);
+        if (castleWarsStairApproach != null) {
+            PathFinder.getInstance();
+            boolean foundPath = PathFinder.findPath(player,
+                    castleWarsStairApproach.getX(), castleWarsStairApproach.getY(), true, 0, 0);
+            if (GameplayTrace.enabled()) {
+                GameplayTrace.log("castle-wars stair movement queued player="
+                        + GameplayTrace.describe(player) + " objectId=" + objectId
+                        + " object=" + objectX + "," + objectY + "," + plane
+                        + " approach=" + GameplayTrace.position(castleWarsStairApproach)
+                        + " path=" + foundPath
+                        + " steps=" + player.getMovementQueue().getSteps().size());
             }
             return;
         }

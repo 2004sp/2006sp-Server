@@ -251,14 +251,14 @@ public final class CastleWarsBotAi {
 
         if (castleTeam == CastleWarsManager.Team.SARADOMIN) {
             Position approach = new Position(2417, 3077, 0);
-            if (!near(bot, approach, 1)) {
+            if (!near(bot, approach, 0)) {
                 walk(bot, state, approach);
                 return;
             }
             CastleWarsManager.handleFirstObjectAction(bot, 4419, 2417, 3074);
         } else {
             Position approach = new Position(2382, 3130, 0);
-            if (!near(bot, approach, 1)) {
+            if (!near(bot, approach, 0)) {
                 walk(bot, state, approach);
                 return;
             }
@@ -279,14 +279,14 @@ public final class CastleWarsBotAi {
 
         if (castleTeam == CastleWarsManager.Team.SARADOMIN) {
             Position outside = new Position(2416, 3074, 0);
-            if (!near(bot, outside, 1)) {
+            if (!near(bot, outside, 0)) {
                 walk(bot, state, outside);
                 return;
             }
             CastleWarsManager.handleFirstObjectAction(bot, 4419, 2417, 3074);
         } else {
             Position outside = new Position(2383, 3133, 0);
-            if (!near(bot, outside, 1)) {
+            if (!near(bot, outside, 0)) {
                 walk(bot, state, outside);
                 return;
             }
@@ -400,19 +400,19 @@ public final class CastleWarsBotAi {
         int plane = bot.getPosition().getPlane();
         if (up) {
             if (plane == 0) {
-                useTraversal(bot, state, new Position(2419, 3078, 0), 4417, 2419, 3078);
+                useTraversal(bot, state, new Position(2419, 3077, 0), 4417, 2419, 3078);
             } else if (plane == 1) {
-                useTraversal(bot, state, new Position(2428, 3081, 1), 4417, 2428, 3081);
+                useTraversal(bot, state, new Position(2427, 3081, 1), 4417, 2428, 3081);
             } else if (plane == 2) {
-                useTraversal(bot, state, new Position(2425, 3074, 2), 4417, 2425, 3074);
+                useTraversal(bot, state, new Position(2425, 3077, 2), 4417, 2425, 3074);
             }
         } else {
             if (plane == 3) {
-                useTraversal(bot, state, new Position(2425, 3074, 3), 4415, 2425, 3074);
+                useTraversal(bot, state, new Position(2426, 3074, 3), 4415, 2425, 3074);
             } else if (plane == 2) {
-                useTraversal(bot, state, new Position(2430, 3081, 2), 4415, 2430, 3081);
+                useTraversal(bot, state, new Position(2430, 3080, 2), 4415, 2430, 3081);
             } else if (plane == 1) {
-                useTraversal(bot, state, new Position(2419, 3080, 1), 4415, 2419, 3080);
+                useTraversal(bot, state, new Position(2420, 3080, 1), 4415, 2419, 3080);
             }
         }
     }
@@ -421,26 +421,26 @@ public final class CastleWarsBotAi {
         int plane = bot.getPosition().getPlane();
         if (up) {
             if (plane == 0) {
-                useTraversal(bot, state, new Position(2380, 3127, 0), 4418, 2380, 3127);
+                useTraversal(bot, state, new Position(2380, 3130, 0), 4418, 2380, 3127);
             } else if (plane == 1) {
-                useTraversal(bot, state, new Position(2369, 3126, 1), 4418, 2369, 3126);
+                useTraversal(bot, state, new Position(2372, 3126, 1), 4418, 2369, 3126);
             } else if (plane == 2) {
-                useTraversal(bot, state, new Position(2374, 3131, 2), 4418, 2374, 3131);
+                useTraversal(bot, state, new Position(2374, 3130, 2), 4418, 2374, 3131);
             }
         } else {
             if (plane == 3) {
-                useTraversal(bot, state, new Position(2374, 3133, 3), 4415, 2374, 3133);
+                useTraversal(bot, state, new Position(2373, 3133, 3), 4415, 2374, 3133);
             } else if (plane == 2) {
-                useTraversal(bot, state, new Position(2369, 3126, 2), 4415, 2369, 3126);
+                useTraversal(bot, state, new Position(2369, 3127, 2), 4415, 2369, 3126);
             } else if (plane == 1) {
-                useTraversal(bot, state, new Position(2380, 3127, 1), 4415, 2380, 3127);
+                useTraversal(bot, state, new Position(2379, 3127, 1), 4415, 2380, 3127);
             }
         }
     }
 
     private static void useTraversal(BotPlayer bot, BotState state, Position approach,
                                      int objectId, int objectX, int objectY) {
-        if (!near(bot, approach, 1)) {
+        if (!near(bot, approach, 0)) {
             walk(bot, state, approach);
             return;
         }

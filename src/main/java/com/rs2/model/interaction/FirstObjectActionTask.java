@@ -102,6 +102,17 @@ extends TickTask {
             this.stop();
             return;
         }
+        Position castleWarsStairApproach = CastleWarsManager.getStairTraversalApproach(
+                this.player, this.objectId, this.objectX, this.objectY);
+        if (castleWarsStairApproach != null) {
+            if (CastleWarsManager.isAtStairTraversalApproach(
+                    this.player, this.objectId, this.objectX, this.objectY)
+                    && CastleWarsManager.handleFirstObjectAction(
+                            this.player, this.objectId, this.objectX, this.objectY)) {
+                this.stop();
+            }
+            return;
+        }
         WorldObject worldObject = SkillActionHelper.findWorldObjectById(this.objectId, this.objectX, this.objectY, this.objectPlane);
         if (worldObject == null) {
             if (GameplayTrace.enabled() && !this.loggedMissingWorldObject) {

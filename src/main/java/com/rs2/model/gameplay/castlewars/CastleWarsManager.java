@@ -901,57 +901,160 @@ public final class CastleWarsManager {
         return -1;
     }
 
+    public static Position getStairTraversalApproach(Player player, int objectId,
+                                                    int objectX, int objectY) {
+        if (player == null) {
+            return null;
+        }
+        int plane = player.getPosition().getPlane();
+
+        // Saradomin ground stairs.
+        if (objectId == 4419 && objectX == 2417 && objectY == 3074 && plane == 0) {
+            Position outside = new Position(2416, 3074, 0);
+            Position inside = new Position(2417, 3077, 0);
+            return nearestPosition(player.getPosition(), outside, inside);
+        }
+
+        // Saradomin stairs up.
+        if (objectId == 4417) {
+            if (objectX == 2419 && objectY == 3078 && plane == 0) {
+                return new Position(2419, 3077, 0);
+            }
+            if (objectX == 2428 && objectY == 3081 && plane == 1) {
+                return new Position(2427, 3081, 1);
+            }
+            if (objectX == 2425 && objectY == 3074 && plane == 2) {
+                return new Position(2425, 3077, 2);
+            }
+        }
+
+        // Shared down-stair object.
+        if (objectId == 4415) {
+            if (objectX == 2419 && objectY == 3080 && plane == 1) {
+                return new Position(2420, 3080, 1);
+            }
+            if (objectX == 2430 && objectY == 3081 && plane == 2) {
+                return new Position(2430, 3080, 2);
+            }
+            if (objectX == 2425 && objectY == 3074 && plane == 3) {
+                return new Position(2426, 3074, 3);
+            }
+            if (objectX == 2380 && objectY == 3127 && plane == 1) {
+                return new Position(2379, 3127, 1);
+            }
+            if (objectX == 2369 && objectY == 3126 && plane == 2) {
+                return new Position(2369, 3127, 2);
+            }
+            if (objectX == 2374 && objectY == 3133 && plane == 3) {
+                return new Position(2373, 3133, 3);
+            }
+        }
+
+        // Zamorak ground stairs.
+        if (objectId == 4420 && objectX == 2382 && objectY == 3131 && plane == 0) {
+            Position outside = new Position(2383, 3133, 0);
+            Position inside = new Position(2382, 3130, 0);
+            return nearestPosition(player.getPosition(), outside, inside);
+        }
+
+        // Zamorak stairs up.
+        if (objectId == 4418) {
+            if (objectX == 2380 && objectY == 3127 && plane == 0) {
+                return new Position(2380, 3130, 0);
+            }
+            if (objectX == 2369 && objectY == 3126 && plane == 1) {
+                return new Position(2372, 3126, 1);
+            }
+            if (objectX == 2374 && objectY == 3131 && plane == 2) {
+                return new Position(2374, 3130, 2);
+            }
+        }
+        return null;
+    }
+
+    public static boolean isAtStairTraversalApproach(Player player, int objectId,
+                                                     int objectX, int objectY) {
+        Position approach = getStairTraversalApproach(player, objectId, objectX, objectY);
+        return approach != null && samePosition(player.getPosition(), approach);
+    }
+
+    private static Position nearestPosition(Position origin, Position first, Position second) {
+        return GameUtil.getDistance(origin, first) <= GameUtil.getDistance(origin, second)
+                ? first : second;
+    }
+
+    private static boolean samePosition(Position first, Position second) {
+        return first != null && second != null
+                && first.getX() == second.getX()
+                && first.getY() == second.getY()
+                && first.getPlane() == second.getPlane();
+    }
+
+    private static void moveThroughCastleWarsStairs(Player player, Position destination) {
+        boolean planeChange = player.getPosition().getPlane() != destination.getPlane();
+        player.moveTo(destination);
+        if (planeChange && !player.isBot) {
+            // Same-region height changes can leave the client using stale
+            // staircase occlusion until the camera is moved manually.
+            player.getPacketSender().resetCamera();
+        }
+    }
+
     private static boolean handleCastleWarsTraversal(Player player, int objectId, int objectX, int objectY) {
         int plane = player.getPosition().getPlane();
+        Position stairApproach = getStairTraversalApproach(player, objectId, objectX, objectY);
+        if (stairApproach != null && !samePosition(player.getPosition(), stairApproach)) {
+            return false;
+        }
 
         // Saradomin castle stairs.
         if (objectId == 4419 && objectX == 2417 && objectY == 3074 && plane == 0) {
             if (player.getPosition().getX() <= 2416) {
-                player.moveTo(new Position(2417, 3077, 0));
+                moveThroughCastleWarsStairs(player, new Position(2417, 3077, 0));
             } else {
-                player.moveTo(new Position(2416, 3074, 0));
+                moveThroughCastleWarsStairs(player, new Position(2416, 3074, 0));
             }
             return true;
         }
         if (objectId == 4417) {
             if (objectX == 2419 && objectY == 3078 && plane == 0) {
-                player.moveTo(new Position(2420, 3080, 1));
+                moveThroughCastleWarsStairs(player, new Position(2420, 3080, 1));
                 return true;
             }
             if (objectX == 2428 && objectY == 3081 && plane == 1) {
-                player.moveTo(new Position(2430, 3080, 2));
+                moveThroughCastleWarsStairs(player, new Position(2430, 3080, 2));
                 return true;
             }
             if (objectX == 2425 && objectY == 3074 && plane == 2) {
-                player.moveTo(new Position(2426, 3074, 3));
+                moveThroughCastleWarsStairs(player, new Position(2426, 3074, 3));
                 return true;
             }
         }
         if (objectId == 4415) {
             if (objectX == 2419 && objectY == 3080 && plane == 1) {
-                player.moveTo(new Position(2419, 3077, 0));
+                moveThroughCastleWarsStairs(player, new Position(2419, 3077, 0));
                 return true;
             }
             if (objectX == 2430 && objectY == 3081 && plane == 2) {
-                player.moveTo(new Position(2427, 3081, 1));
+                moveThroughCastleWarsStairs(player, new Position(2427, 3081, 1));
                 return true;
             }
             if (objectX == 2425 && objectY == 3074 && plane == 3) {
-                player.moveTo(new Position(2425, 3077, 2));
+                moveThroughCastleWarsStairs(player, new Position(2425, 3077, 2));
                 return true;
             }
 
             // Zamorak castle stairs.
             if (objectX == 2380 && objectY == 3127 && plane == 1) {
-                player.moveTo(new Position(2380, 3130, 0));
+                moveThroughCastleWarsStairs(player, new Position(2380, 3130, 0));
                 return true;
             }
             if (objectX == 2369 && objectY == 3126 && plane == 2) {
-                player.moveTo(new Position(2372, 3126, 1));
+                moveThroughCastleWarsStairs(player, new Position(2372, 3126, 1));
                 return true;
             }
             if (objectX == 2374 && objectY == 3133 && plane == 3) {
-                player.moveTo(new Position(2374, 3130, 2));
+                moveThroughCastleWarsStairs(player, new Position(2374, 3130, 2));
                 return true;
             }
         }
@@ -959,23 +1062,23 @@ public final class CastleWarsManager {
         // Zamorak castle stairs.
         if (objectId == 4420 && objectX == 2382 && objectY == 3131 && plane == 0) {
             if (player.getPosition().getX() >= 2383) {
-                player.moveTo(new Position(2382, 3130, 0));
+                moveThroughCastleWarsStairs(player, new Position(2382, 3130, 0));
             } else {
-                player.moveTo(new Position(2383, 3133, 0));
+                moveThroughCastleWarsStairs(player, new Position(2383, 3133, 0));
             }
             return true;
         }
         if (objectId == 4418) {
             if (objectX == 2380 && objectY == 3127 && plane == 0) {
-                player.moveTo(new Position(2379, 3127, 1));
+                moveThroughCastleWarsStairs(player, new Position(2379, 3127, 1));
                 return true;
             }
             if (objectX == 2369 && objectY == 3126 && plane == 1) {
-                player.moveTo(new Position(2369, 3127, 2));
+                moveThroughCastleWarsStairs(player, new Position(2369, 3127, 2));
                 return true;
             }
             if (objectX == 2374 && objectY == 3131 && plane == 2) {
-                player.moveTo(new Position(2373, 3133, 3));
+                moveThroughCastleWarsStairs(player, new Position(2373, 3133, 3));
                 return true;
             }
         }
