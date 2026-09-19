@@ -252,20 +252,16 @@ public final class CastleWarsBotAi {
             return;
         }
 
-        if (castleTeam == CastleWarsManager.Team.SARADOMIN) {
-            Position approach = new Position(2417, 3077, 0);
-            if (!near(bot, approach, 0)) {
-                walk(bot, state, approach);
-                return;
-            }
-            CastleWarsManager.handleFirstObjectAction(bot, 4419, 2417, 3074);
-        } else {
-            Position approach = new Position(2382, 3130, 0);
-            if (!near(bot, approach, 0)) {
-                walk(bot, state, approach);
-                return;
-            }
-            CastleWarsManager.handleFirstObjectAction(bot, 4420, 2382, 3131);
+        Position approach = castleTeam == CastleWarsManager.Team.SARADOMIN
+                ? new Position(2417, 3077, 0)
+                : new Position(2382, 3130, 0);
+        if (!near(bot, approach, 1)) {
+            walk(bot, state, approach);
+            return;
+        }
+        if (!CastleWarsManager.moveBotThroughGroundCastleStairs(bot, castleTeam, false)) {
+            state.repathDelay = 0;
+            return;
         }
 
         state.phase = nextPhase;
@@ -299,20 +295,16 @@ public final class CastleWarsBotAi {
             }
         }
 
-        if (castleTeam == CastleWarsManager.Team.SARADOMIN) {
-            Position outside = new Position(2416, 3074, 0);
-            if (!near(bot, outside, 0)) {
-                walk(bot, state, outside);
-                return;
-            }
-            CastleWarsManager.handleFirstObjectAction(bot, 4419, 2417, 3074);
-        } else {
-            Position outside = new Position(2383, 3133, 0);
-            if (!near(bot, outside, 0)) {
-                walk(bot, state, outside);
-                return;
-            }
-            CastleWarsManager.handleFirstObjectAction(bot, 4420, 2382, 3131);
+        Position outside = castleTeam == CastleWarsManager.Team.SARADOMIN
+                ? new Position(2416, 3074, 0)
+                : new Position(2383, 3133, 0);
+        if (!near(bot, outside, 1)) {
+            walk(bot, state, outside);
+            return;
+        }
+        if (!CastleWarsManager.moveBotThroughGroundCastleStairs(bot, castleTeam, true)) {
+            state.repathDelay = 0;
+            return;
         }
 
         state.phase = nextPhase;
