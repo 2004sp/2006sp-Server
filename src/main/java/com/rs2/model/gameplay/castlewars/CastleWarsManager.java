@@ -1295,18 +1295,25 @@ public final class CastleWarsManager {
 
         Position firstPosition = first.getPosition();
         Position secondPosition = second.getPosition();
-        if (!((firstPosition.getPlane() == 1 && secondPosition.getPlane() == 0)
-                || (firstPosition.getPlane() == 0 && secondPosition.getPlane() == 1))) {
+
+        // Castle Wars battlements and the battlefield are both rendered on plane 0
+        // in this map. Treat one player inside the battlement footprint and one
+        // outside it as a wall/battlefield pair. Ranged and magic combat use this
+        // pairing to ignore the wall's ground-level projectile clipping, while
+        // melee still uses the normal path/reach checks.
+        if (firstPosition.getPlane() != 0 || secondPosition.getPlane() != 0) {
             return false;
         }
 
-        Position wallPosition = firstPosition.getPlane() == 1 ? firstPosition : secondPosition;
-        Position groundPosition = firstPosition.getPlane() == 0 ? firstPosition : secondPosition;
-        if (!isCastleBattlementPosition(wallPosition)) {
+        boolean firstOnWall = isCastleBattlementPosition(firstPosition);
+        boolean secondOnWall = isCastleBattlementPosition(secondPosition);
+        if (firstOnWall == secondOnWall) {
             return false;
         }
 
-        return GameUtil.getDistance(wallPosition, groundPosition) <= 15;
+        Position wallPosition = firstOnWall ? firstPosition : secondPosition;
+        Position battlefieldPosition = firstOnWall ? secondPosition : firstPosition;
+        return GameUtil.getDistance(wallPosition, battlefieldPosition) <= 15;
     }
 
     public static boolean canBotTargetAcrossCastleLevels(Player attacker, Player target) {
