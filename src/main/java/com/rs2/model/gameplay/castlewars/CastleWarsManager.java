@@ -1295,8 +1295,8 @@ public final class CastleWarsManager {
         }
         int x = position.getX();
         int y = position.getY();
-        return (y == 3090 && (x == 2426 || x == 2427))
-                || (y == 3116 && (x == 2372 || x == 2373));
+        return (y == 3089 && (x == 2426 || x == 2427))
+                || (y == 3118 && (x == 2372 || x == 2373));
     }
 
     public static Position getBotMainDoorExteriorPosition(Player player, Team castleTeam) {
@@ -1305,9 +1305,13 @@ public final class CastleWarsManager {
         }
         boolean alternateLane = (player.getNameHash() & 1L) != 0L;
         if (castleTeam == Team.SARADOMIN) {
-            return new Position(alternateLane ? 2427 : 2426, 3090, 0);
+            // Closed double doors are at y=3088, so y=3089 is the exact
+            // battlefield-side melee interaction tile.
+            return new Position(alternateLane ? 2427 : 2426, 3089, 0);
         }
-        return new Position(alternateLane ? 2372 : 2373, 3116, 0);
+        // Closed double doors are at y=3119, so y=3118 is the exact
+        // battlefield-side melee interaction tile.
+        return new Position(alternateLane ? 2372 : 2373, 3118, 0);
     }
 
     public static Position getBotMainDoorInteriorPosition(Player player, Team castleTeam) {
@@ -1481,20 +1485,45 @@ public final class CastleWarsManager {
 
         Position exterior = getBotMainDoorExteriorPosition(player, castleTeam);
         Position interior = getBotMainDoorInteriorPosition(player, castleTeam);
-        Position target = enteringCastle ? interior : exterior;
-        if (target == null || samePosition(player.getPosition(), target)) {
-            return target != null;
+        if (exterior == null || interior == null) {
+            return false;
         }
 
-        // Ground-level Castle Wars traffic uses the big double doors. Friendly
-        // bots open their own doors; enemy melee runners damage the destroyable
-        // doors while ranged/magic runners wait for the opening.
+        if (enteringCastle) {
+            // Always reach the exact battlefield-side interaction tile first.
+            // Previously this was two/three tiles from the actual closed door,
+            // so tryHandleMainDoorForBot() could never satisfy distance == 1
+            // and melee bots simply stood in front of the castle.
+            if (!samePosition(player.getPosition(), exterior)
+                    && getCastleTeamAtPosition(player.getPosition()) != castleTeam) {
+                player.getMovementQueue().setRunning(true);
+                PathFinder.findPath(player, exterior.getX(), exterior.getY(), false, 0, 0);
+                player.getMovementQueue().clearMovementActions();
+                return true;
+            }
+
+            if (CastleWarsEngineeringManager.tryHandleMainDoorForBot(player, castleTeam)) {
+                return true;
+            }
+
+            if (samePosition(player.getPosition(), interior)) {
+                return true;
+            }
+            player.getMovementQueue().setRunning(true);
+            PathFinder.findPath(player, interior.getX(), interior.getY(), false, 0, 0);
+            player.getMovementQueue().clearMovementActions();
+            return true;
+        }
+
+        if (samePosition(player.getPosition(), exterior)) {
+            return true;
+        }
         if (CastleWarsEngineeringManager.tryHandleMainDoorForBot(player, castleTeam)) {
             return true;
         }
 
         player.getMovementQueue().setRunning(true);
-        PathFinder.findPath(player, target.getX(), target.getY(), false, 0, 0);
+        PathFinder.findPath(player, exterior.getX(), exterior.getY(), false, 0, 0);
         player.getMovementQueue().clearMovementActions();
         return true;
     }
