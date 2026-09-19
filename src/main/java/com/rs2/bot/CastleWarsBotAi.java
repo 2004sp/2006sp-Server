@@ -70,14 +70,14 @@ public final class CastleWarsBotAi {
                 && bot.getInventoryManager().getItemAmount(
                         CastleWarsEngineeringManager.EXPLOSIVE_POTION_ID) > 0
                 && CastleWarsEngineeringManager.destroyBarricadeWithExplosive(bot, enemyBarricade)) {
-            bot.queuePublicChatMessage("boom");
+            CastleWarsBotChat.sayEngineering(bot);
             state.delayTicks = 2;
             return;
         }
         if (bot.getInventoryManager().getItemAmount(
                 CastleWarsEngineeringManager.EXPLOSIVE_POTION_ID) > 0
                 && CastleWarsEngineeringManager.sabotageEnemyCatapult(bot)) {
-            bot.queuePublicChatMessage("catapult down");
+            CastleWarsBotChat.sayCatapult(bot);
             state.delayTicks = 2;
             return;
         }
@@ -309,7 +309,7 @@ public final class CastleWarsBotAi {
             if (!returningHome) {
                 state.delayTicks = 3 + GameUtil.randomInt(6);
                 if (GameUtil.randomInt(4) == 0) {
-                    bot.queuePublicChatMessage("rush mid");
+                    CastleWarsBotChat.sayMid(bot);
                 }
                 return;
             }
@@ -432,7 +432,7 @@ public final class CastleWarsBotAi {
         }
 
         if (CastleWarsManager.isFlagAtBase(enemyTeam) && CastleWarsManager.takeEnemyFlag(bot)) {
-            bot.queuePublicChatMessage("got flag!");
+            CastleWarsBotChat.sayFlagCarrier(bot);
         }
         state.phase = Phase.DESCEND_ENEMY;
         state.repathDelay = 0;
@@ -454,7 +454,7 @@ public final class CastleWarsBotAi {
         }
 
         if (CastleWarsManager.tryCaptureFlag(bot)) {
-            bot.queuePublicChatMessage("scored!");
+            CastleWarsBotChat.sayScore(bot);
             restorePrimaryWeapon(bot);
             state.phase = Phase.DESCEND_AFTER_SCORE;
             state.delayTicks = 2 + GameUtil.randomInt(5);
@@ -530,7 +530,7 @@ public final class CastleWarsBotAi {
         bot.getMovementQueue().setRunning(true);
         CombatManager.startCombat(bot, best);
         if (GameUtil.randomInt(12) == 0) {
-            bot.queuePublicChatMessage("fight!");
+            CastleWarsBotChat.sayCombat(bot);
         }
         return true;
     }
