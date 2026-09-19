@@ -637,6 +637,15 @@ public final class CastleWarsBotRoleAi {
             }
         }
 
+        if (state.wallPatrolTarget != null
+                && !CastleWarsEngineeringManager.isBattlementWalkwayTile(
+                bot.getPosition(), state.team)) {
+            state.wallAccessed = false;
+            state.wallPatrolTarget = null;
+            state.repathDelay = 0;
+            return;
+        }
+
         if (state.wallPatrolTarget == null
                 || --state.wallPatrolTicks <= 0
                 || isWallPostCrowded(bot, state.wallPatrolTarget)) {
@@ -1242,6 +1251,12 @@ public final class CastleWarsBotRoleAi {
             int distance = GameUtil.getDistance(bot.getPosition(), player.getPosition());
             if (distance > radius) {
                 continue;
+            }
+            if (state.role == Role.WALL_GUARD) {
+                int wallRange = CastleWarsManager.getBotCastleWallEngageRange(bot);
+                if (wallRange <= 0 || distance > wallRange) {
+                    continue;
+                }
             }
             if (CastleWarsManager.hasBotCombatLineOfSight(bot, player)) {
                 if (distance < bestVisibleDistance) {
