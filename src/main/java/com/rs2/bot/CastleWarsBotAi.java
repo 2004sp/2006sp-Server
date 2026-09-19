@@ -152,7 +152,7 @@ public final class CastleWarsBotAi {
 
     private static void processExitBarrier(BotPlayer bot, BotState state) {
         if (state.team == CastleWarsManager.Team.SARADOMIN) {
-            Position approach = new Position(2426, 3081, 1);
+            Position approach = new Position(2426, 3079, 1);
             if (!near(bot, approach, 1)) {
                 walk(bot, state, approach);
                 return;
