@@ -123,6 +123,9 @@ public final class CastleWarsManager {
         if (CastleWarsEngineeringManager.handleSupplyTable(player, objectId)) {
             return true;
         }
+        if (CastleWarsEngineeringManager.operateCatapult(player, objectId)) {
+            return true;
+        }
         if (objectId == SARADOMIN_ENERGY_BARRIER_ID) {
             passEnergyBarrier(player, Team.SARADOMIN, objectX, objectY);
             return true;
