@@ -5,10 +5,12 @@ import com.rs2.model.EntityTargetMovement;
 import com.rs2.model.GameplayHelper;
 import com.rs2.model.combat.CombatAction;
 import com.rs2.model.dialogue.DialogueManager;
+import com.rs2.model.gameplay.castlewars.CastleWarsManager;
 import com.rs2.model.npc.Npc;
 import com.rs2.model.player.BankManager;
 import com.rs2.model.player.GrandExchangeManager;
 import com.rs2.model.player.Player;
+import com.rs2.model.shop.ShopManager;
 import com.rs2.model.skill.runecrafting.RunecraftingHandler;
 import com.rs2.model.task.TickTask;
 import com.rs2.util.GameUtil;
@@ -57,6 +59,13 @@ extends TickTask {
         }
         EntityTargetMovement.clearMovementTarget(this.player);
         this.player.getUpdateState().setFaceEntity(this.npc.getEncodedIndex());
+        if (this.npc.getNpcId() == CastleWarsManager.LANTHUS_NPC_ID) {
+            this.npc.getUpdateState().setFaceEntity(this.player.getEncodedIndex());
+            this.player.setInteractionTarget(this.npc);
+            ShopManager.openCastleWarsRewardShop(this.player);
+            this.stop();
+            return;
+        }
         if (CombatAction.handlePickpocketAttempt(this.player, this.npc)) {
             this.stop();
             return;
