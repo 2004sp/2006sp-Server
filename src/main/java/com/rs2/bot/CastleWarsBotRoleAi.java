@@ -46,6 +46,14 @@ public final class CastleWarsBotRoleAi {
         if (state.role == Role.ATTACKER) {
             return false;
         }
+        if (state.role == Role.UNDERGROUND
+                && CastleWarsManager.isCarryingEnemyFlag(bot)) {
+            // Once an underground raider gets the flag, hand it to the normal
+            // flag-runner AI so it takes the surface side-door route home rather
+            // than trying to return through tunnels or wall stairs.
+            states.remove(bot);
+            return false;
+        }
 
         if (CastleWarsManager.isInTeamSpawnArea(bot, team)
                 && !CastleWarsManager.isCarryingEnemyFlag(bot)
@@ -1186,11 +1194,6 @@ public final class CastleWarsBotRoleAi {
         if (bot.getPosition().getPlane() != target.getPlane() || bot.isMovementLocked()) {
             return;
         }
-        if (CastleWarsEngineeringManager.tryHandleNearbyDoorForBot(bot)) {
-            state.repathDelay = 0;
-            return;
-        }
-
         Position navigationTarget = target;
         Position steppingWaypoint = CastleWarsManager.getSteppingStoneShortcutWaypoint(
                 bot.getPosition(), target);
