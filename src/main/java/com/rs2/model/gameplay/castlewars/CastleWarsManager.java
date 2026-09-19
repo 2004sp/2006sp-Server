@@ -83,6 +83,57 @@ public final class CastleWarsManager {
         World.scheduleTickTask(new CastleWarsTickTask());
     }
 
+    public static boolean relocatePlayerOnLogin(Player player) {
+        if (player == null || !isCastleWarsMinigamePosition(player.getPosition())) {
+            return false;
+        }
+
+        // Purge any stale session entry left by the character that logged out.
+        cleanupWaitingPlayers();
+        cleanupGamePlayers();
+        waitingPlayers.remove(player);
+        gamePlayers.remove(player);
+
+        returnCarriedFlagToBase(player);
+        clearFlagWeapon(player);
+        removeTeamColours(player);
+        removeBandages(player);
+        removeTemporaryCastleWarsInventoryItems(player);
+        CastleWarsEngineeringManager.cleanupPlayerSupplies(player);
+        player.resetCombatState();
+
+        // This runs before World.registerPlayer(), so update the saved position
+        // directly instead of using moveTo/applyTeleportPosition (which assume a
+        // registered player index).
+        Position position = player.getPosition();
+        position.set(CASTLE_WARS_LOBBY);
+        position.setPreviousX(CASTLE_WARS_LOBBY.getX());
+        position.setPreviousY(CASTLE_WARS_LOBBY.getY() + 1);
+        return true;
+    }
+
+    public static boolean isCastleWarsMinigamePosition(Position position) {
+        if (position == null) {
+            return false;
+        }
+
+        int x = position.getX();
+        int y = position.getY();
+        int plane = position.getPlane();
+
+        // Surface arena, both castles, spawn rooms and their upper floors.
+        boolean surfaceArena = plane >= 0 && plane <= 3
+                && x >= 2368 && x <= 2431
+                && y >= 3072 && y <= 3135;
+
+        // Waiting caves plus the complete underground tunnel network.
+        boolean underground = plane == 0
+                && x >= 2360 && x <= 2438
+                && y >= 9468 && y <= 9540;
+
+        return surfaceArena || underground;
+    }
+
     public static void process() {
         long now = System.currentTimeMillis();
         long second = now / 1000L;
@@ -904,6 +955,23 @@ public final class CastleWarsManager {
             return;
         }
         player.getPacketSender().sendPlayerOption(enabled ? "Attack" : "null", 1, false);
+    }
+
+    private static void removeTemporaryCastleWarsInventoryItems(Player player) {
+        int[] temporaryItemIds = new int[]{
+                SARADOMIN_HOOD_ID,
+                SARADOMIN_CLOAK_ID,
+                ZAMORAK_HOOD_ID,
+                ZAMORAK_CLOAK_ID,
+                SARADOMIN_FLAG_ID,
+                ZAMORAK_FLAG_ID
+        };
+        for (int itemId : temporaryItemIds) {
+            int amount = player.getInventoryManager().getItemAmount(itemId);
+            if (amount > 0) {
+                player.getInventoryManager().removeItem(new ItemStack(itemId, amount));
+            }
+        }
     }
 
     private static void removeBandages(Player player) {
