@@ -3,6 +3,10 @@ package com.rs2.model.gameplay.castlewars;
 import com.rs2.ServerSettings;
 import com.rs2.model.Position;
 import com.rs2.model.World;
+import com.rs2.model.combat.AttackStyleDefinition;
+import com.rs2.model.combat.CombatManager;
+import com.rs2.model.combat.CombatType;
+import com.rs2.model.combat.attack.WeaponCombatAttack;
 import com.rs2.model.combat.hit.HitType;
 import com.rs2.model.item.ItemStack;
 import com.rs2.model.objects.DynamicObject;
@@ -14,6 +18,7 @@ import com.rs2.util.path.WalkingCollisionMap;
 
 import java.util.ArrayList;
 import java.util.HashMap;
+import java.util.IdentityHashMap;
 import java.util.Iterator;
 import java.util.Map;
 
@@ -34,8 +39,25 @@ public final class CastleWarsEngineeringManager {
     public static final int ZAMORAK_DAMAGED_CATAPULT_ID = 4385;
     public static final int SARADOMIN_DAMAGED_CATAPULT_ID = 4386;
 
+    public static final int SARADOMIN_MAIN_DOOR_LEFT_CLOSED_ID = 4423;
+    public static final int SARADOMIN_MAIN_DOOR_RIGHT_CLOSED_ID = 4424;
+    public static final int SARADOMIN_MAIN_DOOR_LEFT_OPEN_ID = 4425;
+    public static final int SARADOMIN_MAIN_DOOR_RIGHT_OPEN_ID = 4426;
+    public static final int ZAMORAK_MAIN_DOOR_LEFT_CLOSED_ID = 4427;
+    public static final int ZAMORAK_MAIN_DOOR_RIGHT_CLOSED_ID = 4428;
+    public static final int ZAMORAK_MAIN_DOOR_LEFT_OPEN_ID = 4429;
+    public static final int ZAMORAK_MAIN_DOOR_RIGHT_OPEN_ID = 4430;
+    public static final int SARADOMIN_MAIN_DOOR_RIGHT_BROKEN_ID = 4431;
+    public static final int SARADOMIN_MAIN_DOOR_LEFT_BROKEN_ID = 4432;
+    public static final int ZAMORAK_MAIN_DOOR_LEFT_BROKEN_ID = 4433;
+    public static final int ZAMORAK_MAIN_DOOR_RIGHT_BROKEN_ID = 4434;
+
     public static final Position SARADOMIN_CATAPULT = new Position(2413, 3088, 0);
     public static final Position ZAMORAK_CATAPULT = new Position(2384, 3117, 0);
+
+    private static final int MAIN_DOOR_MAX_HITPOINTS = 100;
+    private static final int MAIN_DOOR_PLANE = 0;
+    private static final long GAME_TICK_MILLIS = 600L;
 
     private static final Position[] ROCKSLIDE_POSITIONS = new Position[]{
         new Position(2391, 9501, 0),
@@ -50,6 +72,24 @@ public final class CastleWarsEngineeringManager {
     private static boolean zamorakCatapultOperational = true;
     private static long saradominCatapultReadyAt;
     private static long zamorakCatapultReadyAt;
+    private static final Map<Player, Long> mainDoorAttackReadyAt =
+            new IdentityHashMap<Player, Long>();
+    private static final MainDoorState saradominMainDoor = new MainDoorState(
+            CastleWarsManager.Team.SARADOMIN,
+            new MainDoorLeaf(SARADOMIN_MAIN_DOOR_LEFT_CLOSED_ID,
+                    SARADOMIN_MAIN_DOOR_LEFT_OPEN_ID, SARADOMIN_MAIN_DOOR_LEFT_BROKEN_ID,
+                    2426, 3088, 3, 2426, 3087, 0),
+            new MainDoorLeaf(SARADOMIN_MAIN_DOOR_RIGHT_CLOSED_ID,
+                    SARADOMIN_MAIN_DOOR_RIGHT_OPEN_ID, SARADOMIN_MAIN_DOOR_RIGHT_BROKEN_ID,
+                    2427, 3088, 3, 2427, 3087, 2));
+    private static final MainDoorState zamorakMainDoor = new MainDoorState(
+            CastleWarsManager.Team.ZAMORAK,
+            new MainDoorLeaf(ZAMORAK_MAIN_DOOR_LEFT_CLOSED_ID,
+                    ZAMORAK_MAIN_DOOR_LEFT_OPEN_ID, ZAMORAK_MAIN_DOOR_LEFT_BROKEN_ID,
+                    2373, 3119, 1, 2373, 3120, 2),
+            new MainDoorLeaf(ZAMORAK_MAIN_DOOR_RIGHT_CLOSED_ID,
+                    ZAMORAK_MAIN_DOOR_RIGHT_OPEN_ID, ZAMORAK_MAIN_DOOR_RIGHT_BROKEN_ID,
+                    2372, 3119, 1, 2372, 3120, 0));
 
     private CastleWarsEngineeringManager() {
     }
@@ -61,8 +101,10 @@ public final class CastleWarsEngineeringManager {
         }
         setCatapultOperational(CastleWarsManager.Team.SARADOMIN, true);
         setCatapultOperational(CastleWarsManager.Team.ZAMORAK, true);
+        resetMainDoors();
         saradominCatapultReadyAt = 0L;
         zamorakCatapultReadyAt = 0L;
+        mainDoorAttackReadyAt.clear();
     }
 
     public static void cleanupAfterGame() {
@@ -72,6 +114,8 @@ public final class CastleWarsEngineeringManager {
         }
         setCatapultOperational(CastleWarsManager.Team.SARADOMIN, true);
         setCatapultOperational(CastleWarsManager.Team.ZAMORAK, true);
+        resetMainDoors();
+        mainDoorAttackReadyAt.clear();
     }
 
     public static boolean handleSupplyTable(Player player, int objectId) {
@@ -80,7 +124,10 @@ public final class CastleWarsEngineeringManager {
         }
         int itemId;
         String message;
-        if (objectId == 4460) {
+        if (objectId == 4459) {
+            itemId = TOOLKIT_ID;
+            message = "You take a toolkit.";
+        } else if (objectId == 4460) {
             itemId = ROCK_ITEM_ID;
             message = "You take a rock for the catapult.";
         } else if (objectId == 4461) {
@@ -132,6 +179,10 @@ public final class CastleWarsEngineeringManager {
             return rockIndex >= 0 && useRockslideTool(player, rockIndex, false);
         }
 
+        if (itemId == TOOLKIT_ID && isBrokenMainDoorObject(objectId)) {
+            return repairMainDoor(player, objectId, objectX, objectY);
+        }
+
         if (itemId == TOOLKIT_ID
                 && (objectId == SARADOMIN_DAMAGED_CATAPULT_ID
                 || objectId == ZAMORAK_DAMAGED_CATAPULT_ID)) {
@@ -173,6 +224,187 @@ public final class CastleWarsEngineeringManager {
             player.getPacketSender().sendGameMessage("You fire the catapult!");
         }
         return true;
+    }
+
+    public static boolean handleMainDoor(Player player, int objectId, int objectX, int objectY) {
+        MainDoorState door = findMainDoor(objectId, objectX, objectY);
+        if (door == null) {
+            return false;
+        }
+        CastleWarsManager.Team team = CastleWarsManager.getGameTeam(player);
+        if (team == null) {
+            player.getPacketSender().sendGameMessage("The main doors can only be used during a Castle Wars game.");
+            return true;
+        }
+        if (team != door.team) {
+            player.getPacketSender().sendGameMessage("You can't open the enemy team's main doors.");
+            return true;
+        }
+        if (door.mode == MainDoorMode.BROKEN) {
+            player.getPacketSender().sendGameMessage("The main doors are broken. Use a toolkit to repair them.");
+            return true;
+        }
+
+        setMainDoorMode(door, door.mode == MainDoorMode.CLOSED
+                ? MainDoorMode.OPEN : MainDoorMode.CLOSED);
+        player.getPacketSender().sendSoundEffect(318, 1, 0);
+        return true;
+    }
+
+    public static boolean attackMainDoor(Player player, int objectId, int objectX, int objectY) {
+        MainDoorState door = findMainDoor(objectId, objectX, objectY);
+        if (door == null || door.mode != MainDoorMode.CLOSED
+                || !isClosedMainDoorObject(objectId)) {
+            return false;
+        }
+
+        CastleWarsManager.Team team = CastleWarsManager.getGameTeam(player);
+        if (team == null) {
+            return false;
+        }
+        if (team == door.team) {
+            player.getPacketSender().sendGameMessage("You can't attack your own team's main doors.");
+            return true;
+        }
+
+        long now = System.currentTimeMillis();
+        Long readyAt = mainDoorAttackReadyAt.get(player);
+        if (readyAt != null && now < readyAt.longValue()) {
+            return true;
+        }
+
+        int fightMode = player.getFightMode();
+        AttackStyleDefinition[] styles =
+                player.getWeaponProfile().getInterfaceDefinition().getAttackStyles();
+        if (fightMode < 0 || fightMode >= styles.length
+                || fightMode >= player.getWeaponProfile().getAttackAnimations().length) {
+            return true;
+        }
+        AttackStyleDefinition attackStyle = styles[fightMode];
+        if (attackStyle.getCombatType() != CombatType.MELEE) {
+            player.getPacketSender().sendGameMessage("You need to use a melee attack to damage the main doors.");
+            return true;
+        }
+
+        player.getUpdateState().setAnimation(
+                player.getWeaponProfile().getAttackAnimations()[fightMode]);
+        mainDoorAttackReadyAt.put(player, Long.valueOf(now
+                + Math.max(1, player.getWeaponProfile().getAttackDelay()) * GAME_TICK_MILLIS));
+
+        WeaponCombatAttack attack =
+                new WeaponCombatAttack(player, player, player.getWeaponProfile());
+        int maxHit = Math.max(1,
+                (int) CombatManager.calculateMeleeMaxHit(player, attack));
+        int damage = GameUtil.randomInt(maxHit + 1);
+        if (damage <= 0) {
+            player.getPacketSender().sendGameMessage("Your attack glances off the main doors.");
+            return true;
+        }
+
+        door.hitpoints = Math.max(0, door.hitpoints - damage);
+        if (door.hitpoints == 0) {
+            setMainDoorMode(door, MainDoorMode.BROKEN);
+            player.getPacketSender().sendGameMessage("The enemy team's main doors collapse!");
+        } else {
+            player.getPacketSender().sendGameMessage("You damage the enemy team's main doors.");
+        }
+        return true;
+    }
+
+    public static int getMainDoorHitpoints(CastleWarsManager.Team team) {
+        return getMainDoorState(team).hitpoints;
+    }
+
+    public static boolean isMainDoorBroken(CastleWarsManager.Team team) {
+        return getMainDoorState(team).mode == MainDoorMode.BROKEN;
+    }
+
+    private static boolean repairMainDoor(Player player, int objectId, int objectX, int objectY) {
+        MainDoorState door = findMainDoor(objectId, objectX, objectY);
+        if (door == null || door.mode != MainDoorMode.BROKEN) {
+            return false;
+        }
+        CastleWarsManager.Team team = CastleWarsManager.getGameTeam(player);
+        if (team != door.team) {
+            player.getPacketSender().sendGameMessage("You can only repair your own team's main doors.");
+            return true;
+        }
+        if (player.getInventoryManager().getItemAmount(TOOLKIT_ID) <= 0) {
+            return false;
+        }
+
+        player.getUpdateState().setAnimation(898);
+        door.hitpoints = MAIN_DOOR_MAX_HITPOINTS;
+        setMainDoorMode(door, MainDoorMode.CLOSED);
+        player.getPacketSender().sendGameMessage("You repair your team's main doors.");
+        return true;
+    }
+
+    private static void resetMainDoors() {
+        saradominMainDoor.hitpoints = MAIN_DOOR_MAX_HITPOINTS;
+        zamorakMainDoor.hitpoints = MAIN_DOOR_MAX_HITPOINTS;
+        setMainDoorMode(saradominMainDoor, MainDoorMode.CLOSED);
+        setMainDoorMode(zamorakMainDoor, MainDoorMode.CLOSED);
+    }
+
+    private static MainDoorState getMainDoorState(CastleWarsManager.Team team) {
+        return team == CastleWarsManager.Team.SARADOMIN
+                ? saradominMainDoor : zamorakMainDoor;
+    }
+
+    private static MainDoorState findMainDoor(int objectId, int objectX, int objectY) {
+        if (saradominMainDoor.matches(objectId, objectX, objectY)) {
+            return saradominMainDoor;
+        }
+        if (zamorakMainDoor.matches(objectId, objectX, objectY)) {
+            return zamorakMainDoor;
+        }
+        return null;
+    }
+
+    private static boolean isClosedMainDoorObject(int objectId) {
+        return objectId == SARADOMIN_MAIN_DOOR_LEFT_CLOSED_ID
+                || objectId == SARADOMIN_MAIN_DOOR_RIGHT_CLOSED_ID
+                || objectId == ZAMORAK_MAIN_DOOR_LEFT_CLOSED_ID
+                || objectId == ZAMORAK_MAIN_DOOR_RIGHT_CLOSED_ID;
+    }
+
+    private static boolean isBrokenMainDoorObject(int objectId) {
+        return objectId == SARADOMIN_MAIN_DOOR_LEFT_BROKEN_ID
+                || objectId == SARADOMIN_MAIN_DOOR_RIGHT_BROKEN_ID
+                || objectId == ZAMORAK_MAIN_DOOR_LEFT_BROKEN_ID
+                || objectId == ZAMORAK_MAIN_DOOR_RIGHT_BROKEN_ID;
+    }
+
+    private static void setMainDoorMode(MainDoorState door, MainDoorMode mode) {
+        for (MainDoorLeaf leaf : door.leaves) {
+            removeMainDoorDynamicObject(leaf.closedX, leaf.closedY);
+            removeMainDoorDynamicObject(leaf.openX, leaf.openY);
+        }
+
+        for (MainDoorLeaf leaf : door.leaves) {
+            if (mode == MainDoorMode.CLOSED) {
+                new DynamicObject(leaf.closedId, leaf.closedX, leaf.closedY, MAIN_DOOR_PLANE,
+                        leaf.closedOrientation, 0, leaf.closedId, 999999999);
+                new DynamicObject(ServerSettings.placeholderObjectId,
+                        leaf.openX, leaf.openY, MAIN_DOOR_PLANE,
+                        leaf.openOrientation, 0, ServerSettings.placeholderObjectId, 999999999);
+            } else {
+                new DynamicObject(ServerSettings.placeholderObjectId,
+                        leaf.closedX, leaf.closedY, MAIN_DOOR_PLANE,
+                        leaf.closedOrientation, 0, leaf.closedId, 999999999);
+                int displayId = mode == MainDoorMode.OPEN ? leaf.openId : leaf.brokenId;
+                new DynamicObject(displayId, leaf.openX, leaf.openY, MAIN_DOOR_PLANE,
+                        leaf.openOrientation, 0, ServerSettings.placeholderObjectId, 999999999);
+            }
+        }
+        door.mode = mode;
+    }
+
+    private static void removeMainDoorDynamicObject(int x, int y) {
+        if (ObjectManager.findDynamicObjectAt(x, y, MAIN_DOOR_PLANE) != null) {
+            ObjectManager.getInstance().removeDynamicObjectAt(x, y, MAIN_DOOR_PLANE, 0);
+        }
     }
 
     public static int giveSupply(Player player, int itemId, int amount) {
@@ -610,6 +842,68 @@ public final class CastleWarsEngineeringManager {
 
     private static String key(Position position) {
         return position.getX() + ":" + position.getY() + ":" + position.getPlane();
+    }
+
+    private enum MainDoorMode {
+        CLOSED,
+        OPEN,
+        BROKEN
+    }
+
+    private static final class MainDoorLeaf {
+        private final int closedId;
+        private final int openId;
+        private final int brokenId;
+        private final int closedX;
+        private final int closedY;
+        private final int closedOrientation;
+        private final int openX;
+        private final int openY;
+        private final int openOrientation;
+
+        private MainDoorLeaf(int closedId, int openId, int brokenId,
+                             int closedX, int closedY, int closedOrientation,
+                             int openX, int openY, int openOrientation) {
+            this.closedId = closedId;
+            this.openId = openId;
+            this.brokenId = brokenId;
+            this.closedX = closedX;
+            this.closedY = closedY;
+            this.closedOrientation = closedOrientation;
+            this.openX = openX;
+            this.openY = openY;
+            this.openOrientation = openOrientation;
+        }
+
+        private boolean matches(int objectId, int x, int y) {
+            if (objectId == closedId) {
+                return x == closedX && y == closedY;
+            }
+            return (objectId == openId || objectId == brokenId)
+                    && x == openX && y == openY;
+        }
+    }
+
+    private static final class MainDoorState {
+        private final CastleWarsManager.Team team;
+        private final MainDoorLeaf[] leaves;
+        private int hitpoints = MAIN_DOOR_MAX_HITPOINTS;
+        private MainDoorMode mode = MainDoorMode.CLOSED;
+
+        private MainDoorState(CastleWarsManager.Team team,
+                              MainDoorLeaf first, MainDoorLeaf second) {
+            this.team = team;
+            this.leaves = new MainDoorLeaf[]{first, second};
+        }
+
+        private boolean matches(int objectId, int x, int y) {
+            for (MainDoorLeaf leaf : leaves) {
+                if (leaf.matches(objectId, x, y)) {
+                    return true;
+                }
+            }
+            return false;
+        }
     }
 
     private static final class BarricadeState {
