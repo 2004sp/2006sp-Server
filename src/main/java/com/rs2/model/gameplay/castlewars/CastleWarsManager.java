@@ -196,6 +196,7 @@ public final class CastleWarsManager {
             } else {
                 removeTeamColours(player);
                 removeBandages(player);
+                CastleWarsEngineeringManager.cleanupPlayerSupplies(player);
                 clearCastleWarsInterface(player);
                 player.resetCombatState();
                 moveToLobby(player);
