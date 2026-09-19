@@ -52,22 +52,32 @@ public final class CastleWarsBotAi {
         }
 
         boolean prioritizeTraversal = isTraversalPhase(state.phase);
-        if (prioritizeTraversal && bot.getCombatTarget() != null) {
-            CombatManager.stopCombat(bot);
+        if (prioritizeTraversal) {
+            state.sightChaseTarget = null;
+            state.sightChaseTicks = 0;
+            if (bot.getCombatTarget() != null) {
+                CombatManager.stopCombat(bot);
+            }
         }
 
         if (CastleWarsManager.isCarryingEnemyFlag(bot)) {
+            state.sightChaseTarget = null;
+            state.sightChaseTicks = 0;
             Entity target = bot.getCombatTarget();
             if (target != null && !target.isDead()) {
                 CombatManager.stopCombat(bot);
             }
         } else if (!CastleWarsManager.isInTeamSpawnArea(bot, team)
                 && !prioritizeTraversal) {
-            if (hasActiveOpponent(bot)) {
+            if (hasActiveOpponent(bot, state)) {
                 return;
             }
-            // Melee flag runners only stop for opponents immediately blocking
-            // their route instead of being pulled away from the flag.
+            if (processSightChase(bot, state)) {
+                return;
+            }
+            // Flag runners only stop for opponents immediately blocking
+            // their route, but if that opponent ducks behind castle geometry
+            // they use the stairs instead of tracking through the wall.
             if (tryEngageNearbyOpponent(bot, state, 2)) {
                 return;
             }
@@ -530,7 +540,7 @@ public final class CastleWarsBotAi {
         }
     }
 
-    private static boolean hasActiveOpponent(BotPlayer bot) {
+    private static boolean hasActiveOpponent(BotPlayer bot, BotState state) {
         Entity target = bot.getCombatTarget();
         if (target == null || target.isDead() || !target.isPlayer()) {
             return false;
@@ -540,54 +550,122 @@ public final class CastleWarsBotAi {
             CombatManager.stopCombat(bot);
             return false;
         }
-        if (targetPlayer.getPosition().getPlane() != bot.getPosition().getPlane()) {
-            CombatManager.stopCombat(bot);
-            return false;
-        }
-        if (CastleWarsManager.getSteppingStoneShortcutWaypoint(
-                bot.getPosition(), targetPlayer.getPosition()) != null) {
-            CombatManager.stopCombat(bot);
-            return false;
-        }
         int maxDistance = bot.botPrimaryCombatStyle == 0 ? 2 : 12;
         if (GameUtil.getDistance(bot.getPosition(), targetPlayer.getPosition()) > maxDistance) {
             CombatManager.stopCombat(bot);
             return false;
         }
+        if (!CastleWarsManager.hasBotCombatLineOfSight(bot, targetPlayer)) {
+            state.sightChaseTarget = targetPlayer;
+            state.sightChaseTicks = 30;
+            CombatManager.stopCombat(bot);
+            return false;
+        }
+        state.sightChaseTarget = null;
+        state.sightChaseTicks = 0;
         return true;
     }
 
+    private static boolean processSightChase(BotPlayer bot, BotState state) {
+        Player target = state.sightChaseTarget;
+        if (target == null) {
+            return false;
+        }
+        if (target.isDead() || !target.isRegistered()
+                || !CastleWarsManager.areOpponents(bot, target)
+                || GameUtil.getDistance(bot.getPosition(), target.getPosition()) > 16
+                || state.sightChaseTicks-- <= 0) {
+            state.sightChaseTarget = null;
+            state.sightChaseTicks = 0;
+            return false;
+        }
+
+        if (CastleWarsManager.hasBotCombatLineOfSight(bot, target)) {
+            state.sightChaseTarget = null;
+            state.sightChaseTicks = 0;
+            bot.getMovementQueue().setRunning(true);
+            CombatManager.startCombat(bot, target);
+            return true;
+        }
+
+        if (bot.getCombatTarget() != null) {
+            CombatManager.stopCombat(bot);
+        }
+        if (navigateSightChase(bot, state, target)) {
+            state.repathDelay = 0;
+            return true;
+        }
+        walk(bot, state, target.getPosition());
+        return true;
+    }
+
+    private static boolean navigateSightChase(BotPlayer bot, BotState state, Player target) {
+        Position botPosition = bot.getPosition();
+        Position targetPosition = target.getPosition();
+        CastleWarsManager.Team botCastle =
+                CastleWarsManager.getCastleTeamAtPosition(botPosition);
+        CastleWarsManager.Team targetCastle =
+                CastleWarsManager.getCastleTeamAtPosition(targetPosition);
+        int botPlane = botPosition.getPlane();
+        int targetPlane = targetPosition.getPlane();
+
+        if (botPlane > 0 && botCastle != null
+                && (botPlane > targetPlane || botCastle != targetCastle)) {
+            return CastleWarsManager.routeBotOneCastleLevel(bot, botCastle, false);
+        }
+        if (botPlane == 0 && botCastle != null && botCastle != targetCastle) {
+            return CastleWarsManager.routeBotThroughGroundCastle(bot, botCastle, false);
+        }
+        if (botPlane == 0 && botCastle == null && targetCastle != null) {
+            return CastleWarsManager.routeBotThroughGroundCastle(bot, targetCastle, true);
+        }
+        if (botPlane < targetPlane && botCastle != null && botCastle == targetCastle) {
+            return CastleWarsManager.routeBotOneCastleLevel(bot, botCastle, true);
+        }
+        if (botPlane > targetPlane && botCastle != null) {
+            return CastleWarsManager.routeBotOneCastleLevel(bot, botCastle, false);
+        }
+        return false;
+    }
+
     private static boolean tryEngageNearbyOpponent(BotPlayer bot, BotState state, int radius) {
-        Player best = null;
-        int bestDistance = Integer.MAX_VALUE;
+        Player bestVisible = null;
+        Player bestHidden = null;
+        int bestVisibleDistance = Integer.MAX_VALUE;
+        int bestHiddenDistance = Integer.MAX_VALUE;
         for (Player player : World.getPlayers()) {
-            if (player == null || player == bot || player.isDead() || !CastleWarsManager.areOpponents(bot, player)) {
-                continue;
-            }
-            if (player.getPosition().getPlane() != bot.getPosition().getPlane()) {
+            if (player == null || player == bot || player.isDead()
+                    || !CastleWarsManager.areOpponents(bot, player)) {
                 continue;
             }
             int distance = GameUtil.getDistance(bot.getPosition(), player.getPosition());
-            if (distance <= radius && distance < bestDistance) {
-                best = player;
-                bestDistance = distance;
+            if (distance > radius) {
+                continue;
+            }
+            if (CastleWarsManager.hasBotCombatLineOfSight(bot, player)) {
+                if (distance < bestVisibleDistance) {
+                    bestVisible = player;
+                    bestVisibleDistance = distance;
+                }
+            } else if (distance < bestHiddenDistance) {
+                bestHidden = player;
+                bestHiddenDistance = distance;
             }
         }
-        if (best == null) {
-            return false;
-        }
-        if (CastleWarsManager.getSteppingStoneShortcutWaypoint(
-                bot.getPosition(), best.getPosition()) != null) {
-            CombatManager.stopCombat(bot);
-            walk(bot, state, best.getPosition());
+        if (bestVisible != null) {
+            bot.getMovementQueue().setRunning(true);
+            CombatManager.startCombat(bot, bestVisible);
+            if (GameUtil.randomInt(12) == 0) {
+                CastleWarsBotChat.sayCombat(bot);
+            }
             return true;
         }
-        bot.getMovementQueue().setRunning(true);
-        CombatManager.startCombat(bot, best);
-        if (GameUtil.randomInt(12) == 0) {
-            CastleWarsBotChat.sayCombat(bot);
+        if (bestHidden != null) {
+            state.sightChaseTarget = bestHidden;
+            state.sightChaseTicks = 30;
+            return processSightChase(bot, state);
         }
-        return true;
+        return false;
     }
 
     private static boolean isTraversalPhase(Phase phase) {
@@ -744,6 +822,8 @@ public final class CastleWarsBotAi {
         private int delayTicks;
         private int repathDelay;
         private int roamTicks;
+        private Player sightChaseTarget;
+        private int sightChaseTicks;
 
         private BotState(CastleWarsManager.Team team) {
             this.team = team;
@@ -760,6 +840,8 @@ public final class CastleWarsBotAi {
             this.delayTicks = GameUtil.randomInt(7);
             this.repathDelay = 0;
             this.roamTicks = 20 + GameUtil.randomInt(40);
+            this.sightChaseTarget = null;
+            this.sightChaseTicks = 0;
         }
     }
 }

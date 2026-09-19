@@ -12,6 +12,7 @@ import com.rs2.model.npc.Npc;
 import com.rs2.model.player.Player;
 import com.rs2.model.task.TickTask;
 import com.rs2.util.GameUtil;
+import com.rs2.util.path.PathFinder;
 import com.rs2.util.path.WalkingCollisionMap;
 
 import java.io.DataInputStream;
@@ -1286,6 +1287,52 @@ public final class CastleWarsManager {
         return -1;
     }
 
+    public static Team getCastleTeamAtPosition(Position position) {
+        if (position == null || position.getPlane() < 0 || position.getPlane() > 3) {
+            return null;
+        }
+        int x = position.getX();
+        int y = position.getY();
+        if ((x >= 2415 && x <= 2431 && y >= 3072 && y <= 3083)
+                || (x >= 2412 && x <= 2431 && y >= 3084 && y <= 3089)) {
+            return Team.SARADOMIN;
+        }
+        if ((x >= 2368 && x <= 2384 && y >= 3124 && y <= 3135)
+                || (x >= 2368 && x <= 2387 && y >= 3117 && y <= 3123)) {
+            return Team.ZAMORAK;
+        }
+        return null;
+    }
+
+    private static boolean isCastleBattlementFiringPosition(Position position) {
+        Team team = getCastleTeamAtPosition(position);
+        if (team == null || position.getPlane() != 0) {
+            return false;
+        }
+        int x = position.getX();
+        int y = position.getY();
+        return getCastleTeamAtPosition(new Position(x - 1, y, 0)) != team
+                || getCastleTeamAtPosition(new Position(x + 1, y, 0)) != team
+                || getCastleTeamAtPosition(new Position(x, y - 1, 0)) != team
+                || getCastleTeamAtPosition(new Position(x, y + 1, 0)) != team;
+    }
+
+    private static boolean isFacingOutFromBattlement(Position wallPosition,
+                                                      Position battlefieldPosition) {
+        Team team = getCastleTeamAtPosition(wallPosition);
+        if (team == null) {
+            return false;
+        }
+        int x = wallPosition.getX();
+        int y = wallPosition.getY();
+        int targetX = battlefieldPosition.getX();
+        int targetY = battlefieldPosition.getY();
+        return getCastleTeamAtPosition(new Position(x - 1, y, 0)) != team && targetX < x
+                || getCastleTeamAtPosition(new Position(x + 1, y, 0)) != team && targetX > x
+                || getCastleTeamAtPosition(new Position(x, y - 1, 0)) != team && targetY < y
+                || getCastleTeamAtPosition(new Position(x, y + 1, 0)) != team && targetY > y;
+    }
+
     public static boolean isCastleWallCrossLevelPair(Player first, Player second) {
         if (first == null || second == null
                 || !isInGame(first) || !isInGame(second)
@@ -1295,25 +1342,143 @@ public final class CastleWarsManager {
 
         Position firstPosition = first.getPosition();
         Position secondPosition = second.getPosition();
-
-        // Castle Wars battlements and the battlefield are both rendered on plane 0
-        // in this map. Treat one player inside the battlement footprint and one
-        // outside it as a wall/battlefield pair. Ranged and magic combat use this
-        // pairing to ignore the wall's ground-level projectile clipping, while
-        // melee still uses the normal path/reach checks.
         if (firstPosition.getPlane() != 0 || secondPosition.getPlane() != 0) {
             return false;
         }
 
-        boolean firstOnWall = isCastleBattlementPosition(firstPosition);
-        boolean secondOnWall = isCastleBattlementPosition(secondPosition);
+        boolean firstOnWall = isCastleBattlementFiringPosition(firstPosition);
+        boolean secondOnWall = isCastleBattlementFiringPosition(secondPosition);
         if (firstOnWall == secondOnWall) {
             return false;
         }
 
         Position wallPosition = firstOnWall ? firstPosition : secondPosition;
         Position battlefieldPosition = firstOnWall ? secondPosition : firstPosition;
+        Team wallTeam = getCastleTeamAtPosition(wallPosition);
+        if (getCastleTeamAtPosition(battlefieldPosition) == wallTeam
+                || !isFacingOutFromBattlement(wallPosition, battlefieldPosition)) {
+            return false;
+        }
         return GameUtil.getDistance(wallPosition, battlefieldPosition) <= 15;
+    }
+
+    public static boolean hasBotCombatLineOfSight(Player attacker, Player target) {
+        if (attacker == null || target == null
+                || attacker.getPosition().getPlane() != target.getPosition().getPlane()) {
+            return false;
+        }
+        if (attacker.botEnabled && attacker.botPrimaryCombatStyle != 0
+                && isCastleWallCrossLevelPair(attacker, target)) {
+            return true;
+        }
+        return GameUtil.hasClearPath(attacker.getPosition(), target.getPosition(), false);
+    }
+
+    public static boolean routeBotOneCastleLevel(Player player, Team castleTeam, boolean up) {
+        if (player == null || castleTeam == null || !player.isBot) {
+            return false;
+        }
+
+        int plane = player.getPosition().getPlane();
+        Position approach = null;
+        int objectId = -1;
+        int objectX = 0;
+        int objectY = 0;
+
+        if (castleTeam == Team.SARADOMIN) {
+            if (up && plane == 0) {
+                approach = new Position(2419, 3077, 0);
+                objectId = 4417; objectX = 2419; objectY = 3078;
+            } else if (up && plane == 1) {
+                approach = new Position(2427, 3081, 1);
+                objectId = 4417; objectX = 2428; objectY = 3081;
+            } else if (up && plane == 2) {
+                approach = new Position(2425, 3077, 2);
+                objectId = 4417; objectX = 2425; objectY = 3074;
+            } else if (!up && plane == 3) {
+                approach = new Position(2426, 3074, 3);
+                objectId = 4415; objectX = 2425; objectY = 3074;
+            } else if (!up && plane == 2) {
+                approach = new Position(2430, 3080, 2);
+                objectId = 4415; objectX = 2430; objectY = 3081;
+            } else if (!up && plane == 1) {
+                approach = new Position(2420, 3080, 1);
+                objectId = 4415; objectX = 2419; objectY = 3080;
+            }
+        } else {
+            if (up && plane == 0) {
+                approach = new Position(2380, 3130, 0);
+                objectId = 4418; objectX = 2380; objectY = 3127;
+            } else if (up && plane == 1) {
+                approach = new Position(2372, 3126, 1);
+                objectId = 4418; objectX = 2369; objectY = 3126;
+            } else if (up && plane == 2) {
+                approach = new Position(2374, 3130, 2);
+                objectId = 4418; objectX = 2374; objectY = 3131;
+            } else if (!up && plane == 3) {
+                approach = new Position(2373, 3133, 3);
+                objectId = 4415; objectX = 2374; objectY = 3133;
+            } else if (!up && plane == 2) {
+                approach = new Position(2369, 3127, 2);
+                objectId = 4415; objectX = 2369; objectY = 3126;
+            } else if (!up && plane == 1) {
+                approach = new Position(2379, 3127, 1);
+                objectId = 4415; objectX = 2380; objectY = 3127;
+            }
+        }
+
+        if (approach == null) {
+            return false;
+        }
+        if (!samePosition(player.getPosition(), approach)) {
+            if (GameUtil.isWithinDistance(player.getPosition(), approach, 1)) {
+                player.getMovementQueue().reset();
+                player.moveTo(approach.copy());
+                player.getMovementQueue().clearMovementActions();
+                return true;
+            }
+            player.getMovementQueue().setRunning(true);
+            PathFinder.findPath(player, approach.getX(), approach.getY(), false, 0, 0);
+            player.getMovementQueue().clearMovementActions();
+            return true;
+        }
+
+        handleFirstObjectAction(player, objectId, objectX, objectY);
+        return true;
+    }
+
+    public static boolean routeBotThroughGroundCastle(Player player, Team castleTeam,
+                                                       boolean enteringCastle) {
+        if (player == null || castleTeam == null || !player.isBot
+                || player.getPosition().getPlane() != 0) {
+            return false;
+        }
+        Position approach;
+        if (castleTeam == Team.SARADOMIN) {
+            approach = enteringCastle
+                    ? new Position(2416, 3074, 0)
+                    : new Position(2417, 3077, 0);
+        } else {
+            approach = enteringCastle
+                    ? new Position(2383, 3133, 0)
+                    : new Position(2382, 3130, 0);
+        }
+
+        if (!samePosition(player.getPosition(), approach)) {
+            if (GameUtil.isWithinDistance(player.getPosition(), approach, 1)) {
+                player.getMovementQueue().reset();
+                player.moveTo(approach.copy());
+                player.getMovementQueue().clearMovementActions();
+                return true;
+            }
+            player.getMovementQueue().setRunning(true);
+            PathFinder.findPath(player, approach.getX(), approach.getY(), false, 0, 0);
+            player.getMovementQueue().clearMovementActions();
+            return true;
+        }
+
+        moveBotThroughGroundCastleStairs(player, castleTeam, enteringCastle);
+        return true;
     }
 
     public static boolean canBotTargetAcrossCastleLevels(Player attacker, Player target) {

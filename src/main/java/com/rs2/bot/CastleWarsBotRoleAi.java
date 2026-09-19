@@ -61,18 +61,27 @@ public final class CastleWarsBotRoleAi {
         }
 
         boolean prioritizeTraversal = isTraversalPhase(state.phase);
-        if (prioritizeTraversal && bot.getCombatTarget() != null) {
-            CombatManager.stopCombat(bot);
+        if (prioritizeTraversal) {
+            state.sightChaseTarget = null;
+            state.sightChaseTicks = 0;
+            if (bot.getCombatTarget() != null) {
+                CombatManager.stopCombat(bot);
+            }
         }
 
         if (CastleWarsManager.isCarryingEnemyFlag(bot)) {
+            state.sightChaseTarget = null;
+            state.sightChaseTicks = 0;
             Entity combatTarget = bot.getCombatTarget();
             if (combatTarget != null && !combatTarget.isDead()) {
                 CombatManager.stopCombat(bot);
             }
         } else if (!CastleWarsManager.isInTeamSpawnArea(bot, team)
                 && !prioritizeTraversal) {
-            if (hasActiveOpponent(bot)) {
+            if (hasActiveOpponent(bot, state)) {
+                return true;
+            }
+            if (processSightChase(bot, state)) {
                 return true;
             }
             int engageRadius = state.role == Role.MIDFIGHTER ? 16
@@ -924,7 +933,7 @@ public final class CastleWarsBotRoleAi {
         }
     }
 
-    private static boolean hasActiveOpponent(BotPlayer bot) {
+    private static boolean hasActiveOpponent(BotPlayer bot, RoleState state) {
         Entity target = bot.getCombatTarget();
         if (target == null || target.isDead() || !target.isPlayer()) {
             return false;
@@ -934,51 +943,122 @@ public final class CastleWarsBotRoleAi {
             CombatManager.stopCombat(bot);
             return false;
         }
-        if (targetPlayer.getPosition().getPlane() != bot.getPosition().getPlane()) {
-            CombatManager.stopCombat(bot);
-            return false;
-        }
-        if (CastleWarsManager.getSteppingStoneShortcutWaypoint(
-                bot.getPosition(), targetPlayer.getPosition()) != null) {
-            CombatManager.stopCombat(bot);
-            return false;
-        }
         if (GameUtil.getDistance(bot.getPosition(), targetPlayer.getPosition()) > 12) {
             CombatManager.stopCombat(bot);
             return false;
         }
+        if (!CastleWarsManager.hasBotCombatLineOfSight(bot, targetPlayer)) {
+            state.sightChaseTarget = targetPlayer;
+            state.sightChaseTicks = 36;
+            CombatManager.stopCombat(bot);
+            return false;
+        }
+        state.sightChaseTarget = null;
+        state.sightChaseTicks = 0;
         return true;
     }
 
+    private static boolean processSightChase(BotPlayer bot, RoleState state) {
+        Player target = state.sightChaseTarget;
+        if (target == null) {
+            return false;
+        }
+        if (target.isDead() || !target.isRegistered()
+                || !CastleWarsManager.areOpponents(bot, target)
+                || GameUtil.getDistance(bot.getPosition(), target.getPosition()) > 20
+                || state.sightChaseTicks-- <= 0) {
+            state.sightChaseTarget = null;
+            state.sightChaseTicks = 0;
+            return false;
+        }
+
+        if (CastleWarsManager.hasBotCombatLineOfSight(bot, target)) {
+            state.sightChaseTarget = null;
+            state.sightChaseTicks = 0;
+            bot.getMovementQueue().setRunning(true);
+            CombatManager.startCombat(bot, target);
+            return true;
+        }
+
+        if (bot.getCombatTarget() != null) {
+            CombatManager.stopCombat(bot);
+        }
+        if (navigateSightChase(bot, state, target)) {
+            state.repathDelay = 0;
+            return true;
+        }
+        walk(bot, state, target.getPosition());
+        return true;
+    }
+
+    private static boolean navigateSightChase(BotPlayer bot, RoleState state, Player target) {
+        Position botPosition = bot.getPosition();
+        Position targetPosition = target.getPosition();
+        CastleWarsManager.Team botCastle =
+                CastleWarsManager.getCastleTeamAtPosition(botPosition);
+        CastleWarsManager.Team targetCastle =
+                CastleWarsManager.getCastleTeamAtPosition(targetPosition);
+        int botPlane = botPosition.getPlane();
+        int targetPlane = targetPosition.getPlane();
+
+        if (botPlane > 0 && botCastle != null
+                && (botPlane > targetPlane || botCastle != targetCastle)) {
+            return CastleWarsManager.routeBotOneCastleLevel(bot, botCastle, false);
+        }
+
+        if (botPlane == 0 && botCastle != null && botCastle != targetCastle) {
+            return CastleWarsManager.routeBotThroughGroundCastle(bot, botCastle, false);
+        }
+
+        if (botPlane == 0 && botCastle == null && targetCastle != null) {
+            return CastleWarsManager.routeBotThroughGroundCastle(bot, targetCastle, true);
+        }
+
+        if (botPlane < targetPlane && botCastle != null && botCastle == targetCastle) {
+            return CastleWarsManager.routeBotOneCastleLevel(bot, botCastle, true);
+        }
+
+        if (botPlane > targetPlane && botCastle != null) {
+            return CastleWarsManager.routeBotOneCastleLevel(bot, botCastle, false);
+        }
+        return false;
+    }
+
     private static boolean tryEngageNearbyOpponent(BotPlayer bot, RoleState state, int radius) {
-        Player best = null;
-        int bestDistance = Integer.MAX_VALUE;
+        Player bestVisible = null;
+        Player bestHidden = null;
+        int bestVisibleDistance = Integer.MAX_VALUE;
+        int bestHiddenDistance = Integer.MAX_VALUE;
         for (Player player : World.getPlayers()) {
             if (player == null || player == bot || player.isDead()
                     || !CastleWarsManager.areOpponents(bot, player)) {
                 continue;
             }
-            if (player.getPosition().getPlane() != bot.getPosition().getPlane()) {
+            int distance = GameUtil.getDistance(bot.getPosition(), player.getPosition());
+            if (distance > radius) {
                 continue;
             }
-            int distance = GameUtil.getDistance(bot.getPosition(), player.getPosition());
-            if (distance <= radius && distance < bestDistance) {
-                best = player;
-                bestDistance = distance;
+            if (CastleWarsManager.hasBotCombatLineOfSight(bot, player)) {
+                if (distance < bestVisibleDistance) {
+                    bestVisible = player;
+                    bestVisibleDistance = distance;
+                }
+            } else if (distance < bestHiddenDistance) {
+                bestHidden = player;
+                bestHiddenDistance = distance;
             }
         }
-        if (best == null) {
-            return false;
-        }
-        if (CastleWarsManager.getSteppingStoneShortcutWaypoint(
-                bot.getPosition(), best.getPosition()) != null) {
-            CombatManager.stopCombat(bot);
-            walk(bot, state, best.getPosition());
+        if (bestVisible != null) {
+            bot.getMovementQueue().setRunning(true);
+            CombatManager.startCombat(bot, bestVisible);
             return true;
         }
-        bot.getMovementQueue().setRunning(true);
-        CombatManager.startCombat(bot, best);
-        return true;
+        if (bestHidden != null) {
+            state.sightChaseTarget = bestHidden;
+            state.sightChaseTicks = 36;
+            return processSightChase(bot, state);
+        }
+        return false;
     }
 
     private static boolean reachInteractionApproach(BotPlayer bot, RoleState state,
@@ -1133,6 +1213,8 @@ public final class CastleWarsBotRoleAi {
         private int routeOffsetX;
         private int routeOffsetY;
         private int midPatrolTicks;
+        private Player sightChaseTarget;
+        private int sightChaseTicks;
 
         private RoleState(BotPlayer bot, CastleWarsManager.Team team, int primaryCombatStyle) {
             this.team = team;
@@ -1157,6 +1239,8 @@ public final class CastleWarsBotRoleAi {
             this.defenderPatrolTarget = null;
             this.defenderPatrolTicks = 4 + GameUtil.randomInt(8);
             this.defenderPatrolGeneration = GameUtil.randomInt(16);
+            this.sightChaseTarget = null;
+            this.sightChaseTicks = 0;
         }
     }
 }
