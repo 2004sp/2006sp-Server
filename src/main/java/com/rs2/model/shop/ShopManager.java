@@ -26,14 +26,20 @@ public final class ShopManager {
 
     private static final int CASTLE_WARS_TICKET_ID = 4067;
     private static final int[] CASTLE_WARS_REWARD_ITEM_IDS = new int[]{
+            // Novice decorative armour: helm, shield, legs, body, sword.
             4071, 4072, 4070, 4069, 4068,
+            // Intermediate decorative armour.
             4506, 4507, 4505, 4504, 4503,
-            4511, 4512, 4510, 4509, 4508
+            // Advanced decorative armour.
+            4511, 4512, 4510, 4509, 4508,
+            // Team rewards: red (Zamorak) cloak/hood, blue (Saradomin) cloak/hood.
+            4516, 4515, 4514, 4513
     };
     private static final int[] CASTLE_WARS_REWARD_PRICES = new int[]{
             4, 6, 6, 8, 5,
             40, 60, 60, 80, 50,
-            400, 600, 600, 800, 500
+            400, 600, 600, 800, 500,
+            10, 10, 10, 10
     };
     private static int castleWarsRewardShopId = -1;
 
@@ -644,6 +650,22 @@ public final class ShopManager {
         return -1;
     }
 
+    private static void ensureCastleWarsRewardStock(ShopDefinition shopDefinition) {
+        if (shopDefinition == null) {
+            return;
+        }
+        ItemContainer originalStock = shopDefinition.getOriginalStock();
+        ItemContainer stock = shopDefinition.getStock();
+        for (int itemId : CASTLE_WARS_REWARD_ITEM_IDS) {
+            if (!originalStock.containsItem(itemId)) {
+                originalStock.add(new ItemStack(itemId, 1), -1);
+            }
+            if (!stock.containsItem(itemId)) {
+                stock.add(new ItemStack(itemId, 1), -1);
+            }
+        }
+    }
+
     public static void loadShops() {
         try {
             castleWarsRewardShopId = -1;
@@ -700,6 +722,7 @@ public final class ShopManager {
                 ShopDefinition.setShopId(shopDefinition, index);
                 if ("Castle Wars Ticket Exchange".equals(text) && index2 == CASTLE_WARS_TICKET_ID) {
                     castleWarsRewardShopId = index;
+                    ShopManager.ensureCastleWarsRewardStock(shopDefinition);
                 }
                 shopDefinitions.add(shopDefinition);
                 ++index;
