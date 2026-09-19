@@ -442,6 +442,13 @@ public final class CastleWarsEngineeringManager {
                 ? saradominCatapultOperational : zamorakCatapultOperational;
     }
 
+    public static boolean isHomeTunnelCollapsed(CastleWarsManager.Team team, int route) {
+        if (team == CastleWarsManager.Team.SARADOMIN) {
+            return rockslideCollapsed[route == 0 ? 3 : 2];
+        }
+        return rockslideCollapsed[route == 0 ? 0 : 1];
+    }
+
     private static void setCatapultOperational(CastleWarsManager.Team team, boolean operational) {
         Position position = team == CastleWarsManager.Team.SARADOMIN
                 ? SARADOMIN_CATAPULT : ZAMORAK_CATAPULT;
