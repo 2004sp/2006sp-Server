@@ -1232,6 +1232,9 @@ public final class CastleWarsManager {
         player.getMovementQueue().clear();
         player.getMovementQueue().clearMovementActions();
         player.setActionLocked(true);
+        // Face the stone before the delayed hop so the jump is not played
+        // sideways/backwards when the player's previous facing differs.
+        player.getUpdateState().setFacePosition(destination.copy());
         player.getUpdateState().setAnimation(STEPPING_STONE_JUMP_ANIMATION);
         World.scheduleTickTask(new SteppingStoneJumpTask(
                 player, current.copy(), destination.copy()));
@@ -2340,6 +2343,7 @@ public final class CastleWarsManager {
                     return;
                 }
                 player.getMovementQueue().clear();
+                player.getUpdateState().setFacePosition(destination.copy());
                 player.moveTo(destination.copy());
                 player.getMovementQueue().clearMovementActions();
                 phase = 1;
