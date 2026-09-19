@@ -4,6 +4,7 @@ import com.rs2.model.Entity;
 import com.rs2.model.Position;
 import com.rs2.model.World;
 import com.rs2.model.combat.CombatManager;
+import com.rs2.model.gameplay.castlewars.CastleWarsEngineeringManager;
 import com.rs2.model.gameplay.castlewars.CastleWarsManager;
 import com.rs2.model.item.ItemStack;
 import com.rs2.model.player.Player;
@@ -62,6 +63,23 @@ public final class CastleWarsBotAi {
             if (tryEngageNearbyOpponent(bot, 8)) {
                 return;
             }
+        }
+
+        Position enemyBarricade = CastleWarsEngineeringManager.findNearestEnemyBarricade(bot, 3);
+        if (enemyBarricade != null
+                && bot.getInventoryManager().getItemAmount(
+                        CastleWarsEngineeringManager.EXPLOSIVE_POTION_ID) > 0
+                && CastleWarsEngineeringManager.destroyBarricadeWithExplosive(bot, enemyBarricade)) {
+            bot.queuePublicChatMessage("boom");
+            state.delayTicks = 2;
+            return;
+        }
+        if (bot.getInventoryManager().getItemAmount(
+                CastleWarsEngineeringManager.EXPLOSIVE_POTION_ID) > 0
+                && CastleWarsEngineeringManager.sabotageEnemyCatapult(bot)) {
+            bot.queuePublicChatMessage("catapult down");
+            state.delayTicks = 2;
+            return;
         }
 
         if (state.delayTicks > 0) {
@@ -139,12 +157,14 @@ public final class CastleWarsBotAi {
         }
 
         if (!state.stocked) {
-            prepareBandageSpace(bot, 12);
+            prepareBandageSpace(bot, 13);
             int amount = 8 + GameUtil.randomInt(5);
             int given = CastleWarsManager.giveBandages(bot, amount);
             if (given > 0) {
                 bot.getUpdateState().setAnimation(881);
             }
+            CastleWarsEngineeringManager.giveSupply(bot,
+                    CastleWarsEngineeringManager.EXPLOSIVE_POTION_ID, 1);
             state.stocked = true;
             state.delayTicks = 1 + GameUtil.randomInt(4);
         }
