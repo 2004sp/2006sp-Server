@@ -1001,6 +1001,20 @@ public final class CastleWarsManager {
         player.setAppearanceUpdateRequired(true);
     }
 
+    public static void moveBotToUndergroundEntrance(Player player, Team team) {
+        if (player == null || team == null) {
+            return;
+        }
+        player.getMovementQueue().reset();
+        player.resetInteractionState();
+        player.resetCombatState();
+        if (team == Team.SARADOMIN) {
+            player.moveTo(new Position(2430, 3081, 0));
+        } else {
+            player.moveTo(new Position(2369, 3126, 0));
+        }
+    }
+
     public static void moveBotToGroundBattlefield(Player player, Team team) {
         if (player == null || team == null) {
             return;
