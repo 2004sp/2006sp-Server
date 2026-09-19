@@ -166,6 +166,16 @@ public final class CastleWarsEngineeringManager {
     private CastleWarsEngineeringManager() {
     }
 
+    private static boolean isInInteractionRange(Player player, Position target,
+                                                int normalMaximumDistance) {
+        if (player == null || target == null
+                || player.getPosition().getPlane() != target.getPlane()) {
+            return false;
+        }
+        int distance = GameUtil.getDistance(player.getPosition(), target);
+        return player.isBot ? distance == 1 : distance <= normalMaximumDistance;
+    }
+
     public static void resetForGame() {
         clearAllBarricades();
         clearAllClimbingRopes();
@@ -657,7 +667,7 @@ public final class CastleWarsEngineeringManager {
                             new Position(door.closedX, door.closedY, MAIN_DOOR_PLANE)),
                     GameUtil.getDistance(player.getPosition(),
                             new Position(door.openX, door.openY, MAIN_DOOR_PLANE)));
-            if (distance > 3) {
+            if (distance != 1) {
                 continue;
             }
             if (playerTeam != door.team && !ServerSettings.thievingEnabled) {
@@ -683,7 +693,7 @@ public final class CastleWarsEngineeringManager {
                     nearestLeaf = leaf;
                 }
             }
-            if (nearestLeaf == null || nearestDistance > 3) {
+            if (nearestLeaf == null || nearestDistance != 1) {
                 continue;
             }
 
@@ -902,7 +912,7 @@ public final class CastleWarsEngineeringManager {
         if (rope == null) {
             return false;
         }
-        if (GameUtil.getDistance(player.getPosition(), rope.position) > 2) {
+        if (!isInInteractionRange(player, rope.position, 2)) {
             return false;
         }
 
@@ -938,8 +948,8 @@ public final class CastleWarsEngineeringManager {
         if (player.getInventoryManager().getItemAmount(CLIMBING_ROPE_ITEM_ID) <= 0) {
             return true;
         }
-        if (GameUtil.getDistance(player.getPosition(),
-                new Position(objectX, objectY, objectPlane)) > 2) {
+        if (!isInInteractionRange(player,
+                new Position(objectX, objectY, objectPlane), 2)) {
             return false;
         }
 
@@ -1065,7 +1075,7 @@ public final class CastleWarsEngineeringManager {
                 || !CastleWarsManager.isInGame(player)
                 || player.getPosition().getPlane() != CLIMBING_ROPE_PLANE
                 || battlement.getPlane() != CLIMBING_ROPE_PLANE
-                || GameUtil.getDistance(player.getPosition(), battlement) > 2) {
+                || !isInInteractionRange(player, battlement, 2)) {
             return false;
         }
 
@@ -1540,7 +1550,7 @@ public final class CastleWarsEngineeringManager {
         CastleWarsManager.Team enemy = team == CastleWarsManager.Team.SARADOMIN
                 ? CastleWarsManager.Team.ZAMORAK : CastleWarsManager.Team.SARADOMIN;
         Position target = getCatapultPosition(enemy);
-        if (player.getPosition().getPlane() != 0 || GameUtil.getDistance(player.getPosition(), target) > 3) {
+        if (!isInInteractionRange(player, target, 3)) {
             return false;
         }
         if (!isCatapultOperational(enemy) && !isCatapultBurning(enemy)) {

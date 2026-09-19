@@ -37,8 +37,9 @@ public final class CastleWarsBotRoleAi {
         }
 
         RoleState state = states.get(bot);
-        if (state == null || state.team != team) {
-            state = new RoleState(team);
+        if (state == null || state.team != team
+                || state.primaryCombatStyle != bot.botPrimaryCombatStyle) {
+            state = new RoleState(team, bot.botPrimaryCombatStyle);
             states.put(bot, state);
         }
         if (state.role == Role.ATTACKER) {
@@ -226,16 +227,14 @@ public final class CastleWarsBotRoleAi {
     private static void processLeaveSpawn(BotPlayer bot, RoleState state) {
         if (state.team == CastleWarsManager.Team.SARADOMIN) {
             Position barrier = new Position(2426, 3079, 1);
-            if (!near(bot, barrier, 1)) {
-                walk(bot, state, barrier);
+            if (!reachInteractionApproach(bot, state, barrier)) {
                 return;
             }
             CastleWarsManager.handleFirstObjectAction(bot,
                     CastleWarsManager.SARADOMIN_ENERGY_BARRIER_ID, 2426, 3080);
         } else {
             Position barrier = new Position(2373, 3127, 1);
-            if (!near(bot, barrier, 1)) {
-                walk(bot, state, barrier);
+            if (!reachInteractionApproach(bot, state, barrier)) {
                 return;
             }
             CastleWarsManager.handleFirstObjectAction(bot,
@@ -308,8 +307,7 @@ public final class CastleWarsBotRoleAi {
         Position approach = state.team == CastleWarsManager.Team.SARADOMIN
                 ? new Position(2417, 3077, 0)
                 : new Position(2382, 3130, 0);
-        if (!near(bot, approach, 1)) {
-            walk(bot, state, approach);
+        if (!reachInteractionApproach(bot, state, approach)) {
             return;
         }
         if (!CastleWarsManager.moveBotThroughGroundCastleStairs(bot, state.team, false)) {
@@ -330,11 +328,10 @@ public final class CastleWarsBotRoleAi {
     private static void processOwnFlagClimb(BotPlayer bot, RoleState state) {
         int plane = bot.getPosition().getPlane();
         if (plane == 1) {
-            Position ladder = state.team == CastleWarsManager.Team.SARADOMIN
-                    ? new Position(2429, 3075, 1)
-                    : new Position(2370, 3132, 1);
-            if (!near(bot, ladder, 1)) {
-                walk(bot, state, ladder);
+            Position ladderApproach = state.team == CastleWarsManager.Team.SARADOMIN
+                    ? new Position(2429, 3074, 1)
+                    : new Position(2370, 3133, 1);
+            if (!reachInteractionApproach(bot, state, ladderApproach)) {
                 return;
             }
             if (state.team == CastleWarsManager.Team.SARADOMIN) {
@@ -659,8 +656,8 @@ public final class CastleWarsBotRoleAi {
         Position flag = enemy == CastleWarsManager.Team.SARADOMIN
                 ? new Position(2429, 3074, 3)
                 : new Position(2370, 3133, 3);
-        if (!near(bot, flag, 2)) {
-            walk(bot, state, flag);
+        Position approach = CastleWarsManager.getNearestAdjacentInteractionTile(bot, flag);
+        if (approach == null || !reachInteractionApproach(bot, state, approach)) {
             return;
         }
 
@@ -676,8 +673,8 @@ public final class CastleWarsBotRoleAi {
         Position ownFlag = state.team == CastleWarsManager.Team.SARADOMIN
                 ? new Position(2429, 3074, 3)
                 : new Position(2370, 3133, 3);
-        if (!near(bot, ownFlag, 2)) {
-            walk(bot, state, ownFlag);
+        Position approach = CastleWarsManager.getNearestAdjacentInteractionTile(bot, ownFlag);
+        if (approach == null || !reachInteractionApproach(bot, state, approach)) {
             return;
         }
 
@@ -744,8 +741,7 @@ public final class CastleWarsBotRoleAi {
 
     private static void useTraversal(BotPlayer bot, RoleState state, Position approach,
                                      int objectId, int objectX, int objectY) {
-        if (!near(bot, approach, 0)) {
-            walk(bot, state, approach);
+        if (!reachInteractionApproach(bot, state, approach)) {
             return;
         }
         CastleWarsManager.handleFirstObjectAction(bot, objectId, objectX, objectY);
@@ -884,6 +880,25 @@ public final class CastleWarsBotRoleAi {
         return true;
     }
 
+    private static boolean reachInteractionApproach(BotPlayer bot, RoleState state,
+                                                     Position approach) {
+        if (approach == null || bot.getPosition().getPlane() != approach.getPlane()) {
+            return false;
+        }
+        if (near(bot, approach, 0)) {
+            return true;
+        }
+        if (GameUtil.isWithinDistance(bot.getPosition(), approach, 1)) {
+            bot.getMovementQueue().reset();
+            bot.moveTo(approach.copy());
+            bot.getMovementQueue().clearMovementActions();
+            state.repathDelay = 0;
+            return false;
+        }
+        walk(bot, state, approach);
+        return false;
+    }
+
     private static void walk(BotPlayer bot, RoleState state, Position target) {
         if (bot.getPosition().getPlane() != target.getPlane() || bot.isMovementLocked()) {
             return;
@@ -958,6 +973,7 @@ public final class CastleWarsBotRoleAi {
 
     private static final class RoleState {
         private final CastleWarsManager.Team team;
+        private final int primaryCombatStyle;
         private final Role role;
         private Phase phase;
         private boolean bandagesStocked;
@@ -972,20 +988,10 @@ public final class CastleWarsBotRoleAi {
         private int routeOffsetY;
         private int midPatrolTicks;
 
-        private RoleState(CastleWarsManager.Team team) {
+        private RoleState(CastleWarsManager.Team team, int primaryCombatStyle) {
             this.team = team;
-            int roll = GameUtil.randomInt(100);
-            if (roll < 40) {
-                this.role = Role.ATTACKER;
-            } else if (roll < 65) {
-                this.role = Role.MIDFIGHTER;
-            } else if (roll < 80) {
-                this.role = Role.UNDERGROUND;
-            } else if (roll < 95) {
-                this.role = Role.DEFENDER;
-            } else {
-                this.role = Role.CATAPULT;
-            }
+            this.primaryCombatStyle = primaryCombatStyle;
+            this.role = primaryCombatStyle == 0 ? Role.ATTACKER : Role.DEFENDER;
             resetForSpawn();
         }
 
