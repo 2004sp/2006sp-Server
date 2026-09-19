@@ -66,7 +66,9 @@ public final class CastleWarsBotRoleAi {
             if (hasActiveOpponent(bot)) {
                 return true;
             }
-            if (tryEngageNearbyOpponent(bot, state.role == Role.DEFENDER ? 12 : 7)) {
+            int engageRadius = state.role == Role.MIDFIGHTER ? 16
+                    : state.role == Role.DEFENDER ? 12 : 8;
+            if (tryEngageNearbyOpponent(bot, engageRadius)) {
                 return true;
             }
         }
@@ -114,6 +116,12 @@ public final class CastleWarsBotRoleAi {
                 break;
             case CATAPULT_ROAM:
                 processCatapultRoam(bot, state);
+                break;
+            case MID_RUSH:
+                processMidRush(bot, state);
+                break;
+            case MID_FIGHT:
+                processMidFight(bot, state);
                 break;
             case UNDERGROUND_DESCEND:
                 processUndergroundDescent(bot, state);
@@ -270,7 +278,14 @@ public final class CastleWarsBotRoleAi {
             }
             CastleWarsManager.handleFirstObjectAction(bot, 4420, 2382, 3131);
         }
-        state.phase = state.role == Role.CATAPULT ? Phase.CATAPULT_MOVE : Phase.CATAPULT_ROAM;
+        if (state.role == Role.CATAPULT) {
+            state.phase = Phase.CATAPULT_MOVE;
+        } else if (state.role == Role.MIDFIGHTER) {
+            state.phase = Phase.MID_RUSH;
+            bot.queuePublicChatMessage("rush mid");
+        } else {
+            state.phase = Phase.CATAPULT_ROAM;
+        }
         state.repathDelay = 0;
     }
 
@@ -344,6 +359,69 @@ public final class CastleWarsBotRoleAi {
         if (!near(bot, flag, 5) && GameUtil.randomInt(4) == 0) {
             walk(bot, state, flag);
         }
+    }
+
+    private static void processMidRush(BotPlayer bot, RoleState state) {
+        if (bot.getPosition().getPlane() != 0) {
+            return;
+        }
+        if (tryEngageNearbyOpponent(bot, 16)) {
+            state.phase = Phase.MID_FIGHT;
+            return;
+        }
+
+        Position rally = midRallyPoint(state);
+        if (!near(bot, rally, 4)) {
+            walk(bot, state, rally);
+            return;
+        }
+
+        state.phase = Phase.MID_FIGHT;
+        state.midPatrolTicks = 12 + GameUtil.randomInt(18);
+        state.repathDelay = 0;
+    }
+
+    private static void processMidFight(BotPlayer bot, RoleState state) {
+        if (bot.getPosition().getPlane() != 0) {
+            state.phase = Phase.MID_RUSH;
+            return;
+        }
+
+        if (tryEngageNearbyOpponent(bot, 18)) {
+            state.midPatrolTicks = 12 + GameUtil.randomInt(18);
+            return;
+        }
+
+        if (--state.midPatrolTicks <= 0) {
+            state.midPatrolTicks = 12 + GameUtil.randomInt(18);
+            state.routeVariant = GameUtil.randomInt(3);
+            state.routeOffsetX = -4 + GameUtil.randomInt(9);
+            state.routeOffsetY = -4 + GameUtil.randomInt(9);
+            if (GameUtil.randomInt(5) == 0) {
+                bot.queuePublicChatMessage("hold mid");
+            }
+        }
+
+        Position patrol = midRallyPoint(state);
+        if (!near(bot, patrol, 3)) {
+            walk(bot, state, patrol);
+        }
+    }
+
+    private static Position midRallyPoint(RoleState state) {
+        int x;
+        int y;
+        if (state.routeVariant == 0) {
+            x = 2400;
+            y = 3104;
+        } else if (state.routeVariant == 1) {
+            x = 2396;
+            y = 3100;
+        } else {
+            x = 2404;
+            y = 3108;
+        }
+        return new Position(x + state.routeOffsetX, y + state.routeOffsetY, 0);
     }
 
     private static void processCatapult(BotPlayer bot, RoleState state) {
@@ -752,6 +830,7 @@ public final class CastleWarsBotRoleAi {
 
     private enum Role {
         ATTACKER,
+        MIDFIGHTER,
         UNDERGROUND,
         DEFENDER,
         CATAPULT
@@ -767,6 +846,8 @@ public final class CastleWarsBotRoleAi {
         DEFEND_FLAG,
         CATAPULT_MOVE,
         CATAPULT_ROAM,
+        MID_RUSH,
+        MID_FIGHT,
         UNDERGROUND_DESCEND,
         UNDERGROUND_OUT,
         ENEMY_CLIMB,
@@ -790,12 +871,17 @@ public final class CastleWarsBotRoleAi {
         private int undergroundStage;
         private int pendingCollapseRock;
         private int barricadesPlaced;
+        private int routeOffsetX;
+        private int routeOffsetY;
+        private int midPatrolTicks;
 
         private RoleState(CastleWarsManager.Team team) {
             this.team = team;
             int roll = GameUtil.randomInt(100);
-            if (roll < 60) {
+            if (roll < 40) {
                 this.role = Role.ATTACKER;
+            } else if (roll < 65) {
+                this.role = Role.MIDFIGHTER;
             } else if (roll < 80) {
                 this.role = Role.UNDERGROUND;
             } else if (roll < 95) {
@@ -810,7 +896,10 @@ public final class CastleWarsBotRoleAi {
             this.phase = Phase.SPAWN_SUPPLY;
             this.bandagesStocked = false;
             this.utilityStocked = false;
-            this.routeVariant = GameUtil.randomInt(2);
+            this.routeVariant = GameUtil.randomInt(3);
+            this.routeOffsetX = -3 + GameUtil.randomInt(7);
+            this.routeOffsetY = -3 + GameUtil.randomInt(7);
+            this.midPatrolTicks = 12 + GameUtil.randomInt(18);
             this.delayTicks = GameUtil.randomInt(8);
             this.repathDelay = 0;
             this.undergroundStage = 0;
