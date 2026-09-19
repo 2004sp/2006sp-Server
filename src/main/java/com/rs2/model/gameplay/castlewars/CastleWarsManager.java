@@ -6,6 +6,7 @@ import com.rs2.model.World;
 import com.rs2.model.ground.GroundItem;
 import com.rs2.model.ground.GroundItemManager;
 import com.rs2.model.item.ItemStack;
+import com.rs2.model.item.consumable.PotionHandler;
 import com.rs2.model.player.Player;
 import com.rs2.util.GameUtil;
 import com.rs2.util.path.WalkingCollisionMap;
@@ -324,6 +325,10 @@ public final class CastleWarsManager {
         if (hasRestrictedTeamColourEquipment(player)) {
             player.getPacketSender().sendGameMessage("You can't wear anything in the head or cape slots in Castle Wars.");
             player.getPacketSender().sendGameMessage("Remove your headgear and cape before entering the portal.");
+            return true;
+        }
+        if (hasRestrictedInventoryItems(player)) {
+            player.getPacketSender().sendGameMessage("You can only bring potions, runes and equippable items into Castle Wars.");
             return true;
         }
 
@@ -1573,6 +1578,28 @@ public final class CastleWarsManager {
         } else {
             player.moveTo(new Position(2370 + GameUtil.randomInt(5), 3128 + GameUtil.randomInt(4), 1));
         }
+    }
+
+    private static boolean hasRestrictedInventoryItems(Player player) {
+        PotionHandler potionHandler = new PotionHandler(player);
+        ItemStack[] inventoryItems = player.getInventoryManager().getContainer().getItems();
+        for (ItemStack item : inventoryItems) {
+            if (item == null) {
+                continue;
+            }
+            if (item.getDefinition().getEquipmentSlot() >= 0) {
+                continue;
+            }
+            if (potionHandler.selectPotionForItemId(item.getId())) {
+                continue;
+            }
+            String itemName = item.getDefinition().getName();
+            if (itemName != null && itemName.toLowerCase().endsWith(" rune")) {
+                continue;
+            }
+            return true;
+        }
+        return false;
     }
 
     private static boolean hasRestrictedTeamColourEquipment(Player player) {
