@@ -40,7 +40,7 @@ public final class CastleWarsBotRoleAi {
         RoleState state = states.get(bot);
         if (state == null || state.team != team
                 || state.primaryCombatStyle != bot.botPrimaryCombatStyle) {
-            state = new RoleState(team, bot.botPrimaryCombatStyle);
+            state = new RoleState(bot, team, bot.botPrimaryCombatStyle);
             states.put(bot, state);
         }
         if (state.role == Role.ATTACKER) {
@@ -1041,6 +1041,48 @@ public final class CastleWarsBotRoleAi {
                 : CastleWarsManager.Team.SARADOMIN;
     }
 
+    private static Role assignRole(BotPlayer bot, CastleWarsManager.Team team) {
+        int teamRank = 0;
+        long nameHash = bot.getNameHash();
+
+        // Rank bots deterministically within their team so every game gets a
+        // predictable role budget regardless of task processing order.
+        for (Player player : World.getPlayers()) {
+            if (!(player instanceof BotPlayer)
+                    || CastleWarsManager.getGameTeam(player) != team) {
+                continue;
+            }
+            BotPlayer other = (BotPlayer)player;
+            if (other == bot) {
+                continue;
+            }
+            if (other.getNameHash() < nameHash) {
+                ++teamRank;
+            }
+        }
+
+        // Per team: eight defenders on/around the castle walls and one dedicated
+        // catapult operator. Everyone else is committed to active map pressure.
+        if (teamRank < 8) {
+            return Role.DEFENDER;
+        }
+        if (teamRank == 8) {
+            return Role.CATAPULT;
+        }
+
+        // Remaining force mix: 60% storm the enemy castle, 20% fight across the
+        // battlefield, and 20% use the underground route.
+        int mobileRank = teamRank - 9;
+        int slot = mobileRank % 10;
+        if (slot < 6) {
+            return Role.ATTACKER;
+        }
+        if (slot < 8) {
+            return Role.MIDFIGHTER;
+        }
+        return Role.UNDERGROUND;
+    }
+
     private enum Role {
         ATTACKER,
         MIDFIGHTER,
@@ -1092,21 +1134,10 @@ public final class CastleWarsBotRoleAi {
         private int routeOffsetY;
         private int midPatrolTicks;
 
-        private RoleState(CastleWarsManager.Team team, int primaryCombatStyle) {
+        private RoleState(BotPlayer bot, CastleWarsManager.Team team, int primaryCombatStyle) {
             this.team = team;
             this.primaryCombatStyle = primaryCombatStyle;
-            int roll = GameUtil.randomInt(100);
-            if (roll < 40) {
-                this.role = Role.ATTACKER;
-            } else if (roll < 65) {
-                this.role = Role.MIDFIGHTER;
-            } else if (roll < 80) {
-                this.role = Role.UNDERGROUND;
-            } else if (roll < 95) {
-                this.role = Role.DEFENDER;
-            } else {
-                this.role = Role.CATAPULT;
-            }
+            this.role = assignRole(bot, team);
             resetForSpawn();
         }
 
