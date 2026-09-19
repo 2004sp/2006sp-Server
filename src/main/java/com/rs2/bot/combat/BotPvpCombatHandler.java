@@ -49,9 +49,23 @@ public final class BotPvpCombatHandler {
     static void processBotPvpCombatTick(Player player, Player player2) {
         int value;
         boolean castleWarsCombat = CastleWarsManager.isInGame(player);
+        boolean castleWarsCrossLevelCombat = castleWarsCombat
+                && CastleWarsManager.isCastleWallCrossLevelPair(player, player2);
         if (castleWarsCombat) {
             player.botCombatState = null;
             player.botCombatEscapeActive = false;
+        }
+        if (castleWarsCrossLevelCombat
+                && player.botPrimaryCombatStyle != MELEE_COMBAT_STYLE
+                && player.botActiveCombatStyle == MELEE_COMBAT_STYLE) {
+            if (player.getEquipmentManager().getItemIdAtSlot(3) != player.botWeaponItemId) {
+                BotCombatHelper.restorePrimaryCombatGear(player);
+            }
+            player.botActiveCombatStyle = player.botPrimaryCombatStyle;
+            if (player.isSpecialAttackEnabled()) {
+                player.setSpecialAttackEnabled(false);
+                player.refreshSpecialAttackWidgets();
+            }
         }
         if (player.botCombatState != null && player.botEnabled && player.botCombatState.equals("escape")) {
             BotCombatEscapeHandler.tryStartBotCombatEscape(player);
@@ -138,7 +152,7 @@ public final class BotPvpCombatHandler {
         player2.getSkillManager();
         levelForExperience = SkillManager.getLevelForExperience(player2.getSkillManager().getExperience()[3]);
         if (escapeCombatLevelMargin == 0) {
-            if ((double)skillManager2 <= (double)levelForExperience * 0.4) {
+            if (!castleWarsCrossLevelCombat && (double)skillManager2 <= (double)levelForExperience * 0.4) {
                 if (player.botSpecialWeaponItemId == 0) {
                     SpecialAttackDefinition specialAttackDefinition = SpecialAttackDefinition.forItem(player.getEquipmentManager().getContainer().getItemAt(3));
                     if (specialAttackDefinition != null) {
