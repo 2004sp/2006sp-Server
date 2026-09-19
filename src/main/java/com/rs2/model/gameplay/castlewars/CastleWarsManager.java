@@ -1457,6 +1457,42 @@ public final class CastleWarsManager {
         }
     }
 
+    public static boolean moveBotThroughGroundCastleStairs(Player player, Team castleTeam,
+                                                            boolean enteringCastle) {
+        if (player == null || castleTeam == null || !player.isBot
+                || player.getPosition().getPlane() != 0) {
+            return false;
+        }
+
+        Position approach;
+        Position destination;
+        if (castleTeam == Team.SARADOMIN) {
+            approach = enteringCastle
+                    ? new Position(2416, 3074, 0)
+                    : new Position(2417, 3077, 0);
+            destination = enteringCastle
+                    ? new Position(2417, 3077, 0)
+                    : new Position(2416, 3074, 0);
+        } else {
+            approach = enteringCastle
+                    ? new Position(2383, 3133, 0)
+                    : new Position(2382, 3130, 0);
+            destination = enteringCastle
+                    ? new Position(2382, 3130, 0)
+                    : new Position(2383, 3133, 0);
+        }
+
+        // PathFinder's move-near fallback can stop a bot one tile short of the
+        // exact approach tile when the staircase clipping blocks that tile.
+        if (!GameUtil.isWithinDistance(player.getPosition(), approach, 1)) {
+            return false;
+        }
+
+        player.getMovementQueue().reset();
+        moveThroughCastleWarsStairs(player, destination);
+        return true;
+    }
+
     private static boolean handleCastleWarsTraversal(Player player, int objectId, int objectX, int objectY) {
         int plane = player.getPosition().getPlane();
         Position stairApproach = getStairTraversalApproach(player, objectId, objectX, objectY);
