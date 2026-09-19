@@ -105,6 +105,76 @@ public final class CastleWarsEngineeringManager {
         return true;
     }
 
+    public static boolean handleItemOnObject(Player player, int itemId, int objectId,
+                                             int objectX, int objectY, int objectPlane) {
+        if (!CastleWarsManager.isInGame(player)) {
+            return false;
+        }
+
+        if (itemId == EXPLOSIVE_POTION_ID) {
+            if (objectId == BARRICADE_OBJECT_SARADOMIN || objectId == BARRICADE_OBJECT_ZAMORAK) {
+                return destroyBarricadeWithExplosive(player,
+                        new Position(objectX, objectY, objectPlane));
+            }
+            int rockIndex = findRockslideIndex(objectX, objectY);
+            if ((objectId == COLLAPSED_ROCK_OBJECT_ID || objectId == CLEARED_ROCK_OBJECT_ID)
+                    && rockIndex >= 0) {
+                return useRockslideTool(player, rockIndex, true);
+            }
+            if (objectId == SARADOMIN_CATAPULT_ID || objectId == ZAMORAK_CATAPULT_ID) {
+                return sabotageEnemyCatapult(player);
+            }
+        }
+
+        if (itemId == BRONZE_PICKAXE_ID
+                && (objectId == COLLAPSED_ROCK_OBJECT_ID || objectId == CLEARED_ROCK_OBJECT_ID)) {
+            int rockIndex = findRockslideIndex(objectX, objectY);
+            return rockIndex >= 0 && useRockslideTool(player, rockIndex, false);
+        }
+
+        if (itemId == TOOLKIT_ID
+                && (objectId == SARADOMIN_DAMAGED_CATAPULT_ID
+                || objectId == ZAMORAK_DAMAGED_CATAPULT_ID)) {
+            CastleWarsManager.Team team = CastleWarsManager.getGameTeam(player);
+            CastleWarsManager.Team targetTeam = objectId == SARADOMIN_DAMAGED_CATAPULT_ID
+                    ? CastleWarsManager.Team.SARADOMIN : CastleWarsManager.Team.ZAMORAK;
+            Position target = targetTeam == CastleWarsManager.Team.SARADOMIN
+                    ? SARADOMIN_CATAPULT : ZAMORAK_CATAPULT;
+            if (team == targetTeam && GameUtil.getDistance(player.getPosition(), target) <= 3) {
+                setCatapultOperational(targetTeam, true);
+                player.getUpdateState().setAnimation(898);
+                player.getPacketSender().sendGameMessage("You repair your team's catapult.");
+                return true;
+            }
+        }
+        return false;
+    }
+
+    public static boolean operateCatapult(Player player, int objectId) {
+        CastleWarsManager.Team team = CastleWarsManager.getGameTeam(player);
+        if (team == null) {
+            return false;
+        }
+        if (objectId == SARADOMIN_CATAPULT_ID && team != CastleWarsManager.Team.SARADOMIN
+                || objectId == ZAMORAK_CATAPULT_ID && team != CastleWarsManager.Team.ZAMORAK) {
+            player.getPacketSender().sendGameMessage("Your team can't use this catapult.");
+            return true;
+        }
+        if (objectId != SARADOMIN_CATAPULT_ID && objectId != ZAMORAK_CATAPULT_ID) {
+            return false;
+        }
+        if (!fireCatapult(player)) {
+            if (player.getInventoryManager().getItemAmount(ROCK_ITEM_ID) <= 0) {
+                player.getPacketSender().sendGameMessage("You need a rock to fire the catapult.");
+            } else {
+                player.getPacketSender().sendGameMessage("The catapult isn't ready to fire yet.");
+            }
+        } else {
+            player.getPacketSender().sendGameMessage("You fire the catapult!");
+        }
+        return true;
+    }
+
     public static int giveSupply(Player player, int itemId, int amount) {
         if (!CastleWarsManager.isInGame(player) || amount <= 0) {
             return 0;
@@ -259,6 +329,50 @@ public final class CastleWarsEngineeringManager {
         setRockslideState(index, true);
         crushPlayersAtRockslide(position);
         return true;
+    }
+
+    private static boolean useRockslideTool(Player player, int index, boolean explosive) {
+        if (index < 0 || index >= ROCKSLIDE_POSITIONS.length) {
+            return false;
+        }
+        Position position = ROCKSLIDE_POSITIONS[index];
+        if (GameUtil.getDistance(player.getPosition(), position) > 4) {
+            return false;
+        }
+
+        if (explosive) {
+            if (player.getInventoryManager().getItemAmount(EXPLOSIVE_POTION_ID) <= 0) {
+                return false;
+            }
+            player.getInventoryManager().removeItem(new ItemStack(EXPLOSIVE_POTION_ID, 1));
+            player.getPacketSender().sendStillGraphicToNearbyPlayers(
+                    176, position.getX(), position.getY(), 0, 0);
+        } else {
+            if (player.getInventoryManager().getItemAmount(BRONZE_PICKAXE_ID) <= 0) {
+                return false;
+            }
+            player.getUpdateState().setAnimation(625);
+        }
+
+        boolean collapsing = !rockslideCollapsed[index];
+        setRockslideState(index, collapsing);
+        if (collapsing) {
+            crushPlayersAtRockslide(position);
+            player.getPacketSender().sendGameMessage("You collapse the tunnel.");
+        } else {
+            player.getPacketSender().sendGameMessage("You clear the fallen rocks.");
+        }
+        return true;
+    }
+
+    private static int findRockslideIndex(int x, int y) {
+        for (int i = 0; i < ROCKSLIDE_POSITIONS.length; ++i) {
+            Position position = ROCKSLIDE_POSITIONS[i];
+            if (position.getX() == x && position.getY() == y) {
+                return i;
+            }
+        }
+        return -1;
     }
 
     public static boolean fireCatapult(Player player) {
