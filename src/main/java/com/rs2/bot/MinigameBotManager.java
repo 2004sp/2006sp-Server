@@ -66,14 +66,20 @@ public final class MinigameBotManager {
         }
         if (!CastleWarsManager.isWaitingPlayer(botPlayer) && !CastleWarsManager.isInGame(botPlayer)) {
             CastleWarsBotAi.clear(botPlayer);
+            CastleWarsBotRoleAi.clear(botPlayer);
             return;
         }
 
         if (CastleWarsManager.isInGame(botPlayer)) {
             spreadWaitingBots.remove(botPlayer);
-            CastleWarsBotAi.process(botPlayer);
+            if (CastleWarsBotRoleAi.process(botPlayer)) {
+                CastleWarsBotAi.clear(botPlayer);
+            } else {
+                CastleWarsBotAi.process(botPlayer);
+            }
         } else {
             CastleWarsBotAi.clear(botPlayer);
+            CastleWarsBotRoleAi.clear(botPlayer);
         }
 
         // This task runs every two game ticks. A 1/180 roll keeps a large
