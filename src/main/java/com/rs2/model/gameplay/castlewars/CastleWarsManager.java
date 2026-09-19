@@ -1018,6 +1018,10 @@ public final class CastleWarsManager {
                 orientation, objectType, restoreObjectId, 999999999, false);
     }
 
+    public static GroundItem getDroppedFlagGroundItem(Team flagTeam) {
+        return getDroppedFlag(flagTeam);
+    }
+
     private static GroundItem getDroppedFlag(Team flagTeam) {
         return flagTeam == Team.SARADOMIN ? saradominDroppedFlag : zamorakDroppedFlag;
     }
