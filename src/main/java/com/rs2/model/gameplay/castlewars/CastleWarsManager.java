@@ -55,6 +55,8 @@ public final class CastleWarsManager {
     private static final int GUTHIX_SHEEP_TRANSFORMATION_ID = 5726;
     private static final int SARADOMIN_RABBIT_TRANSFORMATION_ID = 5727;
     private static final int ZAMORAK_IMP_TRANSFORMATION_ID = 5728;
+    private static final int HOLY_SYMBOL_ID = 1718;
+    private static final int UNHOLY_SYMBOL_ID = 1724;
 
     public static final int MINIMUM_PLAYERS_PER_TEAM = 1;
     public static final int WAITING_DURATION_SECONDS = 60; // Temporary test countdown.
@@ -2085,9 +2087,23 @@ public final class CastleWarsManager {
     }
 
     private static boolean hasGodEquipment(Player player, God god) {
-        ItemStack[] equipmentItems = player.getEquipmentManager().getContainer().getItems();
-        for (ItemStack item : equipmentItems) {
-            if (item == null || item.getDefinition() == null || item.getDefinition().getName() == null) {
+        return containsGodItem(player.getEquipmentManager().getContainer().getItems(), god)
+                || containsGodItem(player.getInventoryManager().getContainer().getItems(), god);
+    }
+
+    private static boolean containsGodItem(ItemStack[] items, God god) {
+        for (ItemStack item : items) {
+            if (item == null) {
+                continue;
+            }
+
+            if (god == God.SARADOMIN && item.getId() == HOLY_SYMBOL_ID) {
+                return true;
+            }
+            if (god == God.ZAMORAK && item.getId() == UNHOLY_SYMBOL_ID) {
+                return true;
+            }
+            if (item.getDefinition() == null || item.getDefinition().getName() == null) {
                 continue;
             }
 
