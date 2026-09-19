@@ -120,6 +120,9 @@ public final class CastleWarsManager {
             takeBandages(player, 1);
             return true;
         }
+        if (CastleWarsEngineeringManager.handleSupplyTable(player, objectId)) {
+            return true;
+        }
         if (objectId == SARADOMIN_ENERGY_BARRIER_ID) {
             passEnergyBarrier(player, Team.SARADOMIN, objectX, objectY);
             return true;
@@ -322,6 +325,7 @@ public final class CastleWarsManager {
         returnCarriedFlagToBase(player);
         removeTeamColours(player);
         removeBandages(player);
+        CastleWarsEngineeringManager.cleanupPlayerSupplies(player);
         clearCastleWarsInterface(player);
         player.resetCombatState();
         moveToLobby(player);
@@ -801,6 +805,7 @@ public final class CastleWarsManager {
 
         saradominScore = 0;
         zamorakScore = 0;
+        CastleWarsEngineeringManager.resetForGame();
         saradominFlagAtBase = true;
         zamorakFlagAtBase = true;
         saradominFlagHolder = null;
@@ -842,6 +847,7 @@ public final class CastleWarsManager {
             returnCarriedFlagToBase(player);
             removeTeamColours(player);
             removeBandages(player);
+            CastleWarsEngineeringManager.cleanupPlayerSupplies(player);
             clearCastleWarsInterface(player);
 
             int reward = team == Team.SARADOMIN ? saradominReward : zamorakReward;
@@ -863,6 +869,7 @@ public final class CastleWarsManager {
             moveToLobby(player);
         }
 
+        CastleWarsEngineeringManager.cleanupAfterGame();
         nextGameStartMillis = hasMinimumPlayersToStartInternal()
             ? now + WAITING_DURATION_SECONDS * 1000L
             : -1L;
