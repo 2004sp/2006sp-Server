@@ -589,6 +589,11 @@ public final class CastleWarsBotAi {
             CombatManager.stopCombat(bot);
             return false;
         }
+        if (CastleWarsManager.getFlagHolder(state.team) != targetPlayer
+                && countTeamBotsTargeting(bot, targetPlayer) > 2) {
+            CombatManager.stopCombat(bot);
+            return false;
+        }
         int maxDistance = bot.botPrimaryCombatStyle == 0 ? 6 : 12;
         if (GameUtil.getDistance(bot.getPosition(), targetPlayer.getPosition()) > maxDistance) {
             CombatManager.stopCombat(bot);
@@ -681,6 +686,10 @@ public final class CastleWarsBotAi {
             if (distance > radius) {
                 continue;
             }
+            if (CastleWarsManager.getFlagHolder(state.team) != player
+                    && countTeamBotsTargeting(bot, player) >= 2) {
+                continue;
+            }
             if (CastleWarsManager.hasBotCombatLineOfSight(bot, player)) {
                 if (distance < bestVisibleDistance) {
                     bestVisible = player;
@@ -705,6 +714,23 @@ public final class CastleWarsBotAi {
             return processSightChase(bot, state);
         }
         return false;
+    }
+
+    private static int countTeamBotsTargeting(BotPlayer bot, Player target) {
+        CastleWarsManager.Team team = CastleWarsManager.getGameTeam(bot);
+        if (team == null || target == null) {
+            return 0;
+        }
+        int count = 0;
+        for (Player player : World.getPlayers()) {
+            if (!(player instanceof BotPlayer)
+                    || CastleWarsManager.getGameTeam(player) != team
+                    || player.getCombatTarget() != target) {
+                continue;
+            }
+            ++count;
+        }
+        return count;
     }
 
     private static boolean isTraversalPhase(Phase phase) {
