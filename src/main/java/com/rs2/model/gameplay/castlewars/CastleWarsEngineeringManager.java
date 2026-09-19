@@ -504,7 +504,11 @@ public final class CastleWarsEngineeringManager {
         }
 
         if (team == door.team) {
-            setSideDoorOpen(door, !door.open);
+            boolean opening = !door.open;
+            setSideDoorOpen(door, opening);
+            if (!player.isBot) {
+                door.playerLocked = !opening;
+            }
             player.getPacketSender().sendSoundEffect(318, 1, 0);
             player.getPacketSender().sendGameMessage(door.open
                     ? "You unlock the side door."
@@ -535,6 +539,7 @@ public final class CastleWarsEngineeringManager {
             return true;
         }
 
+        door.playerLocked = false;
         setSideDoorOpen(door, true);
         player.getPacketSender().sendSoundEffect(1502, 1, 0);
         player.getPacketSender().sendGameMessage("You manage to pick the lock.");
@@ -662,6 +667,9 @@ public final class CastleWarsEngineeringManager {
             if (door.open) {
                 continue;
             }
+            if (playerTeam == door.team && door.playerLocked) {
+                continue;
+            }
             // When the side door is closed, bots must interact with the
             // actual closed-door tile. The open-door display tile is the exterior
             // standing square, so including it in the distance calculation makes
@@ -741,6 +749,8 @@ public final class CastleWarsEngineeringManager {
     }
 
     private static void resetSideDoors() {
+        saradominSideDoor.playerLocked = false;
+        zamorakSideDoor.playerLocked = false;
         setSideDoorOpen(saradominSideDoor, false);
         setSideDoorOpen(zamorakSideDoor, false);
     }
@@ -1817,6 +1827,7 @@ public final class CastleWarsEngineeringManager {
         private final int openY;
         private final int openOrientation;
         private boolean open;
+        private boolean playerLocked;
 
         private SideDoorState(CastleWarsManager.Team team,
                               int closedId, int openId,
