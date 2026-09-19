@@ -25,6 +25,7 @@ import com.rs2.model.combat.hit.HitDefinition;
 import com.rs2.model.combat.hit.HitType;
 import com.rs2.model.dialogue.DialogueManager;
 import com.rs2.model.gameplay.barrows.BarrowsManager;
+import com.rs2.model.gameplay.castlewars.CastleWarsManager;
 import com.rs2.model.gameplay.godwars.GodWarsDungeonManager;
 import com.rs2.model.gameplay.magetrainingarena.MageTrainingArenaRewardShop;
 import com.rs2.model.gameplay.partyroom.PartyRoomManager;
@@ -160,7 +161,8 @@ implements PacketHandler {
                 }
                 Position itemPosition = new Position(player.getInteractionTargetX(), player.getInteractionTargetY(), player.getPosition().getPlane());
                 GroundItem groundItem = GroundItemManager.findVisibleItem(player, player.getInteractionTargetId(), itemPosition);
-                if (groundItem != null && player.getInventoryManager().canAddItem(groundItem.getItem())) {
+                if (groundItem != null && (CastleWarsManager.isDroppedFlagGroundItem(groundItem)
+                        || player.getInventoryManager().canAddItem(groundItem.getItem()))) {
                     if (player.ownsClueScroll() && new ItemStack(player.getInteractionTargetId()).getDefinition().getName().toLowerCase().contains("clue scroll")) {
                         player.getPacketSender().sendGameMessage("You can only have one scroll at a time.");
                         return;

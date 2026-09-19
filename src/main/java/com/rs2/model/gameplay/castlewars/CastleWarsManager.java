@@ -3,6 +3,8 @@ package com.rs2.model.gameplay.castlewars;
 import com.rs2.model.Position;
 import com.rs2.model.combat.CombatType;
 import com.rs2.model.World;
+import com.rs2.model.ground.GroundItem;
+import com.rs2.model.ground.GroundItemManager;
 import com.rs2.model.item.ItemStack;
 import com.rs2.model.player.Player;
 import com.rs2.util.GameUtil;
@@ -93,6 +95,8 @@ public final class CastleWarsManager {
     private static boolean zamorakFlagAtBase = true;
     private static Player saradominFlagHolder;
     private static Player zamorakFlagHolder;
+    private static GroundItem saradominDroppedFlag;
+    private static GroundItem zamorakDroppedFlag;
 
     private CastleWarsManager() {
     }
@@ -166,6 +170,7 @@ public final class CastleWarsManager {
 
         cleanupWaitingPlayers();
         cleanupGamePlayers();
+        cleanupDroppedFlags();
 
         if (gameInProgress) {
             if (now >= gameEndMillis) {
@@ -415,6 +420,7 @@ public final class CastleWarsManager {
         removeBandages(player);
         CastleWarsEngineeringManager.cleanupPlayerSupplies(player);
         clearCastleWarsInterface(player);
+        clearFlagHint(player);
         player.resetCombatState();
         moveToLobby(player);
         player.getPacketSender().sendGameMessage("You leave Castle Wars and return to the lobby.");
@@ -571,7 +577,60 @@ public final class CastleWarsManager {
             player.getPacketSender().sendGameMessage("You are already carrying a flag.");
             return false;
         }
+        if (!canEquipFlag(player)) {
+            return false;
+        }
 
+        equipFlag(player, flagTeam);
+        setFlagAtBase(flagTeam, false, player);
+        player.getPacketSender().sendGameMessage("You take the " + getTeamName(flagTeam) + " flag!");
+        return true;
+    }
+
+    public static boolean isDroppedFlagGroundItem(GroundItem groundItem) {
+        return getDroppedFlagTeam(groundItem) != null;
+    }
+
+    public static boolean handleDroppedFlagPickup(Player player, GroundItem groundItem) {
+        Team flagTeam = getDroppedFlagTeam(groundItem);
+        if (flagTeam == null) {
+            return false;
+        }
+
+        Team playerTeam = gamePlayers.get(player);
+        if (playerTeam == null) {
+            player.getPacketSender().sendGameMessage("You can only take this flag during a Castle Wars game.");
+            return true;
+        }
+
+        if (playerTeam == flagTeam) {
+            if (GroundItemManager.getInstance().removeForPickup(groundItem, player)) {
+                setDroppedFlag(flagTeam, null);
+                setFlagAtBase(flagTeam, true, null);
+                player.getPacketSender().sendGameMessage("You return the " + getTeamName(flagTeam) + " flag to its stand.");
+            }
+            return true;
+        }
+
+        if (isCarryingEnemyFlag(player)) {
+            player.getPacketSender().sendGameMessage("You are already carrying a flag.");
+            return true;
+        }
+        if (!canEquipFlag(player)) {
+            return true;
+        }
+        if (!GroundItemManager.getInstance().removeForPickup(groundItem, player)) {
+            return true;
+        }
+
+        setDroppedFlag(flagTeam, null);
+        equipFlag(player, flagTeam);
+        setFlagAtBase(flagTeam, false, player);
+        player.getPacketSender().sendGameMessage("You take the " + getTeamName(flagTeam) + " flag!");
+        return true;
+    }
+
+    private static boolean canEquipFlag(Player player) {
         int neededSlots = 0;
         if (player.getEquipmentManager().getContainer().getItemAt(3) != null) {
             ++neededSlots;
@@ -583,7 +642,10 @@ public final class CastleWarsManager {
             player.getPacketSender().sendGameMessage("You need enough inventory space for your weapon and shield.");
             return false;
         }
+        return true;
+    }
 
+    private static void equipFlag(Player player, Team flagTeam) {
         if (player.getEquipmentManager().getContainer().getItemAt(5) != null) {
             player.getEquipmentManager().unequipSlot(5);
         }
@@ -595,9 +657,6 @@ public final class CastleWarsManager {
         player.getEquipmentManager().getContainer().setItem(3, new ItemStack(flagId));
         player.getEquipmentManager().refresh();
         player.setAppearanceUpdateRequired(true);
-        setFlagAtBase(flagTeam, false, player);
-        player.getPacketSender().sendGameMessage("You take the " + getTeamName(flagTeam) + " flag!");
-        return true;
     }
 
     private static void setFlagAtBase(Team flagTeam, boolean atBase, Player holder) {
@@ -608,6 +667,31 @@ public final class CastleWarsManager {
             zamorakFlagAtBase = atBase;
             zamorakFlagHolder = holder;
         }
+    }
+
+    private static GroundItem getDroppedFlag(Team flagTeam) {
+        return flagTeam == Team.SARADOMIN ? saradominDroppedFlag : zamorakDroppedFlag;
+    }
+
+    private static void setDroppedFlag(Team flagTeam, GroundItem groundItem) {
+        if (flagTeam == Team.SARADOMIN) {
+            saradominDroppedFlag = groundItem;
+        } else {
+            zamorakDroppedFlag = groundItem;
+        }
+    }
+
+    private static Team getDroppedFlagTeam(GroundItem groundItem) {
+        if (groundItem == null) {
+            return null;
+        }
+        if (saradominDroppedFlag == groundItem) {
+            return Team.SARADOMIN;
+        }
+        if (zamorakDroppedFlag == groundItem) {
+            return Team.ZAMORAK;
+        }
+        return null;
     }
 
     private static Team getCarriedFlagTeam(Player player) {
@@ -626,6 +710,45 @@ public final class CastleWarsManager {
             return;
         }
         clearFlagWeapon(player);
+        setFlagAtBase(flagTeam, true, null);
+    }
+
+    private static void dropCarriedFlag(Player player) {
+        Team flagTeam = getCarriedFlagTeam(player);
+        if (flagTeam == null) {
+            return;
+        }
+
+        clearFlagWeapon(player);
+        int flagId = flagTeam == Team.SARADOMIN ? SARADOMIN_FLAG_ID : ZAMORAK_FLAG_ID;
+        GroundItem droppedFlag = new GroundItem(new ItemStack(flagId), player.getPosition(), false, true);
+        setFlagAtBase(flagTeam, false, null);
+        setDroppedFlag(flagTeam, droppedFlag);
+        GroundItemManager.getInstance().spawn(droppedFlag);
+        player.getPacketSender().sendGameMessage("You drop the " + getTeamName(flagTeam) + " flag.");
+    }
+
+    private static void cleanupDroppedFlags() {
+        cleanupDroppedFlag(Team.SARADOMIN);
+        cleanupDroppedFlag(Team.ZAMORAK);
+    }
+
+    private static void cleanupDroppedFlag(Team flagTeam) {
+        GroundItem droppedFlag = getDroppedFlag(flagTeam);
+        if (droppedFlag == null || GroundItemManager.getInstance().contains(droppedFlag)) {
+            return;
+        }
+        setDroppedFlag(flagTeam, null);
+        setFlagAtBase(flagTeam, true, null);
+    }
+
+    private static void returnDroppedFlagToBase(Team flagTeam) {
+        GroundItem droppedFlag = getDroppedFlag(flagTeam);
+        if (droppedFlag == null) {
+            return;
+        }
+        GroundItemManager.getInstance().remove(droppedFlag);
+        setDroppedFlag(flagTeam, null);
         setFlagAtBase(flagTeam, true, null);
     }
 
@@ -1237,7 +1360,7 @@ public final class CastleWarsManager {
         if (team == null) {
             return;
         }
-        returnCarriedFlagToBase(player);
+        dropCarriedFlag(player);
         moveToTeamSpawn(player, team);
         player.getPacketSender().sendGameMessage("You respawn in your team's castle.");
     }
@@ -1267,6 +1390,8 @@ public final class CastleWarsManager {
         zamorakFlagAtBase = true;
         saradominFlagHolder = null;
         zamorakFlagHolder = null;
+        saradominDroppedFlag = null;
+        zamorakDroppedFlag = null;
         gameInProgress = true;
         gameEndMillis = now + GAME_DURATION_SECONDS * 1000L;
         nextGameStartMillis = -1L;
@@ -1292,6 +1417,9 @@ public final class CastleWarsManager {
         int saradominReward = saradominScore > zamorakScore ? 2 : saradominScore == zamorakScore ? 1 : 0;
         int zamorakReward = zamorakScore > saradominScore ? 2 : saradominScore == zamorakScore ? 1 : 0;
 
+        returnDroppedFlagToBase(Team.SARADOMIN);
+        returnDroppedFlagToBase(Team.ZAMORAK);
+
         IdentityHashMap<Player, Team> finishers = new IdentityHashMap<Player, Team>(gamePlayers);
         gamePlayers.clear();
         gameInProgress = false;
@@ -1310,6 +1438,7 @@ public final class CastleWarsManager {
             removeBandages(player);
             CastleWarsEngineeringManager.cleanupPlayerSupplies(player);
             clearCastleWarsInterface(player);
+            clearFlagHint(player);
 
             int reward = team == Team.SARADOMIN ? saradominReward : zamorakReward;
             if (reward > 0) {
@@ -1546,6 +1675,7 @@ public final class CastleWarsManager {
         player.getPacketSender().sendInterfaceText(zamorakFlagAtBase ? "Safe" : "Taken", GAME_ZAMORAK_FLAG_TEXT_ID);
         player.getPacketSender().sendInterfaceText(saradominFlagAtBase ? "Safe" : "Taken", GAME_SARADOMIN_FLAG_TEXT_ID);
         Team team = gamePlayers.get(player);
+        updateEnemyFlagHint(player, team);
         if (team != null) {
             player.getPacketSender().sendInterfaceText(
                     CastleWarsEngineeringManager.isHomeTunnelCollapsed(team, 0) ? "Collapsed" : "Cleared",
@@ -1557,6 +1687,44 @@ public final class CastleWarsManager {
                     CastleWarsEngineeringManager.isCatapultOperational(team) ? "Operational" : "Destroyed",
                     GAME_CATAPULT_TEXT_ID);
         }
+    }
+
+    private static void updateEnemyFlagHint(Player player, Team team) {
+        if (team == null) {
+            clearFlagHint(player);
+            return;
+        }
+
+        Team enemyFlagTeam = team == Team.SARADOMIN ? Team.ZAMORAK : Team.SARADOMIN;
+        if (isFlagAtBase(enemyFlagTeam)) {
+            clearFlagHint(player);
+            return;
+        }
+
+        Position target = getFlagHintPosition(enemyFlagTeam);
+        if (target == null) {
+            clearFlagHint(player);
+            return;
+        }
+
+        int targetY = target.getY();
+        if (targetY >= 9468 && targetY <= 9540) {
+            targetY -= 6400;
+        }
+        player.getPacketSender().sendPositionHintIcon(target.getX(), targetY, 0, 2);
+    }
+
+    private static Position getFlagHintPosition(Team flagTeam) {
+        Player holder = getFlagHolder(flagTeam);
+        if (holder != null) {
+            return holder.getPosition();
+        }
+        GroundItem droppedFlag = getDroppedFlag(flagTeam);
+        return droppedFlag == null ? null : droppedFlag.getPosition();
+    }
+
+    private static void clearFlagHint(Player player) {
+        player.getPacketSender().sendEntityHintIcon(0, 0);
     }
 
     private static void clearCastleWarsInterface(Player player) {

@@ -314,6 +314,18 @@ implements Runnable {
         return instance;
     }
 
+    public final boolean contains(GroundItem groundItem) {
+        return groundItem != null && this.groundItems.contains(groundItem);
+    }
+
+    public final boolean remove(GroundItem groundItem) {
+        if (!contains(groundItem)) {
+            return false;
+        }
+        this.removeForPlayers(groundItem, World.getPlayers());
+        return true;
+    }
+
     public static boolean isVisible(Player player, GroundItem groundItem) {
         if (player == null || groundItem == null) {
             return false;
