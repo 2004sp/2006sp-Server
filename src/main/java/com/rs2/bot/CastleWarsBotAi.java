@@ -57,8 +57,19 @@ public final class CastleWarsBotAi {
             CastleWarsManager.useBandage(bot);
         }
 
+        boolean dedicatedFlagRunner =
+                CastleWarsBotRoleAi.isDedicatedFlagRunner(bot);
         boolean prioritizeTraversal = isTraversalPhase(state.phase);
         if (prioritizeTraversal) {
+            state.sightChaseTarget = null;
+            state.sightChaseTicks = 0;
+            if (bot.getCombatTarget() != null) {
+                CombatManager.stopCombat(bot);
+            }
+        }
+
+        if (dedicatedFlagRunner
+                && !CastleWarsManager.isCarryingEnemyFlag(bot)) {
             state.sightChaseTarget = null;
             state.sightChaseTicks = 0;
             if (bot.getCombatTarget() != null) {
@@ -95,7 +106,8 @@ public final class CastleWarsBotAi {
                 state.phase = Phase.CLIMB_HOME;
             }
             state.repathDelay = 0;
-        } else if (!CastleWarsManager.isInTeamSpawnArea(bot, team)
+        } else if (!dedicatedFlagRunner
+                && !CastleWarsManager.isInTeamSpawnArea(bot, team)
                 && !prioritizeTraversal) {
             if (hasActiveOpponent(bot, state)) {
                 return;
@@ -111,21 +123,23 @@ public final class CastleWarsBotAi {
             }
         }
 
-        Position enemyBarricade = CastleWarsEngineeringManager.findNearestEnemyBarricade(bot, 1);
-        if (enemyBarricade != null
-                && bot.getInventoryManager().getItemAmount(
-                        CastleWarsEngineeringManager.EXPLOSIVE_POTION_ID) > 0
-                && CastleWarsEngineeringManager.destroyBarricadeWithExplosive(bot, enemyBarricade)) {
-            CastleWarsBotChat.sayEngineering(bot);
-            state.delayTicks = 2;
-            return;
-        }
-        if (bot.getInventoryManager().getItemAmount(
-                CastleWarsEngineeringManager.EXPLOSIVE_POTION_ID) > 0
-                && CastleWarsEngineeringManager.sabotageEnemyCatapult(bot)) {
-            CastleWarsBotChat.sayCatapult(bot);
-            state.delayTicks = 2;
-            return;
+        if (!dedicatedFlagRunner) {
+            Position enemyBarricade = CastleWarsEngineeringManager.findNearestEnemyBarricade(bot, 1);
+            if (enemyBarricade != null
+                    && bot.getInventoryManager().getItemAmount(
+                            CastleWarsEngineeringManager.EXPLOSIVE_POTION_ID) > 0
+                    && CastleWarsEngineeringManager.destroyBarricadeWithExplosive(bot, enemyBarricade)) {
+                CastleWarsBotChat.sayEngineering(bot);
+                state.delayTicks = 2;
+                return;
+            }
+            if (bot.getInventoryManager().getItemAmount(
+                    CastleWarsEngineeringManager.EXPLOSIVE_POTION_ID) > 0
+                    && CastleWarsEngineeringManager.sabotageEnemyCatapult(bot)) {
+                CastleWarsBotChat.sayCatapult(bot);
+                state.delayTicks = 2;
+                return;
+            }
         }
 
         if (state.delayTicks > 0) {
@@ -324,7 +338,8 @@ public final class CastleWarsBotAi {
             return;
         }
 
-        if (castleTeam != state.team && state.routeVariant == 2) {
+        if (castleTeam != state.team && state.routeVariant == 2
+                && !CastleWarsBotRoleAi.isDedicatedFlagRunner(bot)) {
             Position battlement =
                     CastleWarsEngineeringManager.findNearestClimbableBattlement(
                             bot, castleTeam);
@@ -393,7 +408,8 @@ public final class CastleWarsBotAi {
 
             state.crossedMidpoint = true;
             state.repathDelay = 0;
-            if (!returningHome) {
+            if (!returningHome
+                    && !CastleWarsBotRoleAi.isDedicatedFlagRunner(bot)) {
                 state.delayTicks = 3 + GameUtil.randomInt(6);
                 if (GameUtil.randomInt(4) == 0) {
                     CastleWarsBotChat.sayMid(bot);
@@ -548,27 +564,19 @@ public final class CastleWarsBotAi {
     private static void processRoam(BotPlayer bot, BotState state) {
         if (bot.getPosition().getPlane() != 0) {
             state.phase = Phase.DESCEND_ENEMY;
+            state.repathDelay = 0;
             return;
         }
 
-        if (state.roamTicks-- <= 0) {
-            state.routeVariant = GameUtil.randomInt(3);
-            state.routeOffsetX = -2 + GameUtil.randomInt(5);
-            state.routeOffsetY = -2 + GameUtil.randomInt(5);
-            state.crossedMidpoint = false;
-            state.roamTicks = 20 + GameUtil.randomInt(40);
-            state.phase = Phase.CROSS_FIELD;
-            return;
-        }
-
-        Position roam = new Position(
-                2392 + GameUtil.randomInt(17),
-                3096 + GameUtil.randomInt(17),
-                0
-        );
-        if (GameUtil.randomInt(5) == 0) {
-            walk(bot, state, roam);
-        }
+        // Attackers do not idle around the field. If they are not already in
+        // combat, immediately start another push toward the enemy flag.
+        state.routeVariant = GameUtil.randomInt(3);
+        state.routeOffsetX = -2 + GameUtil.randomInt(5);
+        state.routeOffsetY = -2 + GameUtil.randomInt(5);
+        state.crossedMidpoint = false;
+        state.roamTicks = 0;
+        state.phase = Phase.CROSS_FIELD;
+        state.repathDelay = 0;
     }
 
     private static boolean hasActiveOpponent(BotPlayer bot, BotState state) {
