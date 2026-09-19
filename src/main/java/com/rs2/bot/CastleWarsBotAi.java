@@ -169,7 +169,11 @@ public final class CastleWarsBotAi {
             state.delayTicks = 1 + GameUtil.randomInt(4);
         }
 
-        state.phase = state.routeVariant == 2 ? Phase.DESCEND_HOME : Phase.EXIT_BARRIER;
+        CastleWarsManager.moveBotToGroundBattlefield(bot, state.team);
+        state.phase = Phase.CROSS_FIELD;
+        state.crossedMidpoint = false;
+        state.repathDelay = 0;
+        state.delayTicks = 1 + GameUtil.randomInt(3);
     }
 
     private static void processExitBarrier(BotPlayer bot, BotState state) {
