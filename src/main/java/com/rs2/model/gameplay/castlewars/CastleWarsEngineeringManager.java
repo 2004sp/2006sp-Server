@@ -44,6 +44,8 @@ public final class CastleWarsEngineeringManager {
 
     public static final int ZAMORAK_CATAPULT_ID = 4381;
     public static final int SARADOMIN_CATAPULT_ID = 4382;
+    public static final int ZAMORAK_BURNING_CATAPULT_ID = 4904;
+    public static final int SARADOMIN_BURNING_CATAPULT_ID = 4905;
     public static final int ZAMORAK_DAMAGED_CATAPULT_ID = 4385;
     public static final int SARADOMIN_DAMAGED_CATAPULT_ID = 4386;
 
@@ -80,6 +82,7 @@ public final class CastleWarsEngineeringManager {
     private static final int CLIMBING_ROPE_PLANE = 0;
     private static final int CLIMBING_ROPE_DESTINATION_PLANE = 1;
     private static final long BARRICADE_BURN_DURATION_MILLIS = 20L * 1000L;
+    private static final long CATAPULT_BURN_DURATION_MILLIS = 20L * 1000L;
 
     private static final Position[] ROCKSLIDE_POSITIONS = new Position[]{
         new Position(2391, 9501, 0),
@@ -94,6 +97,10 @@ public final class CastleWarsEngineeringManager {
     private static final boolean[] rockslideCollapsed = new boolean[]{true, true, true, true};
     private static boolean saradominCatapultOperational = true;
     private static boolean zamorakCatapultOperational = true;
+    private static boolean saradominCatapultBurning;
+    private static boolean zamorakCatapultBurning;
+    private static long saradominCatapultBurnExpiresAt;
+    private static long zamorakCatapultBurnExpiresAt;
     private static long saradominCatapultReadyAt;
     private static long zamorakCatapultReadyAt;
     private static final Map<Player, Long> mainDoorAttackReadyAt =
@@ -212,6 +219,17 @@ public final class CastleWarsEngineeringManager {
             }
         }
 
+        if (itemId == TINDERBOX_ITEM_ID
+                && (objectId == SARADOMIN_CATAPULT_ID || objectId == ZAMORAK_CATAPULT_ID)) {
+            return igniteEnemyCatapult(player, objectId);
+        }
+
+        if (itemId == BUCKET_OF_WATER_ITEM_ID
+                && (objectId == SARADOMIN_BURNING_CATAPULT_ID
+                || objectId == ZAMORAK_BURNING_CATAPULT_ID)) {
+            return extinguishOwnCatapult(player, objectId);
+        }
+
         if (itemId == EXPLOSIVE_POTION_ID) {
             if (objectId == BARRICADE_OBJECT_SARADOMIN || objectId == BARRICADE_OBJECT_ZAMORAK) {
                 return destroyBarricadeWithExplosive(player,
@@ -222,7 +240,9 @@ public final class CastleWarsEngineeringManager {
                     && rockIndex >= 0) {
                 return useRockslideTool(player, rockIndex, true);
             }
-            if (objectId == SARADOMIN_CATAPULT_ID || objectId == ZAMORAK_CATAPULT_ID) {
+            if (objectId == SARADOMIN_CATAPULT_ID || objectId == ZAMORAK_CATAPULT_ID
+                    || objectId == SARADOMIN_BURNING_CATAPULT_ID
+                    || objectId == ZAMORAK_BURNING_CATAPULT_ID) {
                 return sabotageEnemyCatapult(player);
             }
         }
@@ -986,7 +1006,7 @@ public final class CastleWarsEngineeringManager {
         if (team == null || player.getInventoryManager().getItemAmount(ROCK_ITEM_ID) <= 0) {
             return false;
         }
-        if (!isCatapultOperational(team)) {
+        if (!isCatapultOperational(team) || isCatapultBurning(team)) {
             return false;
         }
 
@@ -1020,6 +1040,79 @@ public final class CastleWarsEngineeringManager {
         return true;
     }
 
+    public static boolean igniteEnemyCatapult(Player player, int objectId) {
+        CastleWarsManager.Team team = CastleWarsManager.getGameTeam(player);
+        CastleWarsManager.Team targetTeam = getCatapultTeamForObject(objectId);
+        if (team == null || targetTeam == null
+                || player.getInventoryManager().getItemAmount(TINDERBOX_ITEM_ID) <= 0) {
+            return false;
+        }
+        if (team == targetTeam) {
+            player.getPacketSender().sendGameMessage("You can't set fire to your own team's catapult.");
+            return true;
+        }
+
+        Position target = getCatapultPosition(targetTeam);
+        if (player.getPosition().getPlane() != 0
+                || GameUtil.getDistance(player.getPosition(), target) > 3) {
+            return false;
+        }
+        if (!isCatapultOperational(targetTeam)) {
+            return false;
+        }
+        if (isCatapultBurning(targetTeam)) {
+            player.getPacketSender().sendGameMessage("The catapult is already on fire.");
+            return true;
+        }
+
+        player.getUpdateState().setAnimation(733);
+        setCatapultBurning(targetTeam, true);
+        player.getPacketSender().sendGameMessage("You set fire to the enemy catapult.");
+        return true;
+    }
+
+    public static boolean extinguishOwnCatapult(Player player, int objectId) {
+        CastleWarsManager.Team team = CastleWarsManager.getGameTeam(player);
+        CastleWarsManager.Team targetTeam = getCatapultTeamForObject(objectId);
+        if (team == null || targetTeam == null
+                || player.getInventoryManager().getItemAmount(BUCKET_OF_WATER_ITEM_ID) <= 0) {
+            return false;
+        }
+        if (team != targetTeam) {
+            player.getPacketSender().sendGameMessage("You can only put out your own team's catapult.");
+            return true;
+        }
+
+        Position target = getCatapultPosition(targetTeam);
+        if (player.getPosition().getPlane() != 0
+                || GameUtil.getDistance(player.getPosition(), target) > 3) {
+            return false;
+        }
+        if (!isCatapultBurning(targetTeam)) {
+            player.getPacketSender().sendGameMessage("The catapult isn't on fire.");
+            return true;
+        }
+        if (!player.getInventoryManager().removeItem(new ItemStack(BUCKET_OF_WATER_ITEM_ID, 1))) {
+            return false;
+        }
+
+        player.getInventoryManager().addItem(new ItemStack(EMPTY_BUCKET_ITEM_ID, 1));
+        setCatapultBurning(targetTeam, false);
+        player.getPacketSender().sendGameMessage("You extinguish your team's catapult.");
+        return true;
+    }
+
+    public static void processCatapultFires(long now) {
+        if (saradominCatapultBurning && saradominCatapultBurnExpiresAt > 0L
+                && now >= saradominCatapultBurnExpiresAt) {
+            setCatapultOperational(CastleWarsManager.Team.SARADOMIN, false);
+        }
+        if (zamorakCatapultBurning && zamorakCatapultBurnExpiresAt > 0L
+                && now >= zamorakCatapultBurnExpiresAt) {
+            setCatapultOperational(CastleWarsManager.Team.ZAMORAK, false);
+        }
+    }
+
     public static boolean sabotageEnemyCatapult(Player player) {
         CastleWarsManager.Team team = CastleWarsManager.getGameTeam(player);
         if (team == null || player.getInventoryManager().getItemAmount(EXPLOSIVE_POTION_ID) <= 0) {
@@ -1027,12 +1120,11 @@ public final class CastleWarsEngineeringManager {
         }
         CastleWarsManager.Team enemy = team == CastleWarsManager.Team.SARADOMIN
                 ? CastleWarsManager.Team.ZAMORAK : CastleWarsManager.Team.SARADOMIN;
-        Position target = enemy == CastleWarsManager.Team.SARADOMIN
-                ? SARADOMIN_CATAPULT : ZAMORAK_CATAPULT;
+        Position target = getCatapultPosition(enemy);
         if (player.getPosition().getPlane() != 0 || GameUtil.getDistance(player.getPosition(), target) > 3) {
             return false;
         }
-        if (!isCatapultOperational(enemy)) {
+        if (!isCatapultOperational(enemy) && !isCatapultBurning(enemy)) {
             return false;
         }
 
@@ -1048,9 +1140,14 @@ public final class CastleWarsEngineeringManager {
                 ? saradominCatapultOperational : zamorakCatapultOperational;
     }
 
+    public static boolean isCatapultBurning(CastleWarsManager.Team team) {
+        return team == CastleWarsManager.Team.SARADOMIN
+                ? saradominCatapultBurning : zamorakCatapultBurning;
+    }
+
     public static boolean repairOwnCatapult(Player player) {
         CastleWarsManager.Team team = CastleWarsManager.getGameTeam(player);
-        if (team == null || isCatapultOperational(team)
+        if (team == null || isCatapultOperational(team) || isCatapultBurning(team)
                 || player.getInventoryManager().getItemAmount(TOOLKIT_ID) <= 0) {
             return false;
         }
@@ -1074,19 +1171,13 @@ public final class CastleWarsEngineeringManager {
     }
 
     private static void setCatapultOperational(CastleWarsManager.Team team, boolean operational) {
-        Position position = team == CastleWarsManager.Team.SARADOMIN
-                ? SARADOMIN_CATAPULT : ZAMORAK_CATAPULT;
+        Position position = getCatapultPosition(team);
         int normalId = team == CastleWarsManager.Team.SARADOMIN
                 ? SARADOMIN_CATAPULT_ID : ZAMORAK_CATAPULT_ID;
         int damagedId = team == CastleWarsManager.Team.SARADOMIN
                 ? SARADOMIN_DAMAGED_CATAPULT_ID : ZAMORAK_DAMAGED_CATAPULT_ID;
 
-        DynamicObject existing = ObjectManager.findDynamicObjectAt(
-                position.getX(), position.getY(), position.getPlane());
-        if (existing != null) {
-            ObjectManager.getInstance().removeDynamicObjectAt(
-                    position.getX(), position.getY(), position.getPlane(), 10);
-        }
+        removeCatapultDynamicObject(position);
 
         if (!operational) {
             new DynamicObject(damagedId, position.getX(), position.getY(), 0,
@@ -1095,9 +1186,65 @@ public final class CastleWarsEngineeringManager {
 
         if (team == CastleWarsManager.Team.SARADOMIN) {
             saradominCatapultOperational = operational;
+            saradominCatapultBurning = false;
+            saradominCatapultBurnExpiresAt = 0L;
         } else {
             zamorakCatapultOperational = operational;
+            zamorakCatapultBurning = false;
+            zamorakCatapultBurnExpiresAt = 0L;
         }
+    }
+
+    private static void setCatapultBurning(CastleWarsManager.Team team, boolean burning) {
+        Position position = getCatapultPosition(team);
+        int normalId = team == CastleWarsManager.Team.SARADOMIN
+                ? SARADOMIN_CATAPULT_ID : ZAMORAK_CATAPULT_ID;
+        int burningId = team == CastleWarsManager.Team.SARADOMIN
+                ? SARADOMIN_BURNING_CATAPULT_ID : ZAMORAK_BURNING_CATAPULT_ID;
+
+        removeCatapultDynamicObject(position);
+        if (burning) {
+            new DynamicObject(burningId, position.getX(), position.getY(), 0,
+                    0, 10, normalId, 99999, false);
+        }
+
+        long expiresAt = burning
+                ? System.currentTimeMillis() + CATAPULT_BURN_DURATION_MILLIS : 0L;
+        if (team == CastleWarsManager.Team.SARADOMIN) {
+            saradominCatapultBurning = burning;
+            saradominCatapultBurnExpiresAt = expiresAt;
+        } else {
+            zamorakCatapultBurning = burning;
+            zamorakCatapultBurnExpiresAt = expiresAt;
+        }
+    }
+
+    private static void removeCatapultDynamicObject(Position position) {
+        DynamicObject existing = ObjectManager.findDynamicObjectAt(
+                position.getX(), position.getY(), position.getPlane());
+        if (existing != null) {
+            ObjectManager.getInstance().removeDynamicObjectAt(
+                    position.getX(), position.getY(), position.getPlane(), 10);
+        }
+    }
+
+    private static Position getCatapultPosition(CastleWarsManager.Team team) {
+        return team == CastleWarsManager.Team.SARADOMIN
+                ? SARADOMIN_CATAPULT : ZAMORAK_CATAPULT;
+    }
+
+    private static CastleWarsManager.Team getCatapultTeamForObject(int objectId) {
+        if (objectId == SARADOMIN_CATAPULT_ID
+                || objectId == SARADOMIN_BURNING_CATAPULT_ID
+                || objectId == SARADOMIN_DAMAGED_CATAPULT_ID) {
+            return CastleWarsManager.Team.SARADOMIN;
+        }
+        if (objectId == ZAMORAK_CATAPULT_ID
+                || objectId == ZAMORAK_BURNING_CATAPULT_ID
+                || objectId == ZAMORAK_DAMAGED_CATAPULT_ID) {
+            return CastleWarsManager.Team.ZAMORAK;
+        }
+        return null;
     }
 
     private static void setRockslideState(int index, boolean collapsed) {

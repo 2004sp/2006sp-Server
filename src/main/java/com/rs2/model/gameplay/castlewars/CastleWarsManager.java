@@ -174,6 +174,7 @@ public final class CastleWarsManager {
         cleanupGamePlayers();
         cleanupDroppedFlags();
         CastleWarsEngineeringManager.processBarricadeFires(now);
+        CastleWarsEngineeringManager.processCatapultFires(now);
 
         if (gameInProgress) {
             if (now >= gameEndMillis) {
