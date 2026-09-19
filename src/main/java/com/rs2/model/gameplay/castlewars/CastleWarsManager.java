@@ -1293,8 +1293,8 @@ public final class CastleWarsManager {
         }
         int x = position.getX();
         int y = position.getY();
-        return x == 2416 && y == 3074
-                || x == 2383 && y == 3133;
+        return x == 2414 && y == 3073
+                || x == 2385 && y == 3134;
     }
 
     public static Team getCastleTeamAtPosition(Position position) {
@@ -1460,25 +1460,64 @@ public final class CastleWarsManager {
                 || player.getPosition().getPlane() != 0) {
             return false;
         }
-        Position approach;
-        if (castleTeam == Team.SARADOMIN) {
-            approach = enteringCastle
-                    ? new Position(2416, 3074, 0)
-                    : new Position(2417, 3077, 0);
-        } else {
-            approach = enteringCastle
-                    ? new Position(2383, 3133, 0)
-                    : new Position(2382, 3130, 0);
-        }
 
-        if (!samePosition(player.getPosition(), approach)) {
+        Position exterior = castleTeam == Team.SARADOMIN
+                ? new Position(2414, 3073, 0)
+                : new Position(2385, 3134, 0);
+        Position stairLanding = castleTeam == Team.SARADOMIN
+                ? new Position(2416, 3074, 0)
+                : new Position(2383, 3133, 0);
+        Position innerStairApproach = castleTeam == Team.SARADOMIN
+                ? new Position(2417, 3077, 0)
+                : new Position(2382, 3130, 0);
+
+        if (enteringCastle) {
+            if (samePosition(player.getPosition(), stairLanding)) {
+                moveBotThroughGroundCastleStairs(player, castleTeam, true);
+                return true;
+            }
+
+            if (!samePosition(player.getPosition(), exterior)
+                    && getCastleTeamAtPosition(player.getPosition()) == null) {
+                player.getMovementQueue().setRunning(true);
+                PathFinder.findPath(player, exterior.getX(), exterior.getY(), false, 0, 0);
+                player.getMovementQueue().clearMovementActions();
+                return true;
+            }
+
+            // From the real exterior side-door square, open/pick the door first,
+            // then use normal clipped pathing to reach the internal stair landing.
+            if (CastleWarsEngineeringManager.tryHandleNearbyDoorForBot(player)) {
+                return true;
+            }
             player.getMovementQueue().setRunning(true);
-            PathFinder.findPath(player, approach.getX(), approach.getY(), false, 0, 0);
+            PathFinder.findPath(player, stairLanding.getX(), stairLanding.getY(), false, 0, 0);
             player.getMovementQueue().clearMovementActions();
             return true;
         }
 
-        moveBotThroughGroundCastleStairs(player, castleTeam, enteringCastle);
+        if (samePosition(player.getPosition(), exterior)) {
+            return true;
+        }
+
+        if (!samePosition(player.getPosition(), stairLanding)) {
+            if (!samePosition(player.getPosition(), innerStairApproach)) {
+                player.getMovementQueue().setRunning(true);
+                PathFinder.findPath(player, innerStairApproach.getX(),
+                        innerStairApproach.getY(), false, 0, 0);
+                player.getMovementQueue().clearMovementActions();
+                return true;
+            }
+            moveBotThroughGroundCastleStairs(player, castleTeam, false);
+            return true;
+        }
+
+        if (CastleWarsEngineeringManager.tryHandleNearbyDoorForBot(player)) {
+            return true;
+        }
+        player.getMovementQueue().setRunning(true);
+        PathFinder.findPath(player, exterior.getX(), exterior.getY(), false, 0, 0);
+        player.getMovementQueue().clearMovementActions();
         return true;
     }
 
