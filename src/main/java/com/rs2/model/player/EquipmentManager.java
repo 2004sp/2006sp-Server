@@ -128,6 +128,7 @@ public final class EquipmentManager {
         int value;
         int value2;
         ItemStack itemStack;
+        boolean dropCastleWarsFlagForEquipment = false;
         equipFromInventorySlotControlExit1: {
             equipFromInventorySlotControlExit2: {
                 equipFromInventorySlotControlExit3: {
@@ -147,10 +148,9 @@ public final class EquipmentManager {
                             if (GameplayTrace.enabled()) {
                                 GameplayTrace.log("equipment equip request player=" + GameplayTrace.describe(this.player) + " inventorySlot=" + slot + " itemId=" + itemStack.getId() + " item=" + itemStack.getDefinition().getName() + " equipmentSlot=" + value2);
                             }
-                            if (CastleWarsManager.isCarryingFlag(this.player)
-                                    && (value2 == 3 || value2 == 5)) {
-                                CastleWarsManager.dropCarriedFlagManually(this.player);
-                            }
+                            dropCastleWarsFlagForEquipment =
+                                    CastleWarsManager.isCarryingFlag(this.player)
+                                            && (value2 == 3 || value2 == 5);
                             if ((CastleWarsManager.isWaitingPlayer(this.player) || CastleWarsManager.isInGame(this.player))
                                     && CastleWarsManager.isTeamColourEquipmentSlot(value2)) {
                                 this.player.getPacketSender().sendGameMessage("You can't change your head or cape equipment during Castle Wars.");
@@ -318,6 +318,9 @@ public final class EquipmentManager {
             Player player = this.player;
             player.packetSender.sendGameMessage("You cannot wear this during this fight!");
             return;
+        }
+        if (dropCastleWarsFlagForEquipment) {
+            CastleWarsManager.dropCarriedFlagManually(this.player);
         }
         int value9;
         value = 0;
