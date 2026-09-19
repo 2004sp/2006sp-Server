@@ -68,6 +68,10 @@ public final class CastleWarsBotRoleAi {
             CastleWarsManager.useBandage(bot);
         }
 
+        if (processFlagCarrierFocus(bot, state)) {
+            return true;
+        }
+
         boolean prioritizeTraversal = isTraversalPhase(state.phase);
         if (prioritizeTraversal) {
             state.sightChaseTarget = null;
@@ -1135,6 +1139,125 @@ public final class CastleWarsBotRoleAi {
                 bot.getInventoryManager().removeItem(new ItemStack(4049, remove));
             }
         }
+    }
+
+    private static boolean processFlagCarrierFocus(BotPlayer bot, RoleState state) {
+        if (CastleWarsManager.isCarryingFlag(bot)
+                || CastleWarsManager.isInTeamSpawnArea(bot, state.team)) {
+            return false;
+        }
+
+        Player enemyCarrier = findEnemyFlagCarrier(bot, state.team);
+        if (enemyCarrier != null) {
+            state.sightChaseTarget = null;
+            state.sightChaseTicks = 0;
+            if (bot.getCombatTarget() != null && bot.getCombatTarget() != enemyCarrier) {
+                CombatManager.stopCombat(bot);
+            }
+            bot.getMovementQueue().setRunning(true);
+            if (CastleWarsManager.hasBotCombatLineOfSight(bot, enemyCarrier)) {
+                CombatManager.startCombat(bot, enemyCarrier);
+                return true;
+            }
+            if (navigateSightChase(bot, state, enemyCarrier)) {
+                state.repathDelay = 0;
+                return true;
+            }
+            walk(bot, state, enemyCarrier.getPosition());
+            return true;
+        }
+
+        Player friendlyCarrier = findFriendlyFlagCarrier(bot, state.team);
+        if (friendlyCarrier == null) {
+            return false;
+        }
+
+        Player threat = findFlagCarrierThreat(bot, friendlyCarrier);
+        if (threat != null) {
+            if (bot.getCombatTarget() != null && bot.getCombatTarget() != threat) {
+                CombatManager.stopCombat(bot);
+            }
+            bot.getMovementQueue().setRunning(true);
+            if (CastleWarsManager.hasBotCombatLineOfSight(bot, threat)) {
+                CombatManager.startCombat(bot, threat);
+                return true;
+            }
+            if (navigateSightChase(bot, state, threat)) {
+                state.repathDelay = 0;
+                return true;
+            }
+            walk(bot, state, threat.getPosition());
+            return true;
+        }
+
+        if (bot.getCombatTarget() != null) {
+            CombatManager.stopCombat(bot);
+        }
+        int escortDistance = GameUtil.getDistance(bot.getPosition(), friendlyCarrier.getPosition());
+        if (bot.getPosition().getPlane() != friendlyCarrier.getPosition().getPlane()
+                || escortDistance > 4) {
+            bot.getMovementQueue().setRunning(true);
+            if (navigateSightChase(bot, state, friendlyCarrier)) {
+                state.repathDelay = 0;
+                return true;
+            }
+            walk(bot, state, friendlyCarrier.getPosition());
+        }
+        return true;
+    }
+
+    private static Player findEnemyFlagCarrier(BotPlayer bot, CastleWarsManager.Team team) {
+        Player holder = CastleWarsManager.getFlagHolder(team);
+        if (isEnemyCarrier(bot, holder)) {
+            return holder;
+        }
+        holder = CastleWarsManager.getFlagHolder(opposite(team));
+        return isEnemyCarrier(bot, holder) ? holder : null;
+    }
+
+    private static Player findFriendlyFlagCarrier(BotPlayer bot, CastleWarsManager.Team team) {
+        Player holder = CastleWarsManager.getFlagHolder(opposite(team));
+        if (isFriendlyCarrier(bot, team, holder)) {
+            return holder;
+        }
+        holder = CastleWarsManager.getFlagHolder(team);
+        return isFriendlyCarrier(bot, team, holder) ? holder : null;
+    }
+
+    private static boolean isEnemyCarrier(BotPlayer bot, Player holder) {
+        return holder != null && holder != bot && holder.isRegistered() && !holder.isDead()
+                && CastleWarsManager.areOpponents(bot, holder);
+    }
+
+    private static boolean isFriendlyCarrier(BotPlayer bot, CastleWarsManager.Team team,
+                                             Player holder) {
+        return holder != null && holder != bot && holder.isRegistered() && !holder.isDead()
+                && CastleWarsManager.getGameTeam(holder) == team;
+    }
+
+    private static Player findFlagCarrierThreat(BotPlayer bot, Player carrier) {
+        Player best = null;
+        int bestScore = Integer.MAX_VALUE;
+        for (Player player : World.getPlayers()) {
+            if (player == null || player == bot || player.isDead()
+                    || !player.isRegistered() || !CastleWarsManager.areOpponents(bot, player)) {
+                continue;
+            }
+            int carrierDistance = GameUtil.getDistance(carrier.getPosition(), player.getPosition());
+            if (carrierDistance > 10) {
+                continue;
+            }
+            int score = carrierDistance * 4
+                    + GameUtil.getDistance(bot.getPosition(), player.getPosition());
+            if (player.getCombatTarget() == carrier) {
+                score -= 30;
+            }
+            if (score < bestScore) {
+                best = player;
+                bestScore = score;
+            }
+        }
+        return best;
     }
 
     private static boolean hasActiveOpponent(BotPlayer bot, RoleState state) {
