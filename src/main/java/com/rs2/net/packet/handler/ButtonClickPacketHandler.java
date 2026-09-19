@@ -7,6 +7,7 @@ import com.rs2.model.EntityUpdateState;
 import com.rs2.model.GameplayHelper;
 import com.rs2.model.gameplay.barrows.BarrowsManager;
 import com.rs2.model.gameplay.castlewars.CastleWarsEngineeringManager;
+import com.rs2.model.gameplay.castlewars.CastleWarsManager;
 import com.rs2.model.gameplay.partyroom.PartyRoomManager;
 import com.rs2.model.ground.GroundItem;
 import com.rs2.model.ground.GroundItemManager;
@@ -53,6 +54,7 @@ implements PacketHandler {
         if (ServerSettings.debugModeEnabled) {
             System.out.println("button id: " + buttonId);
         }
+        if (CastleWarsManager.handleReplacementOfferButton(player, buttonId)) return;
         if (CastleWarsEngineeringManager.handleCatapultButton(player, buttonId)) return;
         if (player.getDuelSession().handleButtonClick(buttonId) != false) return;
         if (player.getQuestManager().handleButtonClick(buttonId) != false) return;
