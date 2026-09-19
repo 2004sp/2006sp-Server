@@ -1386,6 +1386,26 @@ implements PacketHandler {
             return;
         }
         switch (itemId) {
+            case 4049: {
+                if (!player.isInCastleWars()) {
+                    player.packetSender.sendGameMessage("You can only use these in Castle Wars.");
+                    return;
+                }
+                if (!player.getSkillManager().tryStartActionDelay(1800) || player.getCurrentHitpoints() <= 0) {
+                    return;
+                }
+                if (!player.getInventoryManager().removeItemFromSlot(selectedItem, player.getSelectedItemSlot())) {
+                    return;
+                }
+                player.getUpdateState().setAnimation(829);
+                player.heal(player.getMaxHitpoints() / 10);
+                player.addRunEnergyPercent(30);
+                player.packetSender.sendRunEnergy();
+                player.setPoisonDamage(0.0);
+                player.nextActionSequence();
+                player.getAttackDelayTimer().setDelayTicks(player.getAttackDelayTimer().getDelayTicks() + 2);
+                return;
+            }
             case 2329: {
                 if (player.getInventoryManager().removeItemFromSlot(selectedItem, player.getSelectedItemSlot())) {
                     player.packetSender.sendGameMessage("You empty the pie dish.");
