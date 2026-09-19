@@ -195,6 +195,7 @@ public final class CastleWarsManager {
             if (playerTeam != null) {
                 leaveGame(player);
             } else {
+                setCastleWarsAttackOption(player, false);
                 removeTeamColours(player);
                 removeBandages(player);
                 CastleWarsEngineeringManager.cleanupPlayerSupplies(player);
@@ -332,6 +333,7 @@ public final class CastleWarsManager {
             return;
         }
         returnCarriedFlagToBase(player);
+        setCastleWarsAttackOption(player, false);
         removeTeamColours(player);
         removeBandages(player);
         CastleWarsEngineeringManager.cleanupPlayerSupplies(player);
@@ -833,6 +835,7 @@ public final class CastleWarsManager {
             if (!isWearingTeamColours(player, team)) {
                 equipTeamColours(player, team);
             }
+            setCastleWarsAttackOption(player, true);
             moveToTeamSpawn(player, team);
             player.getPacketSender().sendGameMessage("The Castle Wars game has begun!");
             updateGameInterface(player, now);
@@ -856,6 +859,7 @@ public final class CastleWarsManager {
             }
 
             returnCarriedFlagToBase(player);
+            setCastleWarsAttackOption(player, false);
             removeTeamColours(player);
             removeBandages(player);
             CastleWarsEngineeringManager.cleanupPlayerSupplies(player);
@@ -893,6 +897,13 @@ public final class CastleWarsManager {
         player.getEquipmentManager().getContainer().setItem(1, new ItemStack(cloakId));
         player.getEquipmentManager().refresh();
         player.setAppearanceUpdateRequired(true);
+    }
+
+    private static void setCastleWarsAttackOption(Player player, boolean enabled) {
+        if (player == null || player.isBot) {
+            return;
+        }
+        player.getPacketSender().sendPlayerOption(enabled ? "Attack" : "null", 1, false);
     }
 
     private static void removeBandages(Player player) {
