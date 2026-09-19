@@ -60,7 +60,7 @@ public final class CastleWarsBotAi {
             if (hasActiveOpponent(bot)) {
                 return;
             }
-            if (tryEngageNearbyOpponent(bot, 8)) {
+            if (tryEngageNearbyOpponent(bot, 11)) {
                 return;
             }
         }
@@ -306,6 +306,13 @@ public final class CastleWarsBotAi {
             }
             state.crossedMidpoint = true;
             state.repathDelay = 0;
+            if (!returningHome) {
+                state.delayTicks = 3 + GameUtil.randomInt(6);
+                if (GameUtil.randomInt(4) == 0) {
+                    bot.queuePublicChatMessage("rush mid");
+                }
+                return;
+            }
         }
 
         CastleWarsManager.Team destination = returningHome ? state.team : opposite(state.team);
