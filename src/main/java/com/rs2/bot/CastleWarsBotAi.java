@@ -165,12 +165,15 @@ public final class CastleWarsBotAi {
             }
             CastleWarsEngineeringManager.giveSupply(bot,
                     CastleWarsEngineeringManager.EXPLOSIVE_POTION_ID, 1);
+            if (state.routeVariant == 2) {
+                CastleWarsEngineeringManager.giveSupply(bot,
+                        CastleWarsEngineeringManager.CLIMBING_ROPE_ITEM_ID, 1);
+            }
             state.stocked = true;
             state.delayTicks = 1 + GameUtil.randomInt(4);
         }
 
-        CastleWarsManager.moveBotToGroundBattlefield(bot, state.team);
-        state.phase = Phase.CROSS_FIELD;
+        state.phase = Phase.EXIT_BARRIER;
         state.crossedMidpoint = false;
         state.repathDelay = 0;
         state.delayTicks = 1 + GameUtil.randomInt(3);
@@ -275,6 +278,25 @@ public final class CastleWarsBotAi {
         if (bot.getPosition().getPlane() != 0) {
             state.phase = nextPhase;
             return;
+        }
+
+        if (castleTeam != state.team && state.routeVariant == 2) {
+            Position battlement =
+                    CastleWarsEngineeringManager.findNearestClimbableBattlement(
+                            bot, castleTeam);
+            if (battlement != null) {
+                if (!near(bot, battlement, 2)) {
+                    walk(bot, state, battlement);
+                    return;
+                }
+                if (CastleWarsEngineeringManager.useClimbingRopeForBot(bot, battlement)) {
+                    if (bot.getPosition().getPlane() != 0) {
+                        state.phase = nextPhase;
+                    }
+                    state.repathDelay = 0;
+                    return;
+                }
+            }
         }
 
         if (castleTeam == CastleWarsManager.Team.SARADOMIN) {
@@ -635,6 +657,10 @@ public final class CastleWarsBotAi {
 
     private static void walk(BotPlayer bot, BotState state, Position target) {
         if (bot.getPosition().getPlane() != target.getPlane() || bot.isMovementLocked()) {
+            return;
+        }
+        if (CastleWarsEngineeringManager.tryHandleNearbyDoorForBot(bot)) {
+            state.repathDelay = 0;
             return;
         }
 
