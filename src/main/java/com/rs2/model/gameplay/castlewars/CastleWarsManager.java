@@ -134,6 +134,9 @@ public final class CastleWarsManager {
             useSpawnRoomLadder(player, Team.ZAMORAK, false);
             return true;
         }
+        if (handleCastleWarsTraversal(player, objectId, objectX, objectY)) {
+            return true;
+        }
         return false;
     }
 
@@ -412,22 +415,169 @@ public final class CastleWarsManager {
     }
 
     private static void useSpawnRoomLadder(Player player, Team ladderTeam, boolean climbUp) {
-        Team playerTeam = gamePlayers.get(player);
-        if (playerTeam == null) {
-            player.getPacketSender().sendGameMessage("You can only use this during a Castle Wars game.");
-            return;
-        }
-        if (playerTeam != ladderTeam) {
-            player.getPacketSender().sendGameMessage("You are not allowed in the other team's spawn room.");
-            return;
-        }
-
         player.getUpdateState().setAnimation(climbUp ? 828 : 827);
         if (ladderTeam == Team.SARADOMIN) {
             player.moveTo(new Position(2429, 3075, climbUp ? 2 : 1));
         } else {
             player.moveTo(new Position(2370, 3132, climbUp ? 2 : 1));
         }
+    }
+
+    private static boolean handleCastleWarsTraversal(Player player, int objectId, int objectX, int objectY) {
+        int plane = player.getPosition().getPlane();
+
+        // Saradomin castle stairs.
+        if (objectId == 4419 && objectX == 2417 && objectY == 3074 && plane == 0) {
+            if (player.getPosition().getX() <= 2416) {
+                player.moveTo(new Position(2417, 3077, 0));
+            } else {
+                player.moveTo(new Position(2416, 3074, 0));
+            }
+            return true;
+        }
+        if (objectId == 4417) {
+            if (objectX == 2419 && objectY == 3078 && plane == 0) {
+                player.moveTo(new Position(2420, 3080, 1));
+                return true;
+            }
+            if (objectX == 2428 && objectY == 3081 && plane == 1) {
+                player.moveTo(new Position(2430, 3080, 2));
+                return true;
+            }
+            if (objectX == 2425 && objectY == 3074 && plane == 2) {
+                player.moveTo(new Position(2426, 3074, 3));
+                return true;
+            }
+        }
+        if (objectId == 4415) {
+            if (objectX == 2419 && objectY == 3080 && plane == 1) {
+                player.moveTo(new Position(2419, 3077, 0));
+                return true;
+            }
+            if (objectX == 2430 && objectY == 3081 && plane == 2) {
+                player.moveTo(new Position(2427, 3081, 1));
+                return true;
+            }
+            if (objectX == 2425 && objectY == 3074 && plane == 3) {
+                player.moveTo(new Position(2425, 3077, 2));
+                return true;
+            }
+
+            // Zamorak castle stairs.
+            if (objectX == 2380 && objectY == 3127 && plane == 1) {
+                player.moveTo(new Position(2380, 3130, 0));
+                return true;
+            }
+            if (objectX == 2369 && objectY == 3126 && plane == 2) {
+                player.moveTo(new Position(2372, 3126, 1));
+                return true;
+            }
+            if (objectX == 2374 && objectY == 3133 && plane == 3) {
+                player.moveTo(new Position(2374, 3130, 2));
+                return true;
+            }
+        }
+
+        // Zamorak castle stairs.
+        if (objectId == 4420 && objectX == 2382 && objectY == 3131 && plane == 0) {
+            if (player.getPosition().getX() >= 2383) {
+                player.moveTo(new Position(2382, 3130, 0));
+            } else {
+                player.moveTo(new Position(2383, 3133, 0));
+            }
+            return true;
+        }
+        if (objectId == 4418) {
+            if (objectX == 2380 && objectY == 3127 && plane == 0) {
+                player.moveTo(new Position(2379, 3127, 1));
+                return true;
+            }
+            if (objectX == 2369 && objectY == 3126 && plane == 1) {
+                player.moveTo(new Position(2369, 3127, 2));
+                return true;
+            }
+            if (objectX == 2374 && objectY == 3131 && plane == 2) {
+                player.moveTo(new Position(2373, 3133, 3));
+                return true;
+            }
+        }
+
+        // Ladders between the ground floor and first floor outside the spawn rooms.
+        if (objectId == 4911 && plane == 1) {
+            if (objectX == 2421 && objectY == 3073) {
+                player.getUpdateState().setAnimation(827);
+                player.moveTo(new Position(2421, 3074, 0));
+                return true;
+            }
+            if (objectX == 2378 && objectY == 3134) {
+                player.getUpdateState().setAnimation(827);
+                player.moveTo(new Position(2378, 3133, 0));
+                return true;
+            }
+        }
+        if (objectId == 1747 && plane == 0) {
+            if (objectX == 2421 && objectY == 3073) {
+                player.getUpdateState().setAnimation(828);
+                player.moveTo(new Position(2421, 3074, 1));
+                return true;
+            }
+            if (objectX == 2378 && objectY == 3134) {
+                player.getUpdateState().setAnimation(828);
+                player.moveTo(new Position(2378, 3133, 1));
+                return true;
+            }
+        }
+
+        // Castle-to-tunnel ladders.
+        if (objectId == 4912 && plane == 0) {
+            if (objectX == 2430 && objectY == 3082) {
+                player.getUpdateState().setAnimation(827);
+                player.moveTo(new Position(2430, 9482, 0));
+                return true;
+            }
+            if (objectX == 2369 && objectY == 3125) {
+                player.getUpdateState().setAnimation(827);
+                player.moveTo(new Position(2369, 9525, 0));
+                return true;
+            }
+        }
+        if (objectId == 1757 && plane == 0) {
+            if (objectX == 2430 && objectY == 9482) {
+                player.getUpdateState().setAnimation(828);
+                player.moveTo(new Position(2430, 3081, 0));
+                return true;
+            }
+            if (objectX == 2369 && objectY == 9525) {
+                player.getUpdateState().setAnimation(828);
+                player.moveTo(new Position(2369, 3126, 0));
+                return true;
+            }
+            if (objectX == 2400 && objectY == 9508) {
+                player.getUpdateState().setAnimation(828);
+                player.moveTo(new Position(2400, 3107, 0));
+                return true;
+            }
+            if (objectX == 2399 && objectY == 9499) {
+                player.getUpdateState().setAnimation(828);
+                player.moveTo(new Position(2399, 3100, 0));
+                return true;
+            }
+        }
+
+        // Surface trapdoors to the central tunnels.
+        if (objectId == 1568 && plane == 0) {
+            player.getUpdateState().setAnimation(827);
+            if (objectX == 2399 && objectY == 3099) {
+                player.moveTo(new Position(2399, 9500, 0));
+            } else if (objectX == 2400 && objectY == 3108) {
+                player.moveTo(new Position(2400, 9507, 0));
+            } else {
+                return false;
+            }
+            return true;
+        }
+
+        return false;
     }
 
     public static void respawnPlayer(Player player) {
