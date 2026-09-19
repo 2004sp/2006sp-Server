@@ -38,7 +38,11 @@ extends TickTask {
         if (!this.player.isWithinReach(this.npc, 1) || this.player.isOverlapping(this.npc)) {
             return;
         }
-        if (this.npc.getNpcId() == CastleWarsManager.LANTHUS_NPC_ID) {
+        // NPC cache action slot 3 is sent by this client's third-NPC packet.
+        // The historical 2006Scape lineage places Lanthus's Trade action here,
+        // but use the cache action itself rather than hard-coding that assumption.
+        if (this.npc.getNpcId() == CastleWarsManager.LANTHUS_NPC_ID
+                && this.npc.getDefinition().actionStartsWith(3, "trade")) {
             this.npc.getUpdateState().setFaceEntity(this.player.getEncodedIndex());
             this.player.setInteractionTarget(this.npc);
             this.player.getUpdateState().setFaceEntity(this.npc.getEncodedIndex());
