@@ -69,8 +69,8 @@ public final class CastleWarsBotAi {
             }
 
             // Flag carriers never resume the enemy-castle climb once the flag is
-            // in hand. They descend to ground level, leave through the side door,
-            // cross the battlefield, then enter their own castle to score.
+            // in hand. They descend to ground level, leave through the main double
+            // doors, cross the battlefield, then enter their own castle to score.
             CastleWarsManager.Team castleAtPosition =
                     CastleWarsManager.getCastleTeamAtPosition(bot.getPosition());
             if (bot.getPosition().getPlane() > 0) {
@@ -286,9 +286,7 @@ public final class CastleWarsBotAi {
             return;
         }
 
-        Position exterior = castleTeam == CastleWarsManager.Team.SARADOMIN
-                ? new Position(2414, 3073, 0)
-                : new Position(2385, 3134, 0);
+        Position exterior = CastleWarsManager.getBotMainDoorExteriorPosition(bot, castleTeam);
         CastleWarsManager.routeBotThroughGroundCastle(bot, castleTeam, false);
         if (!near(bot, exterior, 0)) {
             state.repathDelay = 0;
@@ -328,9 +326,7 @@ public final class CastleWarsBotAi {
             }
         }
 
-        Position inside = castleTeam == CastleWarsManager.Team.SARADOMIN
-                ? new Position(2416, 3073, 0)
-                : new Position(2383, 3134, 0);
+        Position inside = CastleWarsManager.getBotMainDoorInteriorPosition(bot, castleTeam);
         CastleWarsManager.routeBotThroughGroundCastle(bot, castleTeam, true);
         if (!near(bot, inside, 0)) {
             state.repathDelay = 0;
@@ -388,9 +384,7 @@ public final class CastleWarsBotAi {
         }
 
         CastleWarsManager.Team destination = returningHome ? state.team : opposite(state.team);
-        Position outside = destination == CastleWarsManager.Team.SARADOMIN
-                ? new Position(2414, 3073, 0)
-                : new Position(2385, 3134, 0);
+        Position outside = CastleWarsManager.getBotMainDoorExteriorPosition(bot, destination);
         if (!near(bot, outside, 2)) {
             walk(bot, state, outside);
             return;
