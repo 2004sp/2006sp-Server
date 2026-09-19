@@ -1120,6 +1120,14 @@ public final class CastleWarsManager {
         setFlagAtBase(flagTeam, true, null);
     }
 
+    public static boolean dropCarriedFlagManually(Player player) {
+        if (player == null || !isInGame(player) || !isCarryingFlag(player)) {
+            return false;
+        }
+        dropCarriedFlag(player);
+        return true;
+    }
+
     private static void dropCarriedFlag(Player player) {
         Team flagTeam = getCarriedFlagTeam(player);
         if (flagTeam == null) {
