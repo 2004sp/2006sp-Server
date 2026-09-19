@@ -651,6 +651,50 @@ public final class CastleWarsEngineeringManager {
                 ? saradominSideDoor : zamorakSideDoor).open;
     }
 
+    public static boolean tryHandleMainDoorForBot(Player player,
+                                                   CastleWarsManager.Team doorTeam) {
+        if (player == null || doorTeam == null || !player.isBot
+                || !CastleWarsManager.isInGame(player)
+                || player.getPosition().getPlane() != MAIN_DOOR_PLANE) {
+            return false;
+        }
+
+        MainDoorState door = getMainDoorState(doorTeam);
+        if (door.mode != MainDoorMode.CLOSED) {
+            return false;
+        }
+
+        MainDoorLeaf nearestLeaf = null;
+        int nearestDistance = Integer.MAX_VALUE;
+        for (MainDoorLeaf leaf : door.leaves) {
+            int distance = GameUtil.getDistance(player.getPosition(),
+                    new Position(leaf.closedX, leaf.closedY, MAIN_DOOR_PLANE));
+            if (distance < nearestDistance) {
+                nearestDistance = distance;
+                nearestLeaf = leaf;
+            }
+        }
+        if (nearestLeaf == null || nearestDistance != 1) {
+            return false;
+        }
+
+        CastleWarsManager.Team playerTeam = CastleWarsManager.getGameTeam(player);
+        if (playerTeam == door.team) {
+            handleMainDoor(player, nearestLeaf.closedId,
+                    nearestLeaf.closedX, nearestLeaf.closedY);
+            return true;
+        }
+
+        // Enemy main doors are destroyable with melee. Ranged/magic runners
+        // hold the doorway while a melee teammate breaks it, then everybody
+        // paths through the same double-door opening.
+        if (player.botPrimaryCombatStyle == 0 || player.botActiveCombatStyle == 0) {
+            return attackMainDoor(player, nearestLeaf.closedId,
+                    nearestLeaf.closedX, nearestLeaf.closedY);
+        }
+        return true;
+    }
+
     public static boolean tryHandleNearbyDoorForBot(Player player) {
         if (player == null || !player.isBot || !CastleWarsManager.isInGame(player)
                 || player.getPosition().getPlane() != MAIN_DOOR_PLANE) {
