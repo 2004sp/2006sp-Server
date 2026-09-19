@@ -84,8 +84,7 @@ extends Player {
     }
 
     public final void startMinigameBot() {
-        MinigameBotManager.startMinigameBot(this);
-        World.getTaskScheduler().schedule(new MinigameBotJoinTask(2, this));
+        World.getTaskScheduler().schedule(new MinigameBotStartTask(this));
     }
 
     public final void startClanWarsBot(int value2) {
