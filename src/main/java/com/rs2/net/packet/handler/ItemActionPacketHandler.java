@@ -875,6 +875,10 @@ implements PacketHandler {
         if (itemStack == null || itemStack.getId() != itemId || !itemStack.isValid()) {
             return;
         }
+        if (CastleWarsManager.isInGame(player) && CastleWarsManager.isFlagItemId(itemStack.getId())) {
+            player.getPacketSender().sendGameMessage("You cannot drop a Castle Wars flag.");
+            return;
+        }
         if (itemStack.getDefinition().isStackable()) {
             itemStack.setAmount(player.getInventoryManager().getContainer().getItemAmount(itemStack.getId()));
         } else {
