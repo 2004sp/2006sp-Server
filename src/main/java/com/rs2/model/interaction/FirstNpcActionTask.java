@@ -9,7 +9,6 @@ import com.rs2.model.gameplay.castlewars.CastleWarsManager;
 import com.rs2.model.gameplay.magetrainingarena.MageTrainingArenaRewardShop;
 import com.rs2.model.npc.Npc;
 import com.rs2.model.player.Player;
-import com.rs2.model.shop.ShopManager;
 import com.rs2.model.skill.woodcutting.TreeDefinition;
 import com.rs2.model.skill.woodcutting.WoodcuttingHandler;
 import com.rs2.model.task.TickTask;
@@ -74,7 +73,7 @@ extends TickTask {
             this.npc.setInteractionTarget(this.player);
             this.player.setInteractionTarget(this.npc);
             this.player.getUpdateState().setFaceEntity(this.npc.getEncodedIndex());
-            ShopManager.openCastleWarsRewardShop(this.player);
+            DialogueManager.startDialogue(this.player, CastleWarsManager.LANTHUS_NPC_ID);
             EntityTargetMovement.clearMovementTarget(this.player);
             this.stop();
             return;
