@@ -329,8 +329,8 @@ public final class CastleWarsBotAi {
         }
 
         Position inside = castleTeam == CastleWarsManager.Team.SARADOMIN
-                ? new Position(2417, 3077, 0)
-                : new Position(2382, 3130, 0);
+                ? new Position(2416, 3073, 0)
+                : new Position(2383, 3134, 0);
         CastleWarsManager.routeBotThroughGroundCastle(bot, castleTeam, true);
         if (!near(bot, inside, 0)) {
             state.repathDelay = 0;
