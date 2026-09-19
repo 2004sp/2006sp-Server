@@ -9,6 +9,10 @@ import com.rs2.model.ground.GroundItemManager;
 import com.rs2.model.item.ItemStack;
 import com.rs2.model.item.consumable.PotionHandler;
 import com.rs2.model.npc.Npc;
+import com.rs2.model.objects.DynamicObject;
+import com.rs2.model.objects.LoadedWorldObject;
+import com.rs2.model.objects.ObjectManager;
+import com.rs2.model.objects.WorldObjectLookup;
 import com.rs2.model.player.Player;
 import com.rs2.model.task.TickTask;
 import com.rs2.util.GameUtil;
@@ -49,6 +53,12 @@ public final class CastleWarsManager {
     public static final int ZAMORAK_CLOAK_ID = 4516;
     public static final int SARADOMIN_FLAG_ID = 4037;
     public static final int ZAMORAK_FLAG_ID = 4039;
+    private static final int SARADOMIN_EMPTY_STAND_ID = 4377;
+    private static final int ZAMORAK_EMPTY_STAND_ID = 4378;
+    private static final int SARADOMIN_STANDARD_OBJECT_ID = 4900;
+    private static final int SARADOMIN_STANDARD_OBJECT_ALT_ID = 4902;
+    private static final int ZAMORAK_STANDARD_OBJECT_ID = 4901;
+    private static final int ZAMORAK_STANDARD_OBJECT_ALT_ID = 4903;
     public static final int CASTLE_WARS_TICKET_ID = 4067;
     public static final int LANTHUS_NPC_ID = 1526;
 
@@ -61,6 +71,8 @@ public final class CastleWarsManager {
     public static final int MINIMUM_PLAYERS_PER_TEAM = 1;
     public static final int WAITING_DURATION_SECONDS = 60; // Temporary test countdown.
     public static final int GAME_DURATION_SECONDS = 20 * 60;
+
+    private static final long DROPPED_FLAG_AUTO_RETURN_MILLIS = 45_000L;
 
     private static final int WAITING_INTERFACE_ID = 6673;
     private static final int WAITING_TIMER_TEXT_ID = 6570;
@@ -89,6 +101,8 @@ public final class CastleWarsManager {
     private static final Position CASTLE_WARS_LOBBY = new Position(2441, 3090, 0);
     private static final Position SARADOMIN_WAITING_ROOM = new Position(2377, 9485, 0);
     private static final Position ZAMORAK_WAITING_ROOM = new Position(2421, 9524, 0);
+    private static final Position SARADOMIN_FLAG_STAND = new Position(2429, 3074, 3);
+    private static final Position ZAMORAK_FLAG_STAND = new Position(2370, 3133, 3);
     private static final int STEPPING_STONE_JUMP_ANIMATION = 741;
     private static final Position[] SOUTHWEST_STEPPING_STONE_ROUTE = new Position[]{
         new Position(2378, 3083, 0),
@@ -134,6 +148,8 @@ public final class CastleWarsManager {
     private static Player zamorakFlagHolder;
     private static GroundItem saradominDroppedFlag;
     private static GroundItem zamorakDroppedFlag;
+    private static long saradominDroppedFlagReturnMillis;
+    private static long zamorakDroppedFlagReturnMillis;
 
     private CastleWarsManager() {
     }
@@ -220,7 +236,7 @@ public final class CastleWarsManager {
 
         cleanupWaitingPlayers();
         cleanupGamePlayers();
-        cleanupDroppedFlags();
+        cleanupDroppedFlags(now);
         CastleWarsEngineeringManager.processBarricadeFires(now);
         CastleWarsEngineeringManager.processCatapultFires(now);
 
@@ -870,6 +886,19 @@ public final class CastleWarsManager {
             return true;
         }
 
+        boolean ownFlagInsideOwnCastle = playerTeam == flagTeam
+                && getCastleTeamAtPosition(groundItem.getPosition()) == flagTeam;
+        if (ownFlagInsideOwnCastle) {
+            if (!GroundItemManager.getInstance().removeForPickup(groundItem, player)) {
+                return true;
+            }
+            setDroppedFlag(flagTeam, null);
+            setDroppedFlagReturnMillis(flagTeam, 0L);
+            setFlagAtBase(flagTeam, true, null);
+            player.getPacketSender().sendGameMessage("You return your team's flag to its stand.");
+            return true;
+        }
+
         if (isCarryingEnemyFlag(player)) {
             player.getPacketSender().sendGameMessage("You are already carrying a flag.");
             return true;
@@ -882,6 +911,7 @@ public final class CastleWarsManager {
         }
 
         setDroppedFlag(flagTeam, null);
+        setDroppedFlagReturnMillis(flagTeam, 0L);
         equipFlag(player, flagTeam);
         setFlagAtBase(flagTeam, false, player);
         player.getPacketSender().sendGameMessage("You take the " + getTeamName(flagTeam) + " flag!");
@@ -925,6 +955,49 @@ public final class CastleWarsManager {
             zamorakFlagAtBase = atBase;
             zamorakFlagHolder = holder;
         }
+        if (atBase || holder != null) {
+            setDroppedFlagReturnMillis(flagTeam, 0L);
+        }
+        updateFlagStandObject(flagTeam, atBase);
+    }
+
+    private static void updateFlagStandObject(Team flagTeam, boolean atBase) {
+        Position stand = flagTeam == Team.SARADOMIN ? SARADOMIN_FLAG_STAND : ZAMORAK_FLAG_STAND;
+        int emptyStandId = flagTeam == Team.SARADOMIN
+                ? SARADOMIN_EMPTY_STAND_ID : ZAMORAK_EMPTY_STAND_ID;
+
+        DynamicObject existing = ObjectManager.findDynamicObjectAt(
+                stand.getX(), stand.getY(), stand.getPlane());
+        if (existing != null && existing.getWorldObject().getObjectId() == emptyStandId) {
+            ObjectManager.getInstance().removeDynamicObjectAt(
+                    stand.getX(), stand.getY(), stand.getPlane(), existing.getWorldObject().getType());
+        }
+
+        if (atBase) {
+            return;
+        }
+
+        int[] standardIds = flagTeam == Team.SARADOMIN
+                ? new int[]{SARADOMIN_STANDARD_OBJECT_ID, SARADOMIN_STANDARD_OBJECT_ALT_ID}
+                : new int[]{ZAMORAK_STANDARD_OBJECT_ID, ZAMORAK_STANDARD_OBJECT_ALT_ID};
+        int restoreObjectId = standardIds[0];
+        int objectType = 10;
+        int orientation = 0;
+
+        for (int standardId : standardIds) {
+            LoadedWorldObject loaded = WorldObjectLookup.findObjectByIdAt(
+                    standardId, stand.getX(), stand.getY(), stand.getPlane());
+            if (loaded == null) {
+                continue;
+            }
+            restoreObjectId = standardId;
+            objectType = loaded.getType();
+            orientation = loaded.getOrientation();
+            break;
+        }
+
+        new DynamicObject(emptyStandId, stand.getX(), stand.getY(), stand.getPlane(),
+                orientation, objectType, restoreObjectId, 999999999, false);
     }
 
     private static GroundItem getDroppedFlag(Team flagTeam) {
@@ -943,6 +1016,19 @@ public final class CastleWarsManager {
             saradominDroppedFlag = groundItem;
         } else {
             zamorakDroppedFlag = groundItem;
+        }
+    }
+
+    private static long getDroppedFlagReturnMillis(Team flagTeam) {
+        return flagTeam == Team.SARADOMIN
+                ? saradominDroppedFlagReturnMillis : zamorakDroppedFlagReturnMillis;
+    }
+
+    private static void setDroppedFlagReturnMillis(Team flagTeam, long returnMillis) {
+        if (flagTeam == Team.SARADOMIN) {
+            saradominDroppedFlagReturnMillis = returnMillis;
+        } else {
+            zamorakDroppedFlagReturnMillis = returnMillis;
         }
     }
 
@@ -989,31 +1075,58 @@ public final class CastleWarsManager {
         GroundItem droppedFlag = new GroundItem(new ItemStack(flagId), player.getPosition(), false, true);
         setFlagAtBase(flagTeam, false, null);
         setDroppedFlag(flagTeam, droppedFlag);
+        if (getCastleTeamAtPosition(droppedFlag.getPosition()) == flagTeam) {
+            setDroppedFlagReturnMillis(flagTeam, 0L);
+        } else {
+            setDroppedFlagReturnMillis(
+                    flagTeam, System.currentTimeMillis() + DROPPED_FLAG_AUTO_RETURN_MILLIS);
+        }
         GroundItemManager.getInstance().spawn(droppedFlag);
         player.getPacketSender().sendGameMessage("You drop the " + getTeamName(flagTeam) + " flag.");
     }
 
-    private static void cleanupDroppedFlags() {
-        cleanupDroppedFlag(Team.SARADOMIN);
-        cleanupDroppedFlag(Team.ZAMORAK);
+    private static void cleanupDroppedFlags(long now) {
+        cleanupDroppedFlag(Team.SARADOMIN, now);
+        cleanupDroppedFlag(Team.ZAMORAK, now);
     }
 
-    private static void cleanupDroppedFlag(Team flagTeam) {
-        GroundItem droppedFlag = getDroppedFlag(flagTeam);
-        if (droppedFlag == null || GroundItemManager.getInstance().contains(droppedFlag)) {
-            return;
-        }
-        setDroppedFlag(flagTeam, null);
-        setFlagAtBase(flagTeam, true, null);
-    }
-
-    private static void returnDroppedFlagToBase(Team flagTeam) {
+    private static void cleanupDroppedFlag(Team flagTeam, long now) {
         GroundItem droppedFlag = getDroppedFlag(flagTeam);
         if (droppedFlag == null) {
             return;
         }
-        GroundItemManager.getInstance().remove(droppedFlag);
+        if (!GroundItemManager.getInstance().contains(droppedFlag)) {
+            setDroppedFlag(flagTeam, null);
+            setDroppedFlagReturnMillis(flagTeam, 0L);
+            setFlagAtBase(flagTeam, true, null);
+            return;
+        }
+
+        if (getCastleTeamAtPosition(droppedFlag.getPosition()) == flagTeam) {
+            // Inside its own castle the flag remains available for a manual
+            // friendly reset instead of being removed by the normal ground-item lifetime.
+            droppedFlag.getTimer().reset();
+            setDroppedFlagReturnMillis(flagTeam, 0L);
+            return;
+        }
+
+        long returnMillis = getDroppedFlagReturnMillis(flagTeam);
+        if (returnMillis <= 0L) {
+            returnMillis = now + DROPPED_FLAG_AUTO_RETURN_MILLIS;
+            setDroppedFlagReturnMillis(flagTeam, returnMillis);
+        }
+        if (now >= returnMillis) {
+            returnDroppedFlagToBase(flagTeam);
+        }
+    }
+
+    private static void returnDroppedFlagToBase(Team flagTeam) {
+        GroundItem droppedFlag = getDroppedFlag(flagTeam);
+        if (droppedFlag != null) {
+            GroundItemManager.getInstance().remove(droppedFlag);
+        }
         setDroppedFlag(flagTeam, null);
+        setDroppedFlagReturnMillis(flagTeam, 0L);
         setFlagAtBase(flagTeam, true, null);
     }
 
@@ -1968,12 +2081,14 @@ public final class CastleWarsManager {
         saradominScore = 0;
         zamorakScore = 0;
         CastleWarsEngineeringManager.resetForGame();
-        saradominFlagAtBase = true;
-        zamorakFlagAtBase = true;
         saradominFlagHolder = null;
         zamorakFlagHolder = null;
         saradominDroppedFlag = null;
         zamorakDroppedFlag = null;
+        saradominDroppedFlagReturnMillis = 0L;
+        zamorakDroppedFlagReturnMillis = 0L;
+        setFlagAtBase(Team.SARADOMIN, true, null);
+        setFlagAtBase(Team.ZAMORAK, true, null);
         gameInProgress = true;
         gameEndMillis = now + GAME_DURATION_SECONDS * 1000L;
         nextGameStartMillis = -1L;
