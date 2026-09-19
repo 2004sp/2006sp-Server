@@ -236,12 +236,19 @@ public final class CastleWarsEngineeringManager {
             player.getPacketSender().sendGameMessage("The main doors can only be used during a Castle Wars game.");
             return true;
         }
+        if (door.mode == MainDoorMode.BROKEN) {
+            if (team != door.team) {
+                player.getPacketSender().sendGameMessage("You can only repair your own team's main doors.");
+                return true;
+            }
+            if (player.getInventoryManager().getItemAmount(TOOLKIT_ID) <= 0) {
+                player.getPacketSender().sendGameMessage("You need a toolkit to repair the main doors.");
+                return true;
+            }
+            return repairMainDoor(player, objectId, objectX, objectY);
+        }
         if (team != door.team) {
             player.getPacketSender().sendGameMessage("You can't open the enemy team's main doors.");
-            return true;
-        }
-        if (door.mode == MainDoorMode.BROKEN) {
-            player.getPacketSender().sendGameMessage("The main doors are broken. Use a toolkit to repair them.");
             return true;
         }
 
