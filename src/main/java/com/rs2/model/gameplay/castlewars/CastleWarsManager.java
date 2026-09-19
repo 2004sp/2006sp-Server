@@ -227,6 +227,8 @@ public final class CastleWarsManager {
     }
 
     public static void process() {
+        enforceOwnFlagCarrierCastleRestrictions();
+
         long now = System.currentTimeMillis();
         long second = now / 1000L;
         if (second == lastProcessedSecond) {
@@ -764,7 +766,20 @@ public final class CastleWarsManager {
     }
 
     public static boolean isCarryingEnemyFlag(Player player) {
+        return isCarryingFlag(player);
+    }
+
+    public static boolean isCarryingFlag(Player player) {
         return saradominFlagHolder == player || zamorakFlagHolder == player;
+    }
+
+    public static boolean isCarryingOwnFlag(Player player) {
+        Team playerTeam = gamePlayers.get(player);
+        return playerTeam != null && getCarriedFlagTeam(player) == playerTeam;
+    }
+
+    public static boolean isFlagItemId(int itemId) {
+        return itemId == SARADOMIN_FLAG_ID || itemId == ZAMORAK_FLAG_ID;
     }
 
     public static boolean isInTeamSpawnArea(Player player, Team team) {
@@ -943,6 +958,9 @@ public final class CastleWarsManager {
 
         int flagId = flagTeam == Team.SARADOMIN ? SARADOMIN_FLAG_ID : ZAMORAK_FLAG_ID;
         player.getEquipmentManager().getContainer().setItem(3, new ItemStack(flagId));
+        player.setQueuedCombatSpell(null);
+        player.setAutocastSpell(null);
+        player.setSpecialAttackEnabled(false);
         player.getEquipmentManager().refresh();
         player.setAppearanceUpdateRequired(true);
     }
@@ -1053,6 +1071,40 @@ public final class CastleWarsManager {
             return Team.ZAMORAK;
         }
         return null;
+    }
+
+    private static void enforceOwnFlagCarrierCastleRestrictions() {
+        for (Map.Entry<Player, Team> entry : gamePlayers.entrySet()) {
+            Player player = entry.getKey();
+            Team playerTeam = entry.getValue();
+            if (player == null || playerTeam == null || !isOnline(player)
+                    || getCarriedFlagTeam(player) != playerTeam
+                    || getCastleTeamAtPosition(player.getPosition()) != playerTeam) {
+                continue;
+            }
+            returnOwnFlagForCastleEntry(player);
+        }
+    }
+
+    private static void resetOwnFlagIfEnteringCastle(Player player, Position destination) {
+        Team playerTeam = gamePlayers.get(player);
+        if (playerTeam == null || destination == null
+                || getCarriedFlagTeam(player) != playerTeam
+                || getCastleTeamAtPosition(destination) != playerTeam) {
+            return;
+        }
+        returnOwnFlagForCastleEntry(player);
+    }
+
+    private static void returnOwnFlagForCastleEntry(Player player) {
+        Team flagTeam = getCarriedFlagTeam(player);
+        if (flagTeam == null || flagTeam != gamePlayers.get(player)) {
+            return;
+        }
+        clearFlagWeapon(player);
+        setFlagAtBase(flagTeam, true, null);
+        player.getPacketSender().sendGameMessage(
+                "You cannot carry your own flag into your castle. It returns to its stand.");
     }
 
     private static void returnCarriedFlagToBase(Player player) {
@@ -1841,6 +1893,7 @@ public final class CastleWarsManager {
     }
 
     private static void moveThroughCastleWarsStairs(Player player, Position destination) {
+        resetOwnFlagIfEnteringCastle(player, destination);
         boolean planeChange = player.getPosition().getPlane() != destination.getPlane();
         player.moveTo(destination);
         if (planeChange && !player.isBot) {
@@ -2012,12 +2065,12 @@ public final class CastleWarsManager {
         if (objectId == 1757 && plane == 0) {
             if (objectX == 2430 && objectY == 9482) {
                 player.getUpdateState().setAnimation(828);
-                player.moveTo(new Position(2430, 3081, 0));
+                moveThroughCastleWarsStairs(player, new Position(2430, 3081, 0));
                 return true;
             }
             if (objectX == 2369 && objectY == 9525) {
                 player.getUpdateState().setAnimation(828);
-                player.moveTo(new Position(2369, 3126, 0));
+                moveThroughCastleWarsStairs(player, new Position(2369, 3126, 0));
                 return true;
             }
             if (objectX == 2400 && objectY == 9508) {
