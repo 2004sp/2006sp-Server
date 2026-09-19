@@ -232,11 +232,13 @@ public final class CastleWarsBotRoleAi {
                 CastleWarsEngineeringManager.giveSupply(bot,
                         CastleWarsEngineeringManager.BARRICADE_ITEM_ID, 1);
             } else if (state.role == Role.CATAPULT) {
-                makeInventorySpace(bot, 7);
+                makeInventorySpace(bot, 8);
                 CastleWarsEngineeringManager.giveSupply(bot,
                         CastleWarsEngineeringManager.ROCK_ITEM_ID, 6);
                 CastleWarsEngineeringManager.giveSupply(bot,
                         CastleWarsEngineeringManager.EXPLOSIVE_POTION_ID, 1);
+                CastleWarsEngineeringManager.giveSupply(bot,
+                        CastleWarsEngineeringManager.TOOLKIT_ID, 1);
             }
             bot.getUpdateState().setAnimation(881);
             state.utilityStocked = true;
@@ -350,6 +352,14 @@ public final class CastleWarsBotRoleAi {
                 : CastleWarsEngineeringManager.ZAMORAK_CATAPULT;
         if (!near(bot, catapult, 3)) {
             walk(bot, state, catapult);
+            return;
+        }
+
+        if (!CastleWarsEngineeringManager.isCatapultOperational(state.team)) {
+            if (CastleWarsEngineeringManager.repairOwnCatapult(bot)) {
+                bot.queuePublicChatMessage("catapult fixed");
+                state.delayTicks = 4;
+            }
             return;
         }
 
