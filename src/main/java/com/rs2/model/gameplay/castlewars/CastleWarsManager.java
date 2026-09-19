@@ -1347,10 +1347,14 @@ public final class CastleWarsManager {
 
         int x = position.getX();
         int y = position.getY();
-        boolean saradominCastle = x >= 2415 && x <= 2431
-                && y >= 3072 && y <= 3083;
-        boolean zamorakCastle = x >= 2368 && x <= 2384
-                && y >= 3124 && y <= 3135;
+        boolean saradominCastle = (x >= 2415 && x <= 2431
+                && y >= 3072 && y <= 3083)
+                || (x >= 2412 && x <= 2431
+                && y >= 3084 && y <= 3089);
+        boolean zamorakCastle = (x >= 2368 && x <= 2384
+                && y >= 3124 && y <= 3135)
+                || (x >= 2368 && x <= 2387
+                && y >= 3117 && y <= 3123);
         return saradominCastle || zamorakCastle;
     }
 
@@ -1868,7 +1872,7 @@ public final class CastleWarsManager {
     }
 
     public static void moveBotToUndergroundEntrance(Player player, Team team) {
-        if (player == null || team == null) {
+        if (player == null || team == null || isInGame(player)) {
             return;
         }
         player.getMovementQueue().reset();
@@ -1882,7 +1886,7 @@ public final class CastleWarsManager {
     }
 
     public static void moveBotToGroundBattlefield(Player player, Team team) {
-        if (player == null || team == null) {
+        if (player == null || team == null || isInGame(player)) {
             return;
         }
         player.getMovementQueue().reset();
