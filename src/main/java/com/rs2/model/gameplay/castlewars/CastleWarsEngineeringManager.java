@@ -12,6 +12,7 @@ import com.rs2.model.item.ItemStack;
 import com.rs2.model.objects.DynamicObject;
 import com.rs2.model.objects.ObjectManager;
 import com.rs2.model.player.Player;
+import com.rs2.model.skill.SkillActionHelper;
 import com.rs2.util.GameUtil;
 import com.rs2.util.path.ProjectileCollisionMap;
 import com.rs2.util.path.WalkingCollisionMap;
@@ -27,12 +28,16 @@ public final class CastleWarsEngineeringManager {
     public static final int EXPLOSIVE_POTION_ID = 4045;
     public static final int TOOLKIT_ID = 4051;
     public static final int BARRICADE_ITEM_ID = 4053;
+    public static final int CLIMBING_ROPE_ITEM_ID = 4047;
     public static final int BRONZE_PICKAXE_ID = 1265;
 
     public static final int BARRICADE_OBJECT_SARADOMIN = 4421;
     public static final int BARRICADE_OBJECT_ZAMORAK = 4422;
     public static final int COLLAPSED_ROCK_OBJECT_ID = 4437;
     public static final int CLEARED_ROCK_OBJECT_ID = 4439;
+    public static final int CLIMBING_ROPE_OBJECT_ID = 4444;
+    public static final int BATTLEMENT_OBJECT_ID = 4446;
+    public static final int BATTLEMENT_OBJECT_ID_ALT = 4447;
 
     public static final int ZAMORAK_CATAPULT_ID = 4381;
     public static final int SARADOMIN_CATAPULT_ID = 4382;
@@ -68,6 +73,9 @@ public final class CastleWarsEngineeringManager {
     private static final int SIDE_DOOR_LEVEL_ONE_THRESHOLD = 16;
     private static final int SIDE_DOOR_LEVEL_NINETY_NINE_THRESHOLD = 256;
     private static final long GAME_TICK_MILLIS = 600L;
+    private static final int CLIMBING_ROPE_LIFETIME_TICKS = 100;
+    private static final int CLIMBING_ROPE_PLANE = 0;
+    private static final int CLIMBING_ROPE_DESTINATION_PLANE = 1;
 
     private static final Position[] ROCKSLIDE_POSITIONS = new Position[]{
         new Position(2391, 9501, 0),
@@ -77,6 +85,8 @@ public final class CastleWarsEngineeringManager {
     };
 
     private static final Map<String, BarricadeState> barricades = new HashMap<String, BarricadeState>();
+    private static final Map<String, ClimbingRopeState> climbingRopes =
+            new HashMap<String, ClimbingRopeState>();
     private static final boolean[] rockslideCollapsed = new boolean[]{true, true, true, true};
     private static boolean saradominCatapultOperational = true;
     private static boolean zamorakCatapultOperational = true;
@@ -114,6 +124,7 @@ public final class CastleWarsEngineeringManager {
 
     public static void resetForGame() {
         clearAllBarricades();
+        clearAllClimbingRopes();
         for (int i = 0; i < ROCKSLIDE_POSITIONS.length; ++i) {
             setRockslideState(i, true);
         }
@@ -128,6 +139,7 @@ public final class CastleWarsEngineeringManager {
 
     public static void cleanupAfterGame() {
         clearAllBarricades();
+        clearAllClimbingRopes();
         for (int i = 0; i < ROCKSLIDE_POSITIONS.length; ++i) {
             setRockslideState(i, true);
         }
@@ -153,6 +165,9 @@ public final class CastleWarsEngineeringManager {
         } else if (objectId == 4461) {
             itemId = BARRICADE_ITEM_ID;
             message = "You take a barricade.";
+        } else if (objectId == 4462) {
+            itemId = CLIMBING_ROPE_ITEM_ID;
+            message = "You take a climbing rope.";
         } else if (objectId == 4463) {
             itemId = EXPLOSIVE_POTION_ID;
             message = "You take an explosive potion.";
@@ -176,6 +191,11 @@ public final class CastleWarsEngineeringManager {
                                              int objectX, int objectY, int objectPlane) {
         if (!CastleWarsManager.isInGame(player)) {
             return false;
+        }
+
+        if (itemId == CLIMBING_ROPE_ITEM_ID
+                && (objectId == BATTLEMENT_OBJECT_ID || objectId == BATTLEMENT_OBJECT_ID_ALT)) {
+            return attachClimbingRope(player, objectId, objectX, objectY, objectPlane);
         }
 
         if (itemId == EXPLOSIVE_POTION_ID) {
@@ -543,21 +563,167 @@ public final class CastleWarsEngineeringManager {
             return 0;
         }
         if (itemId != ROCK_ITEM_ID && itemId != EXPLOSIVE_POTION_ID
-                && itemId != BARRICADE_ITEM_ID && itemId != BRONZE_PICKAXE_ID
-                && itemId != TOOLKIT_ID) {
+                && itemId != BARRICADE_ITEM_ID && itemId != CLIMBING_ROPE_ITEM_ID
+                && itemId != BRONZE_PICKAXE_ID && itemId != TOOLKIT_ID) {
             return 0;
         }
         return player.getInventoryManager().addItemPartial(new ItemStack(itemId, amount));
     }
 
     public static void cleanupPlayerSupplies(Player player) {
-        int[] ids = new int[]{ROCK_ITEM_ID, EXPLOSIVE_POTION_ID, BARRICADE_ITEM_ID, TOOLKIT_ID};
+        int[] ids = new int[]{ROCK_ITEM_ID, EXPLOSIVE_POTION_ID, BARRICADE_ITEM_ID,
+                CLIMBING_ROPE_ITEM_ID, TOOLKIT_ID};
         for (int id : ids) {
             int amount = player.getInventoryManager().getItemAmount(id);
             if (amount > 0) {
                 player.getInventoryManager().removeItem(new ItemStack(id, amount));
             }
         }
+    }
+
+    public static boolean handleClimbingRope(Player player, int objectId, int objectX, int objectY) {
+        if (objectId != CLIMBING_ROPE_OBJECT_ID) {
+            return false;
+        }
+        if (!CastleWarsManager.isInGame(player)) {
+            return false;
+        }
+        if (player.getPosition().getPlane() != CLIMBING_ROPE_PLANE) {
+            player.getPacketSender().sendGameMessage("The rope can only be climbed from below.");
+            return true;
+        }
+
+        ClimbingRopeState rope = getActiveClimbingRope(objectX, objectY);
+        if (rope == null) {
+            return false;
+        }
+        if (GameUtil.getDistance(player.getPosition(), rope.position) > 2) {
+            return false;
+        }
+
+        player.getMovementQueue().clear();
+        player.getUpdateState().setAnimation(828);
+        player.moveTo(rope.destination.copy());
+        player.getMovementQueue().clearMovementActions();
+        if (!player.isBot) {
+            player.getPacketSender().resetCamera();
+        }
+        player.getPacketSender().sendGameMessage("You climb the rope onto the battlements.");
+        return true;
+    }
+
+    private static boolean attachClimbingRope(Player player, int battlementId,
+                                              int objectX, int objectY, int objectPlane) {
+        if (objectPlane != CLIMBING_ROPE_PLANE) {
+            return false;
+        }
+        CastleWarsManager.Team targetTeam = getBattlementTeam(objectX, objectY);
+        if (targetTeam == null) {
+            return false;
+        }
+
+        CastleWarsManager.Team playerTeam = CastleWarsManager.getGameTeam(player);
+        if (playerTeam == null) {
+            return false;
+        }
+        if (playerTeam == targetTeam) {
+            player.getPacketSender().sendGameMessage("You can only attach climbing ropes to the enemy castle.");
+            return true;
+        }
+        if (player.getInventoryManager().getItemAmount(CLIMBING_ROPE_ITEM_ID) <= 0) {
+            return true;
+        }
+        if (GameUtil.getDistance(player.getPosition(),
+                new Position(objectX, objectY, objectPlane)) > 2) {
+            return false;
+        }
+
+        DynamicObject existing = ObjectManager.findDynamicObjectAt(objectX, objectY, objectPlane);
+        if (existing != null) {
+            if (existing.getWorldObject().getObjectId() == CLIMBING_ROPE_OBJECT_ID) {
+                player.getPacketSender().sendGameMessage("A climbing rope is already attached here.");
+                return true;
+            }
+            return false;
+        }
+
+        Position destination = findClimbingRopeDestination(objectX, objectY);
+        if (destination == null) {
+            player.getPacketSender().sendGameMessage("You cannot attach a rope to this part of the wall.");
+            return true;
+        }
+
+        int orientation = SkillActionHelper.getObjectOrientation(
+                battlementId, objectX, objectY, objectPlane);
+        int type = SkillActionHelper.getObjectType(
+                battlementId, objectX, objectY, objectPlane);
+
+        player.getInventoryManager().removeItem(new ItemStack(CLIMBING_ROPE_ITEM_ID, 1));
+        new DynamicObject(CLIMBING_ROPE_OBJECT_ID, objectX, objectY, objectPlane,
+                orientation, type, battlementId, CLIMBING_ROPE_LIFETIME_TICKS, false);
+        climbingRopes.put(key(new Position(objectX, objectY, objectPlane)),
+                new ClimbingRopeState(new Position(objectX, objectY, objectPlane), destination));
+        player.getPacketSender().sendGameMessage("You attach the climbing rope to the battlements.");
+        return true;
+    }
+
+    private static ClimbingRopeState getActiveClimbingRope(int objectX, int objectY) {
+        String key = key(new Position(objectX, objectY, CLIMBING_ROPE_PLANE));
+        ClimbingRopeState rope = climbingRopes.get(key);
+        if (rope == null) {
+            return null;
+        }
+
+        DynamicObject dynamicObject = ObjectManager.findDynamicObjectByIdAt(
+                CLIMBING_ROPE_OBJECT_ID, objectX, objectY, CLIMBING_ROPE_PLANE);
+        if (dynamicObject == null) {
+            climbingRopes.remove(key);
+            return null;
+        }
+        return rope;
+    }
+
+    private static Position findClimbingRopeDestination(int objectX, int objectY) {
+        Position best = null;
+        int bestDistance = Integer.MAX_VALUE;
+        for (int x = objectX - 2; x <= objectX + 2; ++x) {
+            for (int y = objectY - 2; y <= objectY + 2; ++y) {
+                Position candidate = new Position(x, y, CLIMBING_ROPE_DESTINATION_PLANE);
+                if (!CastleWarsManager.isCastleBattlementPosition(candidate)
+                        || WalkingCollisionMap.getTileFlags(
+                        x, y, CLIMBING_ROPE_DESTINATION_PLANE) != 0) {
+                    continue;
+                }
+                int distance = Math.abs(x - objectX) + Math.abs(y - objectY);
+                if (distance < bestDistance) {
+                    bestDistance = distance;
+                    best = candidate;
+                }
+            }
+        }
+        return best;
+    }
+
+    private static CastleWarsManager.Team getBattlementTeam(int x, int y) {
+        if (x >= 2415 && x <= 2431 && y >= 3072 && y <= 3083) {
+            return CastleWarsManager.Team.SARADOMIN;
+        }
+        if (x >= 2368 && x <= 2384 && y >= 3124 && y <= 3135) {
+            return CastleWarsManager.Team.ZAMORAK;
+        }
+        return null;
+    }
+
+    private static void clearAllClimbingRopes() {
+        for (ClimbingRopeState rope : climbingRopes.values()) {
+            DynamicObject dynamicObject = ObjectManager.findDynamicObjectByIdAt(
+                    CLIMBING_ROPE_OBJECT_ID,
+                    rope.position.getX(), rope.position.getY(), rope.position.getPlane());
+            if (dynamicObject != null) {
+                dynamicObject.remainingTicks = 0;
+            }
+        }
+        climbingRopes.clear();
     }
 
     public static boolean placeBarricade(Player player) {
@@ -1067,6 +1233,16 @@ public final class CastleWarsEngineeringManager {
                 }
             }
             return false;
+        }
+    }
+
+    private static final class ClimbingRopeState {
+        private final Position position;
+        private final Position destination;
+
+        private ClimbingRopeState(Position position, Position destination) {
+            this.position = position;
+            this.destination = destination;
         }
     }
 
