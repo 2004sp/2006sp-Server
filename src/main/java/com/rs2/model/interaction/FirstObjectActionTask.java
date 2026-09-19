@@ -93,6 +93,15 @@ extends TickTask {
             }
             return;
         }
+        if (this.objectId == CastleWarsManager.STEPPING_STONE_ID
+                && this.objectPlane == 0
+                && GameUtil.isWithinDistance(this.player.getPosition().getX(),
+                        this.player.getPosition().getY(), this.objectX, this.objectY, 1)
+                && CastleWarsManager.handleFirstObjectAction(
+                        this.player, this.objectId, this.objectX, this.objectY)) {
+            this.stop();
+            return;
+        }
         WorldObject worldObject = SkillActionHelper.findWorldObjectById(this.objectId, this.objectX, this.objectY, this.objectPlane);
         if (worldObject == null) {
             if (GameplayTrace.enabled() && !this.loggedMissingWorldObject) {

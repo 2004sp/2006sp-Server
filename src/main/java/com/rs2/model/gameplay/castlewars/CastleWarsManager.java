@@ -26,6 +26,7 @@ public final class CastleWarsManager {
     public static final int ZAMORAK_SPAWN_LADDER_ID = 6281;
     public static final int SARADOMIN_SPAWN_TRAPDOOR_ID = 4471;
     public static final int ZAMORAK_SPAWN_TRAPDOOR_ID = 4472;
+    public static final int STEPPING_STONE_ID = 4411;
 
     public static final int SARADOMIN_HOOD_ID = 4513;
     public static final int SARADOMIN_CLOAK_ID = 4514;
@@ -56,6 +57,26 @@ public final class CastleWarsManager {
     private static final Position CASTLE_WARS_LOBBY = new Position(2441, 3090, 0);
     private static final Position SARADOMIN_WAITING_ROOM = new Position(2377, 9485, 0);
     private static final Position ZAMORAK_WAITING_ROOM = new Position(2421, 9524, 0);
+    private static final int STEPPING_STONE_JUMP_ANIMATION = 741;
+    private static final Position[] SOUTHWEST_STEPPING_STONE_ROUTE = new Position[]{
+        new Position(2378, 3083, 0),
+        new Position(2378, 3084, 0),
+        new Position(2378, 3085, 0),
+        new Position(2377, 3085, 0),
+        new Position(2377, 3086, 0),
+        new Position(2377, 3087, 0),
+        new Position(2377, 3088, 0),
+        new Position(2377, 3089, 0)
+    };
+    private static final Position[] NORTHEAST_STEPPING_STONE_ROUTE = new Position[]{
+        new Position(2420, 3122, 0),
+        new Position(2420, 3123, 0),
+        new Position(2419, 3123, 0),
+        new Position(2419, 3124, 0),
+        new Position(2419, 3125, 0),
+        new Position(2418, 3125, 0),
+        new Position(2418, 3126, 0)
+    };
 
     private static final Map<Player, Team> waitingPlayers = new IdentityHashMap<Player, Team>();
     private static final Map<Player, Team> gamePlayers = new IdentityHashMap<Player, Team>();
@@ -168,6 +189,10 @@ public final class CastleWarsManager {
 
     public static boolean handleFirstObjectAction(Player player, int objectId, int objectX, int objectY) {
         if (handlePortal(player, objectId)) {
+            return true;
+        }
+        if (objectId == STEPPING_STONE_ID && isInGame(player)) {
+            useSteppingStone(player, objectX, objectY);
             return true;
         }
         if (objectId == BANDAGE_TABLE_ID) {
@@ -678,6 +703,202 @@ public final class CastleWarsManager {
         } else {
             player.moveTo(new Position(2370, 3132, climbUp ? 2 : 1));
         }
+    }
+
+    private static void useSteppingStone(Player player, int objectX, int objectY) {
+        if (player.getPosition().getPlane() != 0) {
+            return;
+        }
+        if (player.isMovementLocked()) {
+            player.getPacketSender().sendGameMessage("You cannot use the stepping stones while unable to move.");
+            return;
+        }
+
+        Position destination = new Position(objectX, objectY, 0);
+        if (!isSteppingStoneTile(destination)) {
+            return;
+        }
+        if (!jumpSteppingStone(player, destination)) {
+            player.getPacketSender().sendGameMessage("You need to jump to the next stepping stone.");
+        }
+    }
+
+    public static Position getSteppingStoneApproach(Team sourceTeam, int routeVariant) {
+        Position[] route = steppingStoneRoute(routeVariant);
+        if (route == null || sourceTeam == null) {
+            return null;
+        }
+        return sourceTeam == Team.SARADOMIN ? route[0] : route[route.length - 1];
+    }
+
+    public static Position getSteppingStoneExit(Team sourceTeam, int routeVariant) {
+        Position[] route = steppingStoneRoute(routeVariant);
+        if (route == null || sourceTeam == null) {
+            return null;
+        }
+        return sourceTeam == Team.SARADOMIN ? route[route.length - 1] : route[0];
+    }
+
+    public static Position getSteppingStoneNextStep(Position current, Team sourceTeam, int routeVariant) {
+        Position[] route = steppingStoneRoute(routeVariant);
+        if (route == null || current == null || sourceTeam == null) {
+            return null;
+        }
+
+        int index = steppingStoneRouteIndex(route, current);
+        if (index < 0) {
+            return null;
+        }
+        int nextIndex = sourceTeam == Team.SARADOMIN ? index + 1 : index - 1;
+        if (nextIndex < 0 || nextIndex >= route.length) {
+            return null;
+        }
+        return route[nextIndex];
+    }
+
+    public static Position getSteppingStoneShortcutWaypoint(Position current, Position destination) {
+        if (current == null || destination == null
+                || current.getPlane() != 0 || destination.getPlane() != 0) {
+            return null;
+        }
+
+        Position[][] routes = new Position[][]{
+            SOUTHWEST_STEPPING_STONE_ROUTE,
+            NORTHEAST_STEPPING_STONE_ROUTE
+        };
+
+        // Once a bot is on a crossing, keep it moving along the stones toward
+        // its target (including when the target is also standing on a stone).
+        for (Position[] route : routes) {
+            int currentIndex = steppingStoneRouteIndex(route, current);
+            if (currentIndex < 0) {
+                continue;
+            }
+
+            int destinationIndex = steppingStoneRouteIndex(route, destination);
+            if (destinationIndex >= 0 && destinationIndex != currentIndex) {
+                return route[currentIndex + (destinationIndex > currentIndex ? 1 : -1)];
+            }
+
+            int startDistance = GameUtil.getDistance(destination, route[0]);
+            int endDistance = GameUtil.getDistance(destination, route[route.length - 1]);
+            if (currentIndex == 0) {
+                return endDistance + 2 < startDistance ? route[1] : null;
+            }
+            if (currentIndex == route.length - 1) {
+                return startDistance + 2 < endDistance ? route[route.length - 2] : null;
+            }
+            return endDistance < startDistance ? route[currentIndex + 1] : route[currentIndex - 1];
+        }
+
+        Position bestApproach = null;
+        int bestScore = Integer.MAX_VALUE;
+        for (Position[] route : routes) {
+            int last = route.length - 1;
+            int destinationIndex = steppingStoneRouteIndex(route, destination);
+
+            // A target already on the stones is always worth pursuing through
+            // whichever end gives the shorter chase.
+            if (destinationIndex > 0 && destinationIndex < last) {
+                int startApproach = GameUtil.getDistance(current, route[0]);
+                int endApproach = GameUtil.getDistance(current, route[last]);
+                int startScore = startApproach + destinationIndex;
+                int endScore = endApproach + (last - destinationIndex);
+                if (startApproach <= 12 && startScore < bestScore) {
+                    bestApproach = route[0];
+                    bestScore = startScore;
+                }
+                if (endApproach <= 12 && endScore < bestScore) {
+                    bestApproach = route[last];
+                    bestScore = endScore;
+                }
+                continue;
+            }
+
+            Position[] starts = new Position[]{route[0], route[last]};
+            Position[] ends = new Position[]{route[last], route[0]};
+            for (int direction = 0; direction < 2; ++direction) {
+                int approachDistance = GameUtil.getDistance(current, starts[direction]);
+                int destinationExitDistance = GameUtil.getDistance(destination, ends[direction]);
+                int destinationEntryDistance = GameUtil.getDistance(destination, starts[direction]);
+                if (approachDistance > 10
+                        || destinationExitDistance > 18
+                        || destinationExitDistance + 3 >= destinationEntryDistance) {
+                    continue;
+                }
+
+                int score = approachDistance + last + destinationExitDistance;
+                if (score < bestScore) {
+                    bestScore = score;
+                    bestApproach = starts[direction];
+                }
+            }
+        }
+        return bestApproach;
+    }
+
+    public static boolean jumpSteppingStone(Player player, Position destination) {
+        if (player == null || destination == null || player.isMovementLocked()
+                || player.getPosition().getPlane() != 0 || destination.getPlane() != 0
+                || !isInGame(player)) {
+            return false;
+        }
+
+        Position current = player.getPosition();
+        if (!areConsecutiveSteppingStoneTiles(current, destination)) {
+            return false;
+        }
+
+        player.getMovementQueue().clear();
+        player.getUpdateState().setAnimation(STEPPING_STONE_JUMP_ANIMATION);
+        player.moveTo(new Position(destination.getX(), destination.getY(), 0));
+        player.getMovementQueue().clearMovementActions();
+        return true;
+    }
+
+    private static Position[] steppingStoneRoute(int routeVariant) {
+        if (routeVariant == 1) {
+            return SOUTHWEST_STEPPING_STONE_ROUTE;
+        }
+        if (routeVariant == 2) {
+            return NORTHEAST_STEPPING_STONE_ROUTE;
+        }
+        return null;
+    }
+
+    private static boolean isSteppingStoneTile(Position position) {
+        return isInteriorSteppingStoneTile(SOUTHWEST_STEPPING_STONE_ROUTE, position)
+                || isInteriorSteppingStoneTile(NORTHEAST_STEPPING_STONE_ROUTE, position);
+    }
+
+    private static boolean isInteriorSteppingStoneTile(Position[] route, Position position) {
+        int index = steppingStoneRouteIndex(route, position);
+        return index > 0 && index < route.length - 1;
+    }
+
+    private static boolean areConsecutiveSteppingStoneTiles(Position first, Position second) {
+        return areConsecutiveInRoute(SOUTHWEST_STEPPING_STONE_ROUTE, first, second)
+                || areConsecutiveInRoute(NORTHEAST_STEPPING_STONE_ROUTE, first, second);
+    }
+
+    private static boolean areConsecutiveInRoute(Position[] route, Position first, Position second) {
+        int firstIndex = steppingStoneRouteIndex(route, first);
+        int secondIndex = steppingStoneRouteIndex(route, second);
+        return firstIndex >= 0 && secondIndex >= 0 && Math.abs(firstIndex - secondIndex) == 1;
+    }
+
+    private static int steppingStoneRouteIndex(Position[] route, Position position) {
+        if (route == null || position == null || position.getPlane() != 0) {
+            return -1;
+        }
+        for (int index = 0; index < route.length; ++index) {
+            Position routePosition = route[index];
+            if (routePosition.getX() == position.getX()
+                    && routePosition.getY() == position.getY()) {
+                return index;
+            }
+        }
+        return -1;
     }
 
     private static boolean handleCastleWarsTraversal(Player player, int objectId, int objectX, int objectY) {

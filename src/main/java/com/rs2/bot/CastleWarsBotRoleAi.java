@@ -68,7 +68,7 @@ public final class CastleWarsBotRoleAi {
             }
             int engageRadius = state.role == Role.MIDFIGHTER ? 16
                     : state.role == Role.DEFENDER ? 12 : 8;
-            if (tryEngageNearbyOpponent(bot, engageRadius)) {
+            if (tryEngageNearbyOpponent(bot, state, engageRadius)) {
                 return true;
             }
         }
@@ -412,7 +412,7 @@ public final class CastleWarsBotRoleAi {
         if (bot.getPosition().getPlane() != 0) {
             return;
         }
-        if (tryEngageNearbyOpponent(bot, 16)) {
+        if (tryEngageNearbyOpponent(bot, state, 16)) {
             state.phase = Phase.MID_FIGHT;
             return;
         }
@@ -434,7 +434,7 @@ public final class CastleWarsBotRoleAi {
             return;
         }
 
-        if (tryEngageNearbyOpponent(bot, 18)) {
+        if (tryEngageNearbyOpponent(bot, state, 18)) {
             state.midPatrolTicks = 12 + GameUtil.randomInt(18);
             return;
         }
@@ -503,7 +503,7 @@ public final class CastleWarsBotRoleAi {
     }
 
     private static void processCatapultRoam(BotPlayer bot, RoleState state) {
-        if (tryEngageNearbyOpponent(bot, 10)) {
+        if (tryEngageNearbyOpponent(bot, state, 10)) {
             return;
         }
         Position mid = new Position(
@@ -819,15 +819,23 @@ public final class CastleWarsBotRoleAi {
         }
         Player targetPlayer = (Player)target;
         if (!CastleWarsManager.areOpponents(bot, targetPlayer)
-                || targetPlayer.getPosition().getPlane() != bot.getPosition().getPlane()
-                || GameUtil.getDistance(bot.getPosition(), targetPlayer.getPosition()) > 12) {
+                || targetPlayer.getPosition().getPlane() != bot.getPosition().getPlane()) {
+            CombatManager.stopCombat(bot);
+            return false;
+        }
+        if (CastleWarsManager.getSteppingStoneShortcutWaypoint(
+                bot.getPosition(), targetPlayer.getPosition()) != null) {
+            CombatManager.stopCombat(bot);
+            return false;
+        }
+        if (GameUtil.getDistance(bot.getPosition(), targetPlayer.getPosition()) > 12) {
             CombatManager.stopCombat(bot);
             return false;
         }
         return true;
     }
 
-    private static boolean tryEngageNearbyOpponent(BotPlayer bot, int radius) {
+    private static boolean tryEngageNearbyOpponent(BotPlayer bot, RoleState state, int radius) {
         Player best = null;
         int bestDistance = Integer.MAX_VALUE;
         for (Player player : World.getPlayers()) {
@@ -845,6 +853,12 @@ public final class CastleWarsBotRoleAi {
         if (best == null) {
             return false;
         }
+        if (CastleWarsManager.getSteppingStoneShortcutWaypoint(
+                bot.getPosition(), best.getPosition()) != null) {
+            CombatManager.stopCombat(bot);
+            walk(bot, state, best.getPosition());
+            return true;
+        }
         bot.getMovementQueue().setRunning(true);
         CombatManager.startCombat(bot, best);
         return true;
@@ -854,13 +868,25 @@ public final class CastleWarsBotRoleAi {
         if (bot.getPosition().getPlane() != target.getPlane() || bot.isMovementLocked()) {
             return;
         }
+
+        Position navigationTarget = target;
+        Position steppingWaypoint = CastleWarsManager.getSteppingStoneShortcutWaypoint(
+                bot.getPosition(), target);
+        if (steppingWaypoint != null) {
+            if (CastleWarsManager.jumpSteppingStone(bot, steppingWaypoint)) {
+                state.repathDelay = 0;
+                return;
+            }
+            navigationTarget = steppingWaypoint;
+        }
+
         if (state.repathDelay > 0) {
             --state.repathDelay;
             return;
         }
         state.repathDelay = 3 + GameUtil.randomInt(4);
         bot.getMovementQueue().setRunning(true);
-        PathFinder.findPath(bot, target.getX(), target.getY(), true, 0, 0);
+        PathFinder.findPath(bot, navigationTarget.getX(), navigationTarget.getY(), true, 0, 0);
         bot.getMovementQueue().clearMovementActions();
     }
 

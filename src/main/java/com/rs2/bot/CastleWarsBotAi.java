@@ -60,7 +60,7 @@ public final class CastleWarsBotAi {
             if (hasActiveOpponent(bot)) {
                 return;
             }
-            if (tryEngageNearbyOpponent(bot, 11)) {
+            if (tryEngageNearbyOpponent(bot, state, 11)) {
                 return;
             }
         }
@@ -302,12 +302,36 @@ public final class CastleWarsBotAi {
             return;
         }
 
-        Position midpoint = fieldWaypoint(state);
         if (!state.crossedMidpoint) {
-            if (!near(bot, midpoint, 3)) {
-                walk(bot, state, midpoint);
-                return;
+            if (state.routeVariant == 0) {
+                Position midpoint = fieldWaypoint(state);
+                if (!near(bot, midpoint, 3)) {
+                    walk(bot, state, midpoint);
+                    return;
+                }
+            } else {
+                CastleWarsManager.Team sourceTeam =
+                        returningHome ? opposite(state.team) : state.team;
+                Position crossingExit =
+                        CastleWarsManager.getSteppingStoneExit(sourceTeam, state.routeVariant);
+                if (!near(bot, crossingExit, 0)) {
+                    Position nextStone = CastleWarsManager.getSteppingStoneNextStep(
+                            bot.getPosition(), sourceTeam, state.routeVariant);
+                    if (nextStone != null) {
+                        CastleWarsManager.jumpSteppingStone(bot, nextStone);
+                        state.repathDelay = 0;
+                        return;
+                    }
+
+                    Position approach =
+                            CastleWarsManager.getSteppingStoneApproach(sourceTeam, state.routeVariant);
+                    if (!near(bot, approach, 0)) {
+                        walk(bot, state, approach);
+                    }
+                    return;
+                }
             }
+
             state.crossedMidpoint = true;
             state.repathDelay = 0;
             if (!returningHome) {
@@ -505,6 +529,11 @@ public final class CastleWarsBotAi {
             CombatManager.stopCombat(bot);
             return false;
         }
+        if (CastleWarsManager.getSteppingStoneShortcutWaypoint(
+                bot.getPosition(), targetPlayer.getPosition()) != null) {
+            CombatManager.stopCombat(bot);
+            return false;
+        }
         if (GameUtil.getDistance(bot.getPosition(), targetPlayer.getPosition()) > 12) {
             CombatManager.stopCombat(bot);
             return false;
@@ -512,7 +541,7 @@ public final class CastleWarsBotAi {
         return true;
     }
 
-    private static boolean tryEngageNearbyOpponent(BotPlayer bot, int radius) {
+    private static boolean tryEngageNearbyOpponent(BotPlayer bot, BotState state, int radius) {
         Player best = null;
         int bestDistance = Integer.MAX_VALUE;
         for (Player player : World.getPlayers()) {
@@ -530,6 +559,12 @@ public final class CastleWarsBotAi {
         }
         if (best == null) {
             return false;
+        }
+        if (CastleWarsManager.getSteppingStoneShortcutWaypoint(
+                bot.getPosition(), best.getPosition()) != null) {
+            CombatManager.stopCombat(bot);
+            walk(bot, state, best.getPosition());
+            return true;
         }
         bot.getMovementQueue().setRunning(true);
         CombatManager.startCombat(bot, best);
@@ -587,13 +622,25 @@ public final class CastleWarsBotAi {
         if (bot.getPosition().getPlane() != target.getPlane() || bot.isMovementLocked()) {
             return;
         }
+
+        Position navigationTarget = target;
+        Position steppingWaypoint = CastleWarsManager.getSteppingStoneShortcutWaypoint(
+                bot.getPosition(), target);
+        if (steppingWaypoint != null) {
+            if (CastleWarsManager.jumpSteppingStone(bot, steppingWaypoint)) {
+                state.repathDelay = 0;
+                return;
+            }
+            navigationTarget = steppingWaypoint;
+        }
+
         if (state.repathDelay > 0) {
             --state.repathDelay;
             return;
         }
         state.repathDelay = 3 + GameUtil.randomInt(4);
         bot.getMovementQueue().setRunning(true);
-        PathFinder.findPath(bot, target.getX(), target.getY(), true, 0, 0);
+        PathFinder.findPath(bot, navigationTarget.getX(), navigationTarget.getY(), true, 0, 0);
         bot.getMovementQueue().clearMovementActions();
     }
 
