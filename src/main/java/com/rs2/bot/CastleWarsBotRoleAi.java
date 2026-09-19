@@ -185,10 +185,13 @@ public final class CastleWarsBotRoleAi {
         if (!state.utilityStocked) {
             if (state.role == Role.UNDERGROUND) {
                 makeInventorySpace(bot, 7);
-                CastleWarsEngineeringManager.giveSupply(bot,
-                        CastleWarsEngineeringManager.EXPLOSIVE_POTION_ID, 4);
+                // Reserve the non-consumable tunnel tool before expendable supplies so
+                // an unexpectedly full loadout can never leave an underground bot
+                // without a pickaxe.
                 CastleWarsEngineeringManager.giveSupply(bot,
                         CastleWarsEngineeringManager.BRONZE_PICKAXE_ID, 1);
+                CastleWarsEngineeringManager.giveSupply(bot,
+                        CastleWarsEngineeringManager.EXPLOSIVE_POTION_ID, 4);
                 CastleWarsEngineeringManager.giveSupply(bot,
                         CastleWarsEngineeringManager.BARRICADE_ITEM_ID, 1);
             } else if (state.role == Role.CATAPULT) {
@@ -269,10 +272,13 @@ public final class CastleWarsBotRoleAi {
         if (!state.utilityStocked) {
             if (state.role == Role.UNDERGROUND) {
                 makeInventorySpace(bot, 7);
-                CastleWarsEngineeringManager.giveSupply(bot,
-                        CastleWarsEngineeringManager.EXPLOSIVE_POTION_ID, 4);
+                // Reserve the non-consumable tunnel tool before expendable supplies so
+                // an unexpectedly full loadout can never leave an underground bot
+                // without a pickaxe.
                 CastleWarsEngineeringManager.giveSupply(bot,
                         CastleWarsEngineeringManager.BRONZE_PICKAXE_ID, 1);
+                CastleWarsEngineeringManager.giveSupply(bot,
+                        CastleWarsEngineeringManager.EXPLOSIVE_POTION_ID, 4);
                 CastleWarsEngineeringManager.giveSupply(bot,
                         CastleWarsEngineeringManager.BARRICADE_ITEM_ID, 1);
             } else if (state.role == Role.CATAPULT) {
