@@ -10,6 +10,7 @@ import com.rs2.model.item.ItemStack;
 import com.rs2.model.player.Player;
 import com.rs2.util.GameUtil;
 import com.rs2.util.path.PathFinder;
+import com.rs2.util.path.WalkingCollisionMap;
 
 import java.util.IdentityHashMap;
 import java.util.Map;
@@ -398,9 +399,107 @@ public final class CastleWarsBotRoleAi {
         Position flag = state.team == CastleWarsManager.Team.SARADOMIN
                 ? new Position(2429, 3074, 3)
                 : new Position(2370, 3133, 3);
-        if (!near(bot, flag, 5) && GameUtil.randomInt(4) == 0) {
-            walk(bot, state, flag);
+
+        if (state.defenderPatrolTarget == null
+                || state.defenderPatrolTarget.getPlane() != bot.getPosition().getPlane()
+                || --state.defenderPatrolTicks <= 0
+                || isDefenderPostCrowded(bot, state.defenderPatrolTarget)) {
+            state.defenderPatrolTarget = chooseDefenderPatrolTarget(bot, state, flag);
+            state.defenderPatrolTicks = 12 + GameUtil.randomInt(22);
+            state.repathDelay = 0;
         }
+
+        if (state.defenderPatrolTarget != null
+                && !near(bot, state.defenderPatrolTarget, 1)) {
+            walk(bot, state, state.defenderPatrolTarget);
+            return;
+        }
+
+        // Once a defender reaches a post, linger briefly before moving to another
+        // section of the wall. This keeps defenders visibly patrolling instead of
+        // converging on the flag tile and standing there for the rest of the game.
+        if (state.defenderPatrolTarget != null
+                && near(bot, state.defenderPatrolTarget, 1)
+                && state.defenderPatrolTicks > 6
+                && GameUtil.randomInt(18) == 0) {
+            CastleWarsBotChat.sayDefence(bot);
+        }
+    }
+
+    private static Position chooseDefenderPatrolTarget(BotPlayer bot, RoleState state,
+                                                        Position flag) {
+        int minX = state.team == CastleWarsManager.Team.SARADOMIN ? 2415 : 2368;
+        int maxX = state.team == CastleWarsManager.Team.SARADOMIN ? 2431 : 2387;
+        int minY = state.team == CastleWarsManager.Team.SARADOMIN ? 3072 : 3117;
+        int maxY = state.team == CastleWarsManager.Team.SARADOMIN ? 3089 : 3135;
+        int plane = bot.getPosition().getPlane();
+
+        Position best = null;
+        int bestScore = Integer.MAX_VALUE;
+        long patrolSalt = bot.getNameHash() + (long)state.defenderPatrolGeneration * 131L;
+
+        for (int x = minX; x <= maxX; ++x) {
+            for (int y = minY; y <= maxY; ++y) {
+                Position candidate = new Position(x, y, plane);
+                int flagDistance = GameUtil.getDistance(candidate, flag);
+                if (flagDistance < 3 || flagDistance > 10) {
+                    continue;
+                }
+
+                int clipping = WalkingCollisionMap.getTileFlags(x, y, plane);
+                if ((clipping & 0x1280100) != 0) {
+                    continue;
+                }
+
+                int crowding = 0;
+                for (Player player : World.getPlayers()) {
+                    if (player == null || player == bot || player.isDead()
+                            || CastleWarsManager.getGameTeam(player) != state.team
+                            || player.getPosition().getPlane() != plane) {
+                        continue;
+                    }
+                    int distance = GameUtil.getDistance(candidate, player.getPosition());
+                    if (distance <= 1) {
+                        crowding += 6;
+                    } else if (distance <= 3) {
+                        crowding += 2;
+                    } else if (distance <= 5) {
+                        crowding += 1;
+                    }
+                }
+
+                int movementCost = GameUtil.getDistance(bot.getPosition(), candidate);
+                int guardBandCost = Math.abs(flagDistance - 6) * 4;
+                int jitter = (int)Math.abs((patrolSalt + x * 31L + y * 17L) % 11L);
+                int score = crowding * 100 + guardBandCost + movementCost + jitter;
+                if (score < bestScore) {
+                    bestScore = score;
+                    best = candidate;
+                }
+            }
+        }
+
+        ++state.defenderPatrolGeneration;
+        return best;
+    }
+
+    private static boolean isDefenderPostCrowded(BotPlayer bot, Position post) {
+        if (post == null) {
+            return false;
+        }
+        int nearby = 0;
+        CastleWarsManager.Team team = CastleWarsManager.getGameTeam(bot);
+        for (Player player : World.getPlayers()) {
+            if (player == null || player == bot || player.isDead()
+                    || CastleWarsManager.getGameTeam(player) != team
+                    || player.getPosition().getPlane() != post.getPlane()) {
+                continue;
+            }
+            if (GameUtil.getDistance(player.getPosition(), post) <= 1 && ++nearby >= 2) {
+                return true;
+            }
+        }
+        return false;
     }
 
     private static void processMidRush(BotPlayer bot, RoleState state) {
@@ -986,6 +1085,9 @@ public final class CastleWarsBotRoleAi {
         private int undergroundStage;
         private int pendingCollapseRock;
         private int barricadesPlaced;
+        private Position defenderPatrolTarget;
+        private int defenderPatrolTicks;
+        private int defenderPatrolGeneration;
         private int routeOffsetX;
         private int routeOffsetY;
         private int midPatrolTicks;
@@ -1021,6 +1123,9 @@ public final class CastleWarsBotRoleAi {
             this.undergroundStage = 0;
             this.pendingCollapseRock = -1;
             this.barricadesPlaced = 0;
+            this.defenderPatrolTarget = null;
+            this.defenderPatrolTicks = 4 + GameUtil.randomInt(8);
+            this.defenderPatrolGeneration = GameUtil.randomInt(16);
         }
     }
 }
