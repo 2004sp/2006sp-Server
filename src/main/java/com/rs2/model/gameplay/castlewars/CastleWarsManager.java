@@ -2160,9 +2160,9 @@ public final class CastleWarsManager {
         String timerText;
         if (gameInProgress) {
             long untilNextGame = Math.max(0L, gameEndMillis - now) + WAITING_DURATION_SECONDS * 1000L;
-            timerText = "Next Game Begins In: " + formatTime(untilNextGame);
+            timerText = "Next game in: " + formatTime(untilNextGame);
         } else if (nextGameStartMillis >= 0L && hasMinimumPlayersToStartInternal()) {
-            timerText = "Next Game Begins In: " + formatTime(Math.max(0L, nextGameStartMillis - now));
+            timerText = "Next game in: " + formatTime(Math.max(0L, nextGameStartMillis - now));
         } else {
             timerText = "Waiting for the other team...";
         }
