@@ -6,6 +6,7 @@ import com.rs2.model.combat.attack.CombatAttackProvider;
 import com.rs2.model.combat.attack.MagicCombatAttack;
 import com.rs2.model.combat.attack.WeaponCombatAttack;
 import com.rs2.model.combat.special.SpecialAttackDefinition;
+import com.rs2.model.gameplay.castlewars.CastleWarsManager;
 import com.rs2.model.npc.Npc;
 import com.rs2.model.player.Player;
 
@@ -16,6 +17,14 @@ implements CombatAttackProvider {
         if (entity.isPlayer()) {
             Player player = (Player)entity;
             SpecialAttackDefinition specialAttackDefinition = player.getSpecialAttackDefinition();
+            if (CastleWarsManager.isCarryingFlag(player)) {
+                player.setQueuedCombatSpell(null);
+                if (player.isAutocastEnabled()) {
+                    player.disableAutocast();
+                }
+                player.setSpecialAttackEnabled(false);
+                return new CombatAttack[]{new WeaponCombatAttack(player, entity2, player.getWeaponProfile())};
+            }
             if (player.getQueuedCombatSpell() != null) {
                 return new CombatAttack[]{new MagicCombatAttack(entity, entity2, player.getQueuedCombatSpell())};
             }
