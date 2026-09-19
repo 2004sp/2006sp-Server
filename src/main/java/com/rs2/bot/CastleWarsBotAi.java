@@ -67,6 +67,28 @@ public final class CastleWarsBotAi {
             if (target != null && !target.isDead()) {
                 CombatManager.stopCombat(bot);
             }
+
+            // Flag carriers never resume the enemy-castle climb once the flag is
+            // in hand. They descend to ground level, leave through the side door,
+            // cross the battlefield, then enter their own castle to score.
+            CastleWarsManager.Team castleAtPosition =
+                    CastleWarsManager.getCastleTeamAtPosition(bot.getPosition());
+            if (bot.getPosition().getPlane() > 0) {
+                if (castleAtPosition == opposite(team)) {
+                    state.phase = Phase.DESCEND_ENEMY;
+                } else if (castleAtPosition == team
+                        && state.phase != Phase.CAPTURE_FLAG) {
+                    state.phase = Phase.CLIMB_HOME;
+                }
+            } else if (castleAtPosition == opposite(team)) {
+                state.phase = Phase.EXIT_ENEMY_GROUND;
+            } else if (castleAtPosition == null) {
+                state.phase = Phase.RETURN_FIELD;
+            } else if (castleAtPosition == team
+                    && state.phase != Phase.CAPTURE_FLAG) {
+                state.phase = Phase.CLIMB_HOME;
+            }
+            state.repathDelay = 0;
         } else if (!CastleWarsManager.isInTeamSpawnArea(bot, team)
                 && !prioritizeTraversal) {
             if (hasActiveOpponent(bot, state)) {
@@ -750,11 +772,6 @@ public final class CastleWarsBotAi {
         if (bot.getPosition().getPlane() != target.getPlane() || bot.isMovementLocked()) {
             return;
         }
-        if (CastleWarsEngineeringManager.tryHandleNearbyDoorForBot(bot)) {
-            state.repathDelay = 0;
-            return;
-        }
-
         Position navigationTarget = target;
         Position steppingWaypoint = CastleWarsManager.getSteppingStoneShortcutWaypoint(
                 bot.getPosition(), target);
