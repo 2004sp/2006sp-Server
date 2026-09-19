@@ -662,11 +662,13 @@ public final class CastleWarsEngineeringManager {
             if (door.open) {
                 continue;
             }
-            int distance = Math.min(
-                    GameUtil.getDistance(player.getPosition(),
-                            new Position(door.closedX, door.closedY, MAIN_DOOR_PLANE)),
-                    GameUtil.getDistance(player.getPosition(),
-                            new Position(door.openX, door.openY, MAIN_DOOR_PLANE)));
+            // When the side door is closed, bots must interact with the
+            // actual closed-door tile. The open-door display tile is the exterior
+            // standing square, so including it in the distance calculation makes
+            // a bot standing exactly outside the door appear distance 0 and it
+            // never attempts to open/pick the lock.
+            int distance = GameUtil.getDistance(player.getPosition(),
+                    new Position(door.closedX, door.closedY, MAIN_DOOR_PLANE));
             if (distance != 1) {
                 continue;
             }
