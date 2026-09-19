@@ -51,20 +51,6 @@ public final class CastleWarsBotAi {
             CastleWarsManager.useBandage(bot);
         }
 
-        // These are interaction/landing squares, not combat posts. After leaving
-        // either castle, get off the choke immediately before target acquisition
-        // can pin a crowd of bots to the same tile.
-        if (CastleWarsManager.isGroundCastleExteriorTransitionTile(bot.getPosition())
-                && state.phase != Phase.ENTER_ENEMY
-                && state.phase != Phase.ENTER_HOME) {
-            if (bot.getCombatTarget() != null) {
-                CombatManager.stopCombat(bot);
-            }
-            state.repathDelay = 0;
-            walk(bot, state, fieldWaypoint(state));
-            return;
-        }
-
         boolean prioritizeTraversal = isTraversalPhase(state.phase);
         if (prioritizeTraversal) {
             state.sightChaseTarget = null;
@@ -278,13 +264,11 @@ public final class CastleWarsBotAi {
             return;
         }
 
-        Position approach = castleTeam == CastleWarsManager.Team.SARADOMIN
-                ? new Position(2417, 3077, 0)
-                : new Position(2382, 3130, 0);
-        if (!reachInteractionApproach(bot, state, approach)) {
-            return;
-        }
-        if (!CastleWarsManager.moveBotThroughGroundCastleStairs(bot, castleTeam, false)) {
+        Position exterior = castleTeam == CastleWarsManager.Team.SARADOMIN
+                ? new Position(2414, 3073, 0)
+                : new Position(2385, 3134, 0);
+        CastleWarsManager.routeBotThroughGroundCastle(bot, castleTeam, false);
+        if (!near(bot, exterior, 0)) {
             state.repathDelay = 0;
             return;
         }
@@ -322,13 +306,11 @@ public final class CastleWarsBotAi {
             }
         }
 
-        Position outside = castleTeam == CastleWarsManager.Team.SARADOMIN
-                ? new Position(2416, 3074, 0)
-                : new Position(2383, 3133, 0);
-        if (!reachInteractionApproach(bot, state, outside)) {
-            return;
-        }
-        if (!CastleWarsManager.moveBotThroughGroundCastleStairs(bot, castleTeam, true)) {
+        Position inside = castleTeam == CastleWarsManager.Team.SARADOMIN
+                ? new Position(2417, 3077, 0)
+                : new Position(2382, 3130, 0);
+        CastleWarsManager.routeBotThroughGroundCastle(bot, castleTeam, true);
+        if (!near(bot, inside, 0)) {
             state.repathDelay = 0;
             return;
         }
@@ -385,8 +367,8 @@ public final class CastleWarsBotAi {
 
         CastleWarsManager.Team destination = returningHome ? state.team : opposite(state.team);
         Position outside = destination == CastleWarsManager.Team.SARADOMIN
-                ? new Position(2416, 3074, 0)
-                : new Position(2383, 3133, 0);
+                ? new Position(2414, 3073, 0)
+                : new Position(2385, 3134, 0);
         if (!near(bot, outside, 2)) {
             walk(bot, state, outside);
             return;
