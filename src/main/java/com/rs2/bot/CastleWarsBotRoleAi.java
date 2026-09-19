@@ -1366,9 +1366,38 @@ public final class CastleWarsBotRoleAi {
             return false;
         }
         CastleWarsManager.Team team = CastleWarsManager.getGameTeam(bot);
-        return team != null
-                && !isWallGuardCandidate(bot, team)
-                && getNonWallRank(bot, team) == 9;
+        if (team == null
+                || isWallGuardCandidate(bot, team)
+                || getNonWallRank(bot, team) < 9) {
+            return false;
+        }
+
+        BotPlayer firstAttacker = null;
+        BotPlayer firstMeleeAttacker = null;
+        for (Player player : World.getPlayers()) {
+            if (!(player instanceof BotPlayer)
+                    || CastleWarsManager.getGameTeam(player) != team) {
+                continue;
+            }
+            BotPlayer other = (BotPlayer)player;
+            if (isWallGuardCandidate(other, team)
+                    || getNonWallRank(other, team) < 9) {
+                continue;
+            }
+            if (firstAttacker == null
+                    || other.getNameHash() < firstAttacker.getNameHash()) {
+                firstAttacker = other;
+            }
+            if (other.botPrimaryCombatStyle == 0
+                    && (firstMeleeAttacker == null
+                    || other.getNameHash() < firstMeleeAttacker.getNameHash())) {
+                firstMeleeAttacker = other;
+            }
+        }
+
+        // Prefer a melee runner so the dedicated objective bot can personally
+        // break a closed enemy main door instead of waiting for somebody else.
+        return bot == (firstMeleeAttacker != null ? firstMeleeAttacker : firstAttacker);
     }
 
     private static int getNonWallRank(BotPlayer bot, CastleWarsManager.Team team) {
