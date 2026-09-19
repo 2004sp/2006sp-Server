@@ -396,6 +396,11 @@ public final class CastleWarsEngineeringManager {
         return getMainDoorState(team).mode == MainDoorMode.BROKEN;
     }
 
+    public static boolean isSideDoorOpen(CastleWarsManager.Team team) {
+        return (team == CastleWarsManager.Team.SARADOMIN
+                ? saradominSideDoor : zamorakSideDoor).open;
+    }
+
     private static boolean repairMainDoor(Player player, int objectId, int objectX, int objectY) {
         MainDoorState door = findMainDoor(objectId, objectX, objectY);
         if (door == null || door.mode != MainDoorMode.BROKEN) {
