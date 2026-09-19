@@ -2,17 +2,25 @@ package com.rs2.bot;
 
 import com.rs2.bot.combat.BotCombatHelper;
 import com.rs2.bot.combat.BotCombatLoadoutManager;
+import com.rs2.model.EntityTargetMovement;
 import com.rs2.model.Position;
+import com.rs2.model.World;
 import com.rs2.model.gameplay.castlewars.CastleWarsManager;
+import com.rs2.model.item.ItemStack;
+import com.rs2.model.player.Player;
 import com.rs2.util.GameUtil;
+import com.rs2.util.path.PathFinder;
 import java.util.Collections;
 import java.util.IdentityHashMap;
+import java.util.Map;
 import java.util.Set;
 
 public final class MinigameBotManager {
     private static final Position CASTLE_WARS_LOBBY = new Position(2440, 3089, 0);
     private static final Set<BotPlayer> spreadWaitingBots =
         Collections.newSetFromMap(new IdentityHashMap<BotPlayer, Boolean>());
+    private static final Map<BotPlayer, WaitingSocialState> waitingSocialStates =
+        new IdentityHashMap<BotPlayer, WaitingSocialState>();
 
     private MinigameBotManager() {
     }
@@ -36,9 +44,12 @@ public final class MinigameBotManager {
         joinCastleWars(botPlayer);
 
         if (!botPlayer.isRegistered() || botPlayer.isDead()) {
+            clearWaitingSocial(botPlayer);
             return;
         }
         if (!CastleWarsManager.isWaitingPlayer(botPlayer) && !CastleWarsManager.isInGame(botPlayer)) {
+            spreadWaitingBots.remove(botPlayer);
+            clearWaitingSocial(botPlayer);
             CastleWarsBotAi.clear(botPlayer);
             CastleWarsBotRoleAi.clear(botPlayer);
             return;
@@ -46,6 +57,7 @@ public final class MinigameBotManager {
 
         if (CastleWarsManager.isInGame(botPlayer)) {
             spreadWaitingBots.remove(botPlayer);
+            clearWaitingSocial(botPlayer);
             if (CastleWarsBotRoleAi.process(botPlayer)) {
                 CastleWarsBotAi.clear(botPlayer);
             } else {
@@ -54,6 +66,7 @@ public final class MinigameBotManager {
         } else {
             CastleWarsBotAi.clear(botPlayer);
             CastleWarsBotRoleAi.clear(botPlayer);
+            processWaitingRoomSocial(botPlayer);
         }
 
         // This task runs every two game ticks. A 1/180 roll keeps a large
@@ -77,6 +90,7 @@ public final class MinigameBotManager {
         }
         if (CastleWarsManager.isInGame(botPlayer)) {
             spreadWaitingBots.remove(botPlayer);
+            clearWaitingSocial(botPlayer);
             return true;
         }
         if (CastleWarsManager.isWaitingPlayer(botPlayer)) {
@@ -107,19 +121,172 @@ public final class MinigameBotManager {
     }
 
     private static void prepareCastleWarsEquipment(BotPlayer botPlayer) {
-        boolean changed = false;
+        boolean equipmentChanged = false;
         if (botPlayer.getEquipmentManager().getContainer().getItemAt(0) != null) {
             botPlayer.getEquipmentManager().getContainer().setItem(0, null);
-            changed = true;
+            equipmentChanged = true;
         }
         if (botPlayer.getEquipmentManager().getContainer().getItemAt(1) != null) {
             botPlayer.getEquipmentManager().getContainer().setItem(1, null);
-            changed = true;
+            equipmentChanged = true;
         }
-        if (changed) {
+
+        boolean inventoryChanged = false;
+        ItemStack[] inventoryItems = botPlayer.getInventoryManager().getContainer().getItems();
+        for (int slot = 0; slot < inventoryItems.length; ++slot) {
+            ItemStack item = inventoryItems[slot];
+            if (!CastleWarsManager.isAllowedLobbyPortalInventoryItem(botPlayer, item)) {
+                botPlayer.getInventoryManager().getContainer().setItem(slot, null);
+                inventoryChanged = true;
+            }
+        }
+
+        if (inventoryChanged) {
+            botPlayer.getInventoryManager().refresh();
+        }
+        if (equipmentChanged) {
             botPlayer.getEquipmentManager().refresh();
         }
         botPlayer.setAppearanceUpdateRequired(true);
+    }
+
+    private static void processWaitingRoomSocial(BotPlayer botPlayer) {
+        WaitingSocialState state = waitingSocialStates.get(botPlayer);
+        if (state == null) {
+            state = new WaitingSocialState();
+            waitingSocialStates.put(botPlayer, state);
+        }
+
+        if (state.followTicks > 0) {
+            if (!isValidWaitingSocialTarget(botPlayer, state.followTarget, 10)) {
+                stopWaitingFollow(botPlayer, state);
+                return;
+            }
+
+            if (botPlayer.getMovementTarget() != state.followTarget) {
+                botPlayer.setMovementTarget(state.followTarget);
+            }
+            --state.followTicks;
+            if (state.followTicks <= 0) {
+                stopWaitingFollow(botPlayer, state);
+            }
+            return;
+        }
+
+        if (state.actionDelay > 0) {
+            --state.actionDelay;
+            return;
+        }
+        state.actionDelay = 8 + GameUtil.randomInt(20);
+
+        int action = GameUtil.randomInt(100);
+        if (action < 40) {
+            wanderWaitingRoom(botPlayer);
+            return;
+        }
+        if (action < 70) {
+            faceWaitingPlayer(botPlayer);
+            return;
+        }
+        if (action < 83) {
+            startWaitingFollow(botPlayer, state);
+            return;
+        }
+        if (action < 90) {
+            CastleWarsBotChat.sayContextual(botPlayer);
+        }
+    }
+
+    private static void wanderWaitingRoom(BotPlayer botPlayer) {
+        Position target = CastleWarsManager.getWaitingRoomWanderTarget(botPlayer, 4);
+        if (target == null) {
+            return;
+        }
+        botPlayer.getMovementQueue().setRunning(GameUtil.randomInt(8) == 0);
+        PathFinder.findPath(botPlayer, target.getX(), target.getY(), true, 0, 0);
+        botPlayer.getMovementQueue().clearMovementActions();
+    }
+
+    private static void faceWaitingPlayer(BotPlayer botPlayer) {
+        Player target = findNearbyWaitingPlayer(botPlayer, 6, false);
+        if (target == null) {
+            return;
+        }
+        botPlayer.getUpdateState().setFacePosition(target.getPosition());
+        if (target instanceof BotPlayer && GameUtil.randomInt(2) == 0) {
+            target.getUpdateState().setFacePosition(botPlayer.getPosition());
+        }
+    }
+
+    private static void startWaitingFollow(BotPlayer botPlayer, WaitingSocialState state) {
+        Player target = findNearbyWaitingPlayer(botPlayer, 6, true);
+        if (target == null) {
+            return;
+        }
+        state.followTarget = target;
+        state.followTicks = 2 + GameUtil.randomInt(4);
+        botPlayer.getMovementQueue().setRunning(false);
+        botPlayer.setMovementTarget(target);
+    }
+
+    private static void stopWaitingFollow(BotPlayer botPlayer, WaitingSocialState state) {
+        if (state.followTarget != null && botPlayer.getMovementTarget() == state.followTarget) {
+            EntityTargetMovement.clearMovementTarget(botPlayer);
+            botPlayer.getMovementQueue().clear();
+        }
+        state.followTarget = null;
+        state.followTicks = 0;
+        state.actionDelay = 6 + GameUtil.randomInt(12);
+    }
+
+    private static Player findNearbyWaitingPlayer(BotPlayer botPlayer, int maxDistance, boolean botsOnly) {
+        CastleWarsManager.Team team = CastleWarsManager.getWaitingTeam(botPlayer);
+        if (team == null) {
+            return null;
+        }
+
+        Player selected = null;
+        int candidates = 0;
+        for (Player player : World.getPlayers()) {
+            if (player == null
+                    || player == botPlayer
+                    || !player.isRegistered()
+                    || player.isDead()
+                    || (botsOnly && !(player instanceof BotPlayer))
+                    || player.getPosition().getPlane() != botPlayer.getPosition().getPlane()
+                    || CastleWarsManager.getWaitingTeam(player) != team
+                    || !GameUtil.isWithinDistance(botPlayer.getPosition(), player.getPosition(), maxDistance)) {
+                continue;
+            }
+
+            ++candidates;
+            if (GameUtil.randomInt(candidates) == 0) {
+                selected = player;
+            }
+        }
+        return selected;
+    }
+
+    private static boolean isValidWaitingSocialTarget(BotPlayer botPlayer, Player target, int maxDistance) {
+        CastleWarsManager.Team team = CastleWarsManager.getWaitingTeam(botPlayer);
+        return target != null
+                && target.isRegistered()
+                && !target.isDead()
+                && team != null
+                && CastleWarsManager.getWaitingTeam(target) == team
+                && target.getPosition().getPlane() == botPlayer.getPosition().getPlane()
+                && GameUtil.isWithinDistance(botPlayer.getPosition(), target.getPosition(), maxDistance);
+    }
+
+    private static void clearWaitingSocial(BotPlayer botPlayer) {
+        WaitingSocialState state = waitingSocialStates.remove(botPlayer);
+        if (state == null) {
+            return;
+        }
+        if (botPlayer.getMovementTarget() != null && botPlayer.getCombatTarget() == null) {
+            EntityTargetMovement.clearMovementTarget(botPlayer);
+        }
+        botPlayer.getMovementQueue().clear();
     }
 
     private static void randomizeCombatLevels(BotPlayer botPlayer) {
@@ -131,5 +298,11 @@ public final class MinigameBotManager {
         BotCombatHelper.setBotSkillLevel(botPlayer, 5, 1 + GameUtil.randomInt(70));
         BotCombatHelper.setBotSkillLevel(botPlayer, 6, 10 + GameUtil.randomInt(90));
         botPlayer.getSkillManager().refreshAllSkills();
+    }
+
+    private static final class WaitingSocialState {
+        private int actionDelay = 4 + GameUtil.randomInt(12);
+        private Player followTarget;
+        private int followTicks;
     }
 }
