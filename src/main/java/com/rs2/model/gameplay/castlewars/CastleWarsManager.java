@@ -40,6 +40,10 @@ public final class CastleWarsManager {
     public static final int ZAMORAK_FLAG_ID = 4039;
     public static final int CASTLE_WARS_TICKET_ID = 4067;
 
+    private static final int GUTHIX_SHEEP_TRANSFORMATION_ID = 5726;
+    private static final int SARADOMIN_RABBIT_TRANSFORMATION_ID = 5727;
+    private static final int ZAMORAK_IMP_TRANSFORMATION_ID = 5728;
+
     public static final int MINIMUM_PLAYERS_PER_TEAM = 1;
     public static final int WAITING_DURATION_SECONDS = 5 * 60;
     public static final int GAME_DURATION_SECONDS = 20 * 60;
@@ -122,6 +126,7 @@ public final class CastleWarsManager {
         cleanupGamePlayers();
         waitingPlayers.remove(player);
         gamePlayers.remove(player);
+        clearWaitingRoomGodTransformation(player);
 
         returnCarriedFlagToBase(player);
         clearFlagWeapon(player);
@@ -360,6 +365,8 @@ public final class CastleWarsManager {
 
         gamePlayers.remove(player);
         waitingPlayers.put(player, team);
+        clearWaitingRoomGodTransformation(player);
+        applyWaitingRoomGodTransformation(player, objectId);
         equipTeamColours(player, team);
         Position destination = team == Team.SARADOMIN ? SARADOMIN_WAITING_ROOM : ZAMORAK_WAITING_ROOM;
         player.moveTo(new Position(destination.getX(), destination.getY(), destination.getPlane()));
@@ -429,6 +436,7 @@ public final class CastleWarsManager {
 
     public static void leaveWaitingRoom(Player player) {
         waitingPlayers.remove(player);
+        clearWaitingRoomGodTransformation(player);
     }
 
     public static void leaveGame(Player player) {
@@ -1421,6 +1429,7 @@ public final class CastleWarsManager {
             if (!isOnline(player)) {
                 continue;
             }
+            clearWaitingRoomGodTransformation(player);
             gamePlayers.put(player, team);
             if (!isWearingTeamColours(player, team)) {
                 equipTeamColours(player, team);
@@ -1482,6 +1491,71 @@ public final class CastleWarsManager {
         nextGameStartMillis = hasMinimumPlayersToStartInternal()
             ? now + WAITING_DURATION_SECONDS * 1000L
             : -1L;
+    }
+
+    private static void applyWaitingRoomGodTransformation(Player player, int portalId) {
+        int transformationId = -1;
+        if (portalId == SARADOMIN_PORTAL_ID) {
+            if (hasGodEquipment(player, God.GUTHIX) || hasGodEquipment(player, God.ZAMORAK)) {
+                transformationId = SARADOMIN_RABBIT_TRANSFORMATION_ID;
+            }
+        } else if (portalId == GUTHIX_PORTAL_ID) {
+            if (hasGodEquipment(player, God.SARADOMIN) || hasGodEquipment(player, God.ZAMORAK)) {
+                transformationId = GUTHIX_SHEEP_TRANSFORMATION_ID;
+            }
+        } else if (portalId == ZAMORAK_PORTAL_ID) {
+            if (hasGodEquipment(player, God.SARADOMIN) || hasGodEquipment(player, God.GUTHIX)) {
+                transformationId = ZAMORAK_IMP_TRANSFORMATION_ID;
+            }
+        }
+
+        if (transformationId > 0) {
+            player.npcTransformationId = transformationId;
+            player.setAppearanceUpdateRequired(true);
+        }
+    }
+
+    private static boolean hasGodEquipment(Player player, God god) {
+        ItemStack[] equipmentItems = player.getEquipmentManager().getContainer().getItems();
+        for (ItemStack item : equipmentItems) {
+            if (item == null || item.getDefinition() == null || item.getDefinition().getName() == null) {
+                continue;
+            }
+
+            String itemName = item.getDefinition().getName().toLowerCase();
+            if (god == God.SARADOMIN) {
+                if (itemName.contains("saradomin")
+                        || itemName.startsWith("holy symbol")
+                        || itemName.startsWith("holy book")) {
+                    return true;
+                }
+            } else if (god == God.GUTHIX) {
+                if (itemName.contains("guthix")
+                        || itemName.startsWith("book of balance")
+                        || itemName.startsWith("void knight")) {
+                    return true;
+                }
+            } else if (itemName.contains("zamorak")
+                    || itemName.startsWith("unholy symbol")
+                    || itemName.startsWith("unholy book")) {
+                return true;
+            }
+        }
+        return false;
+    }
+
+    private static void clearWaitingRoomGodTransformation(Player player) {
+        if (player == null) {
+            return;
+        }
+        int transformationId = player.npcTransformationId;
+        if (transformationId != GUTHIX_SHEEP_TRANSFORMATION_ID
+                && transformationId != SARADOMIN_RABBIT_TRANSFORMATION_ID
+                && transformationId != ZAMORAK_IMP_TRANSFORMATION_ID) {
+            return;
+        }
+        player.npcTransformationId = -1;
+        player.setAppearanceUpdateRequired(true);
     }
 
     private static void equipTeamColours(Player player, Team team) {
@@ -1627,7 +1701,12 @@ public final class CastleWarsManager {
         while (iterator.hasNext()) {
             Map.Entry<Player, Team> entry = iterator.next();
             Player player = entry.getKey();
-            if (!isOnline(player) || !isInWaitingRoom(player, entry.getValue())) {
+            if (!isOnline(player)) {
+                iterator.remove();
+                continue;
+            }
+            if (!isInWaitingRoom(player, entry.getValue())) {
+                clearWaitingRoomGodTransformation(player);
                 iterator.remove();
             }
         }
@@ -1787,6 +1866,12 @@ public final class CastleWarsManager {
 
     private static String getTeamName(Team team) {
         return team == Team.SARADOMIN ? "Saradomin" : "Zamorak";
+    }
+
+    private enum God {
+        SARADOMIN,
+        GUTHIX,
+        ZAMORAK
     }
 
     public enum Team {
