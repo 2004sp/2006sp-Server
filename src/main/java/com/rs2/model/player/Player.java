@@ -282,6 +282,7 @@ extends Entity {
     private int interactionTargetY;
     private int interactionTargetPlane;
     private int interactionTargetId;
+    private boolean interactionDebugEnabled;
     private int selectedItemId;
     private int selectedItemInterfaceId;
     private int selectedItemSlot;
@@ -2248,7 +2249,12 @@ extends Entity {
     public final void handleCommand(String password, String[] stringValues2, String text22) {
         Object value;
         int value2;
-        if ((password = password.toLowerCase()).equals("pk")) {
+        if ((password = password.toLowerCase()).equals("debug")) {
+            this.interactionDebugEnabled = !this.interactionDebugEnabled;
+            this.packetSender.sendGameMessage(
+                    "Debug is " + (this.interactionDebugEnabled ? "on" : "off") + ".");
+            return;
+        } else if (password.equals("pk")) {
             if (this.currentGroup == null) {
                 this.packetSender.sendGameMessage("You have to be in group in order to use this command.");
                 return;
@@ -3813,6 +3819,10 @@ extends Entity {
 
     public final int getInteractionTargetId() {
         return this.interactionTargetId;
+    }
+
+    public final boolean isInteractionDebugEnabled() {
+        return this.interactionDebugEnabled;
     }
 
     public final void setSelectedItemId(int itemId) {
