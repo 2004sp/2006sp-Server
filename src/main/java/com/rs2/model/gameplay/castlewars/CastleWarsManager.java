@@ -1464,59 +1464,24 @@ public final class CastleWarsManager {
         Position exterior = castleTeam == Team.SARADOMIN
                 ? new Position(2414, 3073, 0)
                 : new Position(2385, 3134, 0);
-        Position stairLanding = castleTeam == Team.SARADOMIN
-                ? new Position(2416, 3074, 0)
-                : new Position(2383, 3133, 0);
-        Position innerStairApproach = castleTeam == Team.SARADOMIN
-                ? new Position(2417, 3077, 0)
-                : new Position(2382, 3130, 0);
+        Position interior = castleTeam == Team.SARADOMIN
+                ? new Position(2416, 3073, 0)
+                : new Position(2383, 3134, 0);
 
-        if (enteringCastle) {
-            if (samePosition(player.getPosition(), stairLanding)) {
-                moveBotThroughGroundCastleStairs(player, castleTeam, true);
-                return true;
-            }
-
-            if (!samePosition(player.getPosition(), exterior)
-                    && getCastleTeamAtPosition(player.getPosition()) == null) {
-                player.getMovementQueue().setRunning(true);
-                PathFinder.findPath(player, exterior.getX(), exterior.getY(), false, 0, 0);
-                player.getMovementQueue().clearMovementActions();
-                return true;
-            }
-
-            // From the real exterior side-door square, open/pick the door first,
-            // then use normal clipped pathing to reach the internal stair landing.
-            if (CastleWarsEngineeringManager.tryHandleNearbyDoorForBot(player)) {
-                return true;
-            }
-            player.getMovementQueue().setRunning(true);
-            PathFinder.findPath(player, stairLanding.getX(), stairLanding.getY(), false, 0, 0);
-            player.getMovementQueue().clearMovementActions();
+        Position target = enteringCastle ? interior : exterior;
+        if (samePosition(player.getPosition(), target)) {
             return true;
         }
 
-        if (samePosition(player.getPosition(), exterior)) {
-            return true;
-        }
-
-        if (!samePosition(player.getPosition(), stairLanding)) {
-            if (!samePosition(player.getPosition(), innerStairApproach)) {
-                player.getMovementQueue().setRunning(true);
-                PathFinder.findPath(player, innerStairApproach.getX(),
-                        innerStairApproach.getY(), false, 0, 0);
-                player.getMovementQueue().clearMovementActions();
-                return true;
-            }
-            moveBotThroughGroundCastleStairs(player, castleTeam, false);
-            return true;
-        }
-
+        // The side door itself is the transition between the battlefield and
+        // castle ground floor. Do not click 4419/4420 here: those are nearby
+        // staircase objects and were incorrectly being used as the entrance.
         if (CastleWarsEngineeringManager.tryHandleNearbyDoorForBot(player)) {
             return true;
         }
+
         player.getMovementQueue().setRunning(true);
-        PathFinder.findPath(player, exterior.getX(), exterior.getY(), false, 0, 0);
+        PathFinder.findPath(player, target.getX(), target.getY(), false, 0, 0);
         player.getMovementQueue().clearMovementActions();
         return true;
     }
