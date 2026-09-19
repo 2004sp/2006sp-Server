@@ -13,6 +13,6 @@ extends TickTask {
 
     @Override
     public final void execute() {
-        MinigameBotManager.joinCastleWars(this.botPlayer);
+        MinigameBotManager.processMinigameBot(this.botPlayer);
     }
 }
