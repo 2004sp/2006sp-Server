@@ -84,7 +84,7 @@ public final class CastleWarsBotRoleAi {
             if (processSightChase(bot, state)) {
                 return true;
             }
-            int engageRadius = state.role == Role.MIDFIGHTER ? 16
+            int engageRadius = state.role == Role.WALL_GUARD ? 15
                     : state.role == Role.DEFENDER ? 12 : 8;
             if (tryEngageNearbyOpponent(bot, state, engageRadius)) {
                 return true;
@@ -128,6 +128,9 @@ public final class CastleWarsBotRoleAi {
                 break;
             case DEFEND_FLAG:
                 processDefender(bot, state);
+                break;
+            case WALL_GUARD_PATROL:
+                processWallGuard(bot, state);
                 break;
             case CATAPULT_MOVE:
                 processCatapult(bot, state);
@@ -179,8 +182,8 @@ public final class CastleWarsBotRoleAi {
         if (!CastleWarsManager.isInTeamSpawnArea(bot, state.team)) {
             if (state.role == Role.UNDERGROUND) {
                 state.phase = Phase.UNDERGROUND_DESCEND;
-            } else if (state.role == Role.MIDFIGHTER) {
-                state.phase = Phase.MID_RUSH;
+            } else if (state.role == Role.WALL_GUARD) {
+                state.phase = Phase.WALL_GUARD_PATROL;
             } else if (state.role == Role.CATAPULT) {
                 state.phase = Phase.CATAPULT_MOVE;
             } else {
@@ -313,8 +316,10 @@ public final class CastleWarsBotRoleAi {
 
         if (state.role == Role.UNDERGROUND) {
             state.phase = Phase.UNDERGROUND_DESCEND;
-        } else if (state.role == Role.CATAPULT) {
-            state.phase = Phase.EXIT_HOME;
+        } else if (state.role == Role.WALL_GUARD) {
+            state.phase = Phase.WALL_GUARD_PATROL;
+            state.wallPatrolTarget = null;
+            state.wallPatrolTicks = 0;
         } else {
             state.phase = Phase.EXIT_HOME;
         }
@@ -333,9 +338,6 @@ public final class CastleWarsBotRoleAi {
         }
         if (state.role == Role.CATAPULT) {
             state.phase = Phase.CATAPULT_MOVE;
-        } else if (state.role == Role.MIDFIGHTER) {
-            state.phase = Phase.MID_RUSH;
-            CastleWarsBotChat.sayMid(bot);
         } else {
             state.phase = Phase.CATAPULT_ROAM;
         }
@@ -572,6 +574,103 @@ public final class CastleWarsBotRoleAi {
             y = 3108;
         }
         return new Position(x + state.routeOffsetX, y + state.routeOffsetY, 0);
+    }
+
+    private static void processWallGuard(BotPlayer bot, RoleState state) {
+        if (bot.botPrimaryCombatStyle == 0) {
+            state.phase = Phase.EXIT_HOME;
+            state.repathDelay = 0;
+            return;
+        }
+
+        if (state.wallPatrolTarget == null
+                || state.wallPatrolTarget.getPlane() != bot.getPosition().getPlane()
+                || --state.wallPatrolTicks <= 0
+                || isWallPostCrowded(bot, state.wallPatrolTarget)) {
+            state.wallPatrolTarget = chooseWallPatrolTarget(bot, state);
+            state.wallPatrolTicks = 18 + GameUtil.randomInt(28);
+            state.repathDelay = 0;
+        }
+
+        if (state.wallPatrolTarget != null
+                && !near(bot, state.wallPatrolTarget, 1)) {
+            walk(bot, state, state.wallPatrolTarget);
+            return;
+        }
+
+        if (state.wallPatrolTarget != null && GameUtil.randomInt(24) == 0) {
+            CastleWarsBotChat.sayDefence(bot);
+        }
+    }
+
+    private static Position chooseWallPatrolTarget(BotPlayer bot, RoleState state) {
+        int minX = state.team == CastleWarsManager.Team.SARADOMIN ? 2412 : 2368;
+        int maxX = state.team == CastleWarsManager.Team.SARADOMIN ? 2431 : 2387;
+        int minY = state.team == CastleWarsManager.Team.SARADOMIN ? 3072 : 3117;
+        int maxY = state.team == CastleWarsManager.Team.SARADOMIN ? 3089 : 3135;
+        int plane = bot.getPosition().getPlane();
+
+        Position best = null;
+        int bestScore = Integer.MAX_VALUE;
+        long salt = bot.getNameHash() + (long)state.wallPatrolGeneration * 173L;
+
+        for (int x = minX; x <= maxX; ++x) {
+            for (int y = minY; y <= maxY; ++y) {
+                Position candidate = new Position(x, y, plane);
+                if (!CastleWarsManager.isCastleBattlementFiringPosition(candidate)) {
+                    continue;
+                }
+                if ((WalkingCollisionMap.getTileFlags(x, y, plane) & 0x1280100) != 0) {
+                    continue;
+                }
+
+                int crowding = 0;
+                for (Player player : World.getPlayers()) {
+                    if (player == null || player == bot || player.isDead()
+                            || CastleWarsManager.getGameTeam(player) != state.team
+                            || player.getPosition().getPlane() != plane) {
+                        continue;
+                    }
+                    int distance = GameUtil.getDistance(candidate, player.getPosition());
+                    if (distance <= 1) {
+                        crowding += 8;
+                    } else if (distance <= 3) {
+                        crowding += 3;
+                    } else if (distance <= 5) {
+                        crowding += 1;
+                    }
+                }
+
+                int score = crowding * 100
+                        + GameUtil.getDistance(bot.getPosition(), candidate)
+                        + (int)Math.abs((salt + x * 37L + y * 19L) % 17L);
+                if (score < bestScore) {
+                    bestScore = score;
+                    best = candidate;
+                }
+            }
+        }
+
+        ++state.wallPatrolGeneration;
+        return best;
+    }
+
+    private static boolean isWallPostCrowded(BotPlayer bot, Position post) {
+        if (post == null) {
+            return false;
+        }
+        CastleWarsManager.Team team = CastleWarsManager.getGameTeam(bot);
+        for (Player player : World.getPlayers()) {
+            if (player == null || player == bot || player.isDead()
+                    || CastleWarsManager.getGameTeam(player) != team
+                    || player.getPosition().getPlane() != post.getPlane()) {
+                continue;
+            }
+            if (GameUtil.getDistance(player.getPosition(), post) <= 2) {
+                return true;
+            }
+        }
+        return false;
     }
 
     private static void processCatapult(BotPlayer bot, RoleState state) {
@@ -948,8 +1047,10 @@ public final class CastleWarsBotRoleAi {
             return false;
         }
         if (!CastleWarsManager.hasBotCombatLineOfSight(bot, targetPlayer)) {
-            state.sightChaseTarget = targetPlayer;
-            state.sightChaseTicks = 36;
+            if (state.role != Role.WALL_GUARD) {
+                state.sightChaseTarget = targetPlayer;
+                state.sightChaseTicks = 36;
+            }
             CombatManager.stopCombat(bot);
             return false;
         }
@@ -1043,7 +1144,8 @@ public final class CastleWarsBotRoleAi {
                     bestVisible = player;
                     bestVisibleDistance = distance;
                 }
-            } else if (distance < bestHiddenDistance) {
+            } else if (state.role != Role.WALL_GUARD
+                    && distance < bestHiddenDistance) {
                 bestHidden = player;
                 bestHiddenDistance = distance;
             }
@@ -1121,53 +1223,67 @@ public final class CastleWarsBotRoleAi {
                 : CastleWarsManager.Team.SARADOMIN;
     }
 
-    private static Role assignRole(BotPlayer bot, CastleWarsManager.Team team) {
-        int teamRank = 0;
+    private static boolean isWallGuardCandidate(BotPlayer bot,
+                                                       CastleWarsManager.Team team) {
+        if (bot == null || bot.botPrimaryCombatStyle == 0) {
+            return false;
+        }
+        int rangedMageRank = 0;
         long nameHash = bot.getNameHash();
-
-        // Rank bots deterministically within their team so every game gets a
-        // predictable role budget regardless of task processing order.
         for (Player player : World.getPlayers()) {
             if (!(player instanceof BotPlayer)
                     || CastleWarsManager.getGameTeam(player) != team) {
                 continue;
             }
             BotPlayer other = (BotPlayer)player;
-            if (other == bot) {
+            if (other == bot || other.botPrimaryCombatStyle == 0) {
                 continue;
             }
             if (other.getNameHash() < nameHash) {
-                ++teamRank;
+                ++rangedMageRank;
+            }
+        }
+        return rangedMageRank < 4;
+    }
+
+    private static Role assignRole(BotPlayer bot, CastleWarsManager.Team team) {
+        if (isWallGuardCandidate(bot, team)) {
+            return Role.WALL_GUARD;
+        }
+
+        int nonWallRank = 0;
+        long nameHash = bot.getNameHash();
+        for (Player player : World.getPlayers()) {
+            if (!(player instanceof BotPlayer)
+                    || CastleWarsManager.getGameTeam(player) != team) {
+                continue;
+            }
+            BotPlayer other = (BotPlayer)player;
+            if (other == bot || isWallGuardCandidate(other, team)) {
+                continue;
+            }
+            if (other.getNameHash() < nameHash) {
+                ++nonWallRank;
             }
         }
 
-        // Per team: eight defenders on/around the castle walls and one dedicated
-        // catapult operator. Everyone else is committed to active map pressure.
-        if (teamRank < 8) {
+        if (nonWallRank < 2) {
             return Role.DEFENDER;
         }
-        if (teamRank == 8) {
+        if (nonWallRank == 2) {
             return Role.CATAPULT;
         }
-
-        // Remaining force mix: 60% storm the enemy castle, 20% fight across the
-        // battlefield, and 20% use the underground route.
-        int mobileRank = teamRank - 9;
-        int slot = mobileRank % 10;
-        if (slot < 6) {
-            return Role.ATTACKER;
+        if (nonWallRank < 9) {
+            return Role.UNDERGROUND;
         }
-        if (slot < 8) {
-            return Role.MIDFIGHTER;
-        }
-        return Role.UNDERGROUND;
+        return Role.ATTACKER;
     }
 
     private enum Role {
         ATTACKER,
-        MIDFIGHTER,
         UNDERGROUND,
         DEFENDER,
+        WALL_GUARD,
         CATAPULT
     }
 
@@ -1179,6 +1295,7 @@ public final class CastleWarsBotRoleAi {
         EXIT_HOME,
         DEFENDER_CLIMB,
         DEFEND_FLAG,
+        WALL_GUARD_PATROL,
         CATAPULT_MOVE,
         CATAPULT_ROAM,
         MID_RUSH,
@@ -1210,6 +1327,9 @@ public final class CastleWarsBotRoleAi {
         private Position defenderPatrolTarget;
         private int defenderPatrolTicks;
         private int defenderPatrolGeneration;
+        private Position wallPatrolTarget;
+        private int wallPatrolTicks;
+        private int wallPatrolGeneration;
         private int routeOffsetX;
         private int routeOffsetY;
         private int midPatrolTicks;
@@ -1239,6 +1359,9 @@ public final class CastleWarsBotRoleAi {
             this.defenderPatrolTarget = null;
             this.defenderPatrolTicks = 4 + GameUtil.randomInt(8);
             this.defenderPatrolGeneration = GameUtil.randomInt(16);
+            this.wallPatrolTarget = null;
+            this.wallPatrolTicks = 0;
+            this.wallPatrolGeneration = GameUtil.randomInt(16);
             this.sightChaseTarget = null;
             this.sightChaseTicks = 0;
         }
