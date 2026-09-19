@@ -1293,8 +1293,30 @@ public final class CastleWarsManager {
         }
         int x = position.getX();
         int y = position.getY();
-        return x == 2414 && y == 3073
-                || x == 2385 && y == 3134;
+        return (y == 3090 && (x == 2426 || x == 2427))
+                || (y == 3116 && (x == 2372 || x == 2373));
+    }
+
+    public static Position getBotMainDoorExteriorPosition(Player player, Team castleTeam) {
+        if (player == null || castleTeam == null) {
+            return null;
+        }
+        boolean alternateLane = (player.getNameHash() & 1L) != 0L;
+        if (castleTeam == Team.SARADOMIN) {
+            return new Position(alternateLane ? 2427 : 2426, 3090, 0);
+        }
+        return new Position(alternateLane ? 2372 : 2373, 3116, 0);
+    }
+
+    public static Position getBotMainDoorInteriorPosition(Player player, Team castleTeam) {
+        if (player == null || castleTeam == null) {
+            return null;
+        }
+        boolean alternateLane = (player.getNameHash() & 1L) != 0L;
+        if (castleTeam == Team.SARADOMIN) {
+            return new Position(alternateLane ? 2427 : 2426, 3086, 0);
+        }
+        return new Position(alternateLane ? 2372 : 2373, 3121, 0);
     }
 
     public static Team getCastleTeamAtPosition(Position position) {
@@ -1461,22 +1483,17 @@ public final class CastleWarsManager {
             return false;
         }
 
-        Position exterior = castleTeam == Team.SARADOMIN
-                ? new Position(2414, 3073, 0)
-                : new Position(2385, 3134, 0);
-        Position interior = castleTeam == Team.SARADOMIN
-                ? new Position(2416, 3073, 0)
-                : new Position(2383, 3134, 0);
-
+        Position exterior = getBotMainDoorExteriorPosition(player, castleTeam);
+        Position interior = getBotMainDoorInteriorPosition(player, castleTeam);
         Position target = enteringCastle ? interior : exterior;
-        if (samePosition(player.getPosition(), target)) {
-            return true;
+        if (target == null || samePosition(player.getPosition(), target)) {
+            return target != null;
         }
 
-        // The side door itself is the transition between the battlefield and
-        // castle ground floor. Do not click 4419/4420 here: those are nearby
-        // staircase objects and were incorrectly being used as the entrance.
-        if (CastleWarsEngineeringManager.tryHandleNearbyDoorForBot(player)) {
+        // Ground-level Castle Wars traffic uses the big double doors. Friendly
+        // bots open their own doors; enemy melee runners damage the destroyable
+        // doors while ranged/magic runners wait for the opening.
+        if (CastleWarsEngineeringManager.tryHandleMainDoorForBot(player, castleTeam)) {
             return true;
         }
 
