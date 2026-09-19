@@ -1173,14 +1173,14 @@ public final class CastleWarsBotRoleAi {
         if (near(bot, approach, 0)) {
             return true;
         }
-        if (GameUtil.isWithinDistance(bot.getPosition(), approach, 1)) {
-            bot.getMovementQueue().reset();
-            bot.moveTo(approach.copy());
-            bot.getMovementQueue().clearMovementActions();
-            state.repathDelay = 0;
-            return true;
+        if (state.repathDelay > 0) {
+            --state.repathDelay;
+            return false;
         }
-        walk(bot, state, approach);
+        state.repathDelay = 2;
+        bot.getMovementQueue().setRunning(true);
+        PathFinder.findPath(bot, approach.getX(), approach.getY(), false, 0, 0);
+        bot.getMovementQueue().clearMovementActions();
         return false;
     }
 
