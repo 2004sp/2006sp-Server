@@ -1444,12 +1444,6 @@ public final class CastleWarsManager {
             return false;
         }
         if (!samePosition(player.getPosition(), approach)) {
-            if (GameUtil.isWithinDistance(player.getPosition(), approach, 1)) {
-                player.getMovementQueue().reset();
-                player.moveTo(approach.copy());
-                player.getMovementQueue().clearMovementActions();
-                return true;
-            }
             player.getMovementQueue().setRunning(true);
             PathFinder.findPath(player, approach.getX(), approach.getY(), false, 0, 0);
             player.getMovementQueue().clearMovementActions();
@@ -1478,13 +1472,6 @@ public final class CastleWarsManager {
         }
 
         if (!samePosition(player.getPosition(), approach)) {
-            if (GameUtil.isWithinDistance(player.getPosition(), approach, 1)) {
-                player.getMovementQueue().reset();
-                player.moveTo(approach.copy());
-                player.getMovementQueue().clearMovementActions();
-                moveBotThroughGroundCastleStairs(player, castleTeam, enteringCastle);
-                return true;
-            }
             player.getMovementQueue().setRunning(true);
             PathFinder.findPath(player, approach.getX(), approach.getY(), false, 0, 0);
             player.getMovementQueue().clearMovementActions();
@@ -1726,15 +1713,11 @@ public final class CastleWarsManager {
                     : new Position(2383, 3133, 0);
         }
 
-        // Only traverse from the known-safe approach square. A move-near
-        // fallback beside it can be inside the staircase footprint.
+        // Only traverse from the exact interaction square. Bots must reach it
+        // through normal clipped movement just like a player; never teleport
+        // the final tile because an adjacent square may be separated by a wall.
         if (!samePosition(player.getPosition(), approach)) {
-            if (!GameUtil.isWithinDistance(player.getPosition(), approach, 1)) {
-                return false;
-            }
-            player.getMovementQueue().reset();
-            player.moveTo(approach.copy());
-            player.getMovementQueue().clearMovementActions();
+            return false;
         }
 
         player.getMovementQueue().reset();
@@ -1746,12 +1729,6 @@ public final class CastleWarsManager {
         int plane = player.getPosition().getPlane();
         Position stairApproach = getStairTraversalApproach(player, objectId, objectX, objectY);
         if (stairApproach != null && !samePosition(player.getPosition(), stairApproach)) {
-            if (player.isBot
-                    && GameUtil.isWithinDistance(player.getPosition(), stairApproach, 1)) {
-                player.getMovementQueue().reset();
-                player.moveTo(stairApproach.copy());
-                player.getMovementQueue().clearMovementActions();
-            }
             return false;
         }
 
