@@ -11,6 +11,13 @@ import com.rs2.model.player.Player;
 import com.rs2.util.GameUtil;
 import com.rs2.util.path.WalkingCollisionMap;
 
+import java.io.DataInputStream;
+import java.io.DataOutputStream;
+import java.io.File;
+import java.io.FileInputStream;
+import java.io.FileOutputStream;
+import java.io.IOException;
+import java.util.Calendar;
 import java.util.IdentityHashMap;
 import java.util.Iterator;
 import java.util.Map;
@@ -64,6 +71,14 @@ public final class CastleWarsManager {
     private static final int GAME_TUNNEL_TWO_TEXT_ID = 11360;
     private static final int GAME_CATAPULT_TEXT_ID = 11362;
 
+    private static final int SCOREBOARD_OBJECT_ID = 4484;
+    private static final int SCOREBOARD_INTERFACE_ID = 11333;
+    private static final int SCOREBOARD_TITLE_TEXT_ID = 11334;
+    private static final int SCOREBOARD_SARADOMIN_TEXT_ID = 11335;
+    private static final int SCOREBOARD_ZAMORAK_TEXT_ID = 11336;
+    private static final int SCOREBOARD_STATE_VERSION = 1;
+    private static final File SCOREBOARD_STATE_FILE = new File("./data/castle_wars_scoreboard.dat");
+
     private static final Position CASTLE_WARS_LOBBY = new Position(2441, 3090, 0);
     private static final Position SARADOMIN_WAITING_ROOM = new Position(2377, 9485, 0);
     private static final Position ZAMORAK_WAITING_ROOM = new Position(2421, 9524, 0);
@@ -103,6 +118,9 @@ public final class CastleWarsManager {
     private static int gameTeamCapacity;
     private static int saradominScore;
     private static int zamorakScore;
+    private static int scoreboardSeasonKey;
+    private static int saradominSeasonVictories;
+    private static int zamorakSeasonVictories;
     private static boolean saradominFlagAtBase = true;
     private static boolean zamorakFlagAtBase = true;
     private static Player saradominFlagHolder;
@@ -118,6 +136,7 @@ public final class CastleWarsManager {
             return;
         }
         initialized = true;
+        loadScoreboardState();
         World.scheduleTickTask(new CastleWarsTickTask());
     }
 
@@ -213,6 +232,10 @@ public final class CastleWarsManager {
     }
 
     public static boolean handleFirstObjectAction(Player player, int objectId, int objectX, int objectY) {
+        if (objectId == SCOREBOARD_OBJECT_ID) {
+            showScoreboard(player);
+            return true;
+        }
         if (handlePortal(player, objectId)) {
             return true;
         }
@@ -278,6 +301,10 @@ public final class CastleWarsManager {
     }
 
     public static boolean handleSecondObjectAction(Player player, int objectId, int objectX, int objectY) {
+        if (objectId == SCOREBOARD_OBJECT_ID) {
+            showPlayerScoreboardStats(player);
+            return true;
+        }
         if (objectId == BANDAGE_TABLE_ID) {
             takeBandages(player, 5);
             return true;
@@ -555,6 +582,114 @@ public final class CastleWarsManager {
             ++saradominScore;
         } else {
             ++zamorakScore;
+        }
+    }
+
+    private static void showScoreboard(Player player) {
+        ensureCurrentScoreboardSeason();
+        player.getPacketSender().sendInterfaceText("Total Wins This Season!", SCOREBOARD_TITLE_TEXT_ID);
+        player.getPacketSender().sendInterfaceText(
+                "Saradomin: " + saradominSeasonVictories, SCOREBOARD_SARADOMIN_TEXT_ID);
+        player.getPacketSender().sendInterfaceText(
+                "Zamorak: " + zamorakSeasonVictories, SCOREBOARD_ZAMORAK_TEXT_ID);
+        player.getPacketSender().showChatboxInterface(SCOREBOARD_INTERFACE_ID);
+    }
+
+    private static void showPlayerScoreboardStats(Player player) {
+        int games = Math.max(0, player.reservedSaveInt1);
+        int wins = Math.max(0, player.reservedSaveInt2);
+        int losses = Math.max(0, player.reservedSaveInt3);
+        player.getPacketSender().sendGameMessage(
+                "You've played " + games + " games of Castle Wars. - Won: "
+                        + wins + " Lost: " + losses + ".");
+    }
+
+    private static void recordPlayerScoreboardResult(Player player, Team team) {
+        // These versioned reserved save slots are already persisted by CharacterFileManager.
+        player.reservedSaveInt1 = incrementCounter(player.reservedSaveInt1);
+        if (saradominScore == zamorakScore) {
+            return;
+        }
+
+        boolean won = (team == Team.SARADOMIN && saradominScore > zamorakScore)
+                || (team == Team.ZAMORAK && zamorakScore > saradominScore);
+        if (won) {
+            player.reservedSaveInt2 = incrementCounter(player.reservedSaveInt2);
+        } else {
+            player.reservedSaveInt3 = incrementCounter(player.reservedSaveInt3);
+        }
+    }
+
+    private static int incrementCounter(int value) {
+        if (value < 0) {
+            return 1;
+        }
+        return value == Integer.MAX_VALUE ? value : value + 1;
+    }
+
+    private static void recordTeamScoreboardVictory(Team team) {
+        ensureCurrentScoreboardSeason();
+        if (team == Team.SARADOMIN) {
+            saradominSeasonVictories = incrementCounter(saradominSeasonVictories);
+        } else if (team == Team.ZAMORAK) {
+            zamorakSeasonVictories = incrementCounter(zamorakSeasonVictories);
+        }
+        saveScoreboardState();
+    }
+
+    private static int currentScoreboardSeasonKey() {
+        Calendar calendar = Calendar.getInstance();
+        return calendar.get(Calendar.YEAR) * 12 + calendar.get(Calendar.MONTH);
+    }
+
+    private static void ensureCurrentScoreboardSeason() {
+        int currentSeasonKey = currentScoreboardSeasonKey();
+        if (scoreboardSeasonKey == currentSeasonKey) {
+            return;
+        }
+        scoreboardSeasonKey = currentSeasonKey;
+        saradominSeasonVictories = 0;
+        zamorakSeasonVictories = 0;
+        saveScoreboardState();
+    }
+
+    private static void loadScoreboardState() {
+        scoreboardSeasonKey = currentScoreboardSeasonKey();
+        saradominSeasonVictories = 0;
+        zamorakSeasonVictories = 0;
+
+        if (!SCOREBOARD_STATE_FILE.exists()) {
+            return;
+        }
+
+        try (DataInputStream input = new DataInputStream(new FileInputStream(SCOREBOARD_STATE_FILE))) {
+            int version = input.readInt();
+            int savedSeasonKey = input.readInt();
+            int savedSaradominVictories = input.readInt();
+            int savedZamorakVictories = input.readInt();
+            if (version == SCOREBOARD_STATE_VERSION && savedSeasonKey == scoreboardSeasonKey) {
+                saradominSeasonVictories = Math.max(0, savedSaradominVictories);
+                zamorakSeasonVictories = Math.max(0, savedZamorakVictories);
+            }
+        } catch (IOException exception) {
+            System.err.println("Could not load Castle Wars scoreboard state: " + exception.getMessage());
+        }
+    }
+
+    private static void saveScoreboardState() {
+        File parent = SCOREBOARD_STATE_FILE.getParentFile();
+        if (parent != null && !parent.exists() && !parent.mkdirs()) {
+            System.err.println("Could not create Castle Wars scoreboard data directory.");
+            return;
+        }
+
+        try (DataOutputStream output = new DataOutputStream(new FileOutputStream(SCOREBOARD_STATE_FILE))) {
+            output.writeInt(SCOREBOARD_STATE_VERSION);
+            output.writeInt(scoreboardSeasonKey);
+            output.writeInt(saradominSeasonVictories);
+            output.writeInt(zamorakSeasonVictories);
+        } catch (IOException exception) {
+            System.err.println("Could not save Castle Wars scoreboard state: " + exception.getMessage());
         }
     }
 
@@ -1506,6 +1641,12 @@ public final class CastleWarsManager {
         int saradominReward = saradominScore > zamorakScore ? 2 : saradominScore == zamorakScore ? 1 : 0;
         int zamorakReward = zamorakScore > saradominScore ? 2 : saradominScore == zamorakScore ? 1 : 0;
 
+        if (saradominScore > zamorakScore) {
+            recordTeamScoreboardVictory(Team.SARADOMIN);
+        } else if (zamorakScore > saradominScore) {
+            recordTeamScoreboardVictory(Team.ZAMORAK);
+        }
+
         returnDroppedFlagToBase(Team.SARADOMIN);
         returnDroppedFlagToBase(Team.ZAMORAK);
 
@@ -1525,6 +1666,7 @@ public final class CastleWarsManager {
                 continue;
             }
 
+            recordPlayerScoreboardResult(player, team);
             returnCarriedFlagToBase(player);
             setCastleWarsAttackOption(player, false);
             removeTeamColours(player);
