@@ -36,6 +36,12 @@ public final class CastleWarsBotAi {
             state = new BotState(team);
             states.put(bot, state);
         }
+        if (state.phase == Phase.SUPPLY
+                && bot.getPosition().getPlane() == 1
+                && !CastleWarsManager.isInTeamSpawnArea(bot, team)) {
+            state.phase = Phase.DESCEND_HOME;
+            state.repathDelay = 0;
+        }
 
         if (CastleWarsManager.isInTeamSpawnArea(bot, team)
                 && !CastleWarsManager.isCarryingEnemyFlag(bot)
@@ -220,19 +226,32 @@ public final class CastleWarsBotAi {
     }
 
     private static void processExitBarrier(BotPlayer bot, BotState state) {
+        boolean alternateExit = (bot.getNameHash() & 1L) != 0L;
+        Position approach;
+        int objectId;
+        int objectX;
+        int objectY;
+
         if (state.team == CastleWarsManager.Team.SARADOMIN) {
-            Position approach = new Position(2426, 3079, 1);
-            if (!reachInteractionApproach(bot, state, approach)) {
-                return;
-            }
-            CastleWarsManager.handleFirstObjectAction(bot, CastleWarsManager.SARADOMIN_ENERGY_BARRIER_ID, 2426, 3080);
+            approach = alternateExit
+                    ? new Position(2423, 3076, 1)
+                    : new Position(2426, 3079, 1);
+            objectId = CastleWarsManager.SARADOMIN_ENERGY_BARRIER_ID;
+            objectX = alternateExit ? 2422 : 2426;
+            objectY = alternateExit ? 3076 : 3080;
         } else {
-            Position approach = new Position(2373, 3127, 1);
-            if (!reachInteractionApproach(bot, state, approach)) {
-                return;
-            }
-            CastleWarsManager.handleFirstObjectAction(bot, CastleWarsManager.ZAMORAK_ENERGY_BARRIER_ID, 2373, 3126);
+            approach = alternateExit
+                    ? new Position(2376, 3131, 1)
+                    : new Position(2373, 3127, 1);
+            objectId = CastleWarsManager.ZAMORAK_ENERGY_BARRIER_ID;
+            objectX = alternateExit ? 2377 : 2373;
+            objectY = alternateExit ? 3131 : 3126;
         }
+
+        if (!reachInteractionApproach(bot, state, approach)) {
+            return;
+        }
+        CastleWarsManager.handleFirstObjectAction(bot, objectId, objectX, objectY);
         state.phase = Phase.DESCEND_HOME;
         state.repathDelay = 0;
     }
