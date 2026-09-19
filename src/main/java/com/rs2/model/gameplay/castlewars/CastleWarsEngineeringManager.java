@@ -629,6 +629,70 @@ public final class CastleWarsEngineeringManager {
                 ? saradominSideDoor : zamorakSideDoor).open;
     }
 
+    public static boolean tryHandleNearbyDoorForBot(Player player) {
+        if (player == null || !player.isBot || !CastleWarsManager.isInGame(player)
+                || player.getPosition().getPlane() != MAIN_DOOR_PLANE) {
+            return false;
+        }
+
+        CastleWarsManager.Team playerTeam = CastleWarsManager.getGameTeam(player);
+        if (playerTeam == null) {
+            return false;
+        }
+
+        SideDoorState[] sideDoors = new SideDoorState[]{saradominSideDoor, zamorakSideDoor};
+        for (SideDoorState door : sideDoors) {
+            if (door.open) {
+                continue;
+            }
+            int distance = Math.min(
+                    GameUtil.getDistance(player.getPosition(),
+                            new Position(door.closedX, door.closedY, MAIN_DOOR_PLANE)),
+                    GameUtil.getDistance(player.getPosition(),
+                            new Position(door.openX, door.openY, MAIN_DOOR_PLANE)));
+            if (distance > 3) {
+                continue;
+            }
+            if (playerTeam != door.team && !ServerSettings.thievingEnabled) {
+                continue;
+            }
+            handleSideDoor(player, door.closedId, door.closedX, door.closedY);
+            return true;
+        }
+
+        MainDoorState[] mainDoors = new MainDoorState[]{saradominMainDoor, zamorakMainDoor};
+        for (MainDoorState door : mainDoors) {
+            if (door.mode != MainDoorMode.CLOSED) {
+                continue;
+            }
+
+            MainDoorLeaf nearestLeaf = null;
+            int nearestDistance = Integer.MAX_VALUE;
+            for (MainDoorLeaf leaf : door.leaves) {
+                int distance = GameUtil.getDistance(player.getPosition(),
+                        new Position(leaf.closedX, leaf.closedY, MAIN_DOOR_PLANE));
+                if (distance < nearestDistance) {
+                    nearestDistance = distance;
+                    nearestLeaf = leaf;
+                }
+            }
+            if (nearestLeaf == null || nearestDistance > 3) {
+                continue;
+            }
+
+            if (playerTeam == door.team) {
+                handleMainDoor(player, nearestLeaf.closedId,
+                        nearestLeaf.closedX, nearestLeaf.closedY);
+                return true;
+            }
+            if (player.botPrimaryCombatStyle == 0) {
+                return attackMainDoor(player, nearestLeaf.closedId,
+                        nearestLeaf.closedX, nearestLeaf.closedY);
+            }
+        }
+        return false;
+    }
+
     private static boolean repairMainDoor(Player player, int objectId, int objectX, int objectY) {
         MainDoorState door = findMainDoor(objectId, objectX, objectY);
         if (door == null || door.mode != MainDoorMode.BROKEN) {
@@ -938,13 +1002,96 @@ public final class CastleWarsEngineeringManager {
     }
 
     private static CastleWarsManager.Team getBattlementTeam(int x, int y) {
-        if (x >= 2415 && x <= 2431 && y >= 3072 && y <= 3083) {
+        if ((x >= 2415 && x <= 2431 && y >= 3072 && y <= 3083)
+                || (x >= 2412 && x <= 2431 && y >= 3084 && y <= 3089)) {
             return CastleWarsManager.Team.SARADOMIN;
         }
-        if (x >= 2368 && x <= 2384 && y >= 3124 && y <= 3135) {
+        if ((x >= 2368 && x <= 2384 && y >= 3124 && y <= 3135)
+                || (x >= 2368 && x <= 2387 && y >= 3117 && y <= 3123)) {
             return CastleWarsManager.Team.ZAMORAK;
         }
         return null;
+    }
+
+    public static Position findNearestClimbableBattlement(Player player,
+                                                           CastleWarsManager.Team targetTeam) {
+        if (player == null || targetTeam == null || player.getPosition().getPlane() != 0) {
+            return null;
+        }
+        CastleWarsManager.Team playerTeam = CastleWarsManager.getGameTeam(player);
+        if (playerTeam == null || playerTeam == targetTeam) {
+            return null;
+        }
+
+        int minX = targetTeam == CastleWarsManager.Team.SARADOMIN ? 2412 : 2368;
+        int maxX = targetTeam == CastleWarsManager.Team.SARADOMIN ? 2431 : 2387;
+        int minY = targetTeam == CastleWarsManager.Team.SARADOMIN ? 3072 : 3117;
+        int maxY = targetTeam == CastleWarsManager.Team.SARADOMIN ? 3089 : 3135;
+        Position best = null;
+        int bestDistance = Integer.MAX_VALUE;
+
+        for (int x = minX; x <= maxX; ++x) {
+            for (int y = minY; y <= maxY; ++y) {
+                boolean activeRope = getActiveClimbingRope(x, y) != null;
+                boolean battlement = SkillActionHelper.isObjectPresent(
+                        BATTLEMENT_OBJECT_ID, x, y, CLIMBING_ROPE_PLANE)
+                        || SkillActionHelper.isObjectPresent(
+                        BATTLEMENT_OBJECT_ID_ALT, x, y, CLIMBING_ROPE_PLANE);
+                if (!activeRope && !battlement) {
+                    continue;
+                }
+
+                Position candidate = new Position(x, y, CLIMBING_ROPE_PLANE);
+                int distance = GameUtil.getDistance(player.getPosition(), candidate);
+                if (distance < bestDistance) {
+                    bestDistance = distance;
+                    best = candidate;
+                }
+            }
+        }
+        return best == null ? null : best.copy();
+    }
+
+    public static boolean useClimbingRopeForBot(Player player, Position battlement) {
+        if (player == null || battlement == null || !player.isBot
+                || !CastleWarsManager.isInGame(player)
+                || player.getPosition().getPlane() != CLIMBING_ROPE_PLANE
+                || battlement.getPlane() != CLIMBING_ROPE_PLANE
+                || GameUtil.getDistance(player.getPosition(), battlement) > 2) {
+            return false;
+        }
+
+        CastleWarsManager.Team playerTeam = CastleWarsManager.getGameTeam(player);
+        CastleWarsManager.Team targetTeam =
+                getBattlementTeam(battlement.getX(), battlement.getY());
+        if (playerTeam == null || targetTeam == null || playerTeam == targetTeam) {
+            return false;
+        }
+
+        if (getActiveClimbingRope(battlement.getX(), battlement.getY()) != null) {
+            return handleClimbingRope(player, CLIMBING_ROPE_OBJECT_ID,
+                    battlement.getX(), battlement.getY());
+        }
+
+        int battlementId = -1;
+        if (SkillActionHelper.isObjectPresent(BATTLEMENT_OBJECT_ID,
+                battlement.getX(), battlement.getY(), CLIMBING_ROPE_PLANE)) {
+            battlementId = BATTLEMENT_OBJECT_ID;
+        } else if (SkillActionHelper.isObjectPresent(BATTLEMENT_OBJECT_ID_ALT,
+                battlement.getX(), battlement.getY(), CLIMBING_ROPE_PLANE)) {
+            battlementId = BATTLEMENT_OBJECT_ID_ALT;
+        }
+        if (battlementId < 0
+                || player.getInventoryManager().getItemAmount(CLIMBING_ROPE_ITEM_ID) <= 0) {
+            return false;
+        }
+
+        if (!attachClimbingRope(player, battlementId,
+                battlement.getX(), battlement.getY(), CLIMBING_ROPE_PLANE)) {
+            return false;
+        }
+        return handleClimbingRope(player, CLIMBING_ROPE_OBJECT_ID,
+                battlement.getX(), battlement.getY());
     }
 
     private static void clearAllClimbingRopes() {
