@@ -7,6 +7,7 @@ import com.rs2.model.EntityUpdateState;
 import com.rs2.model.Position;
 import com.rs2.model.World;
 import com.rs2.model.combat.WeaponProfile;
+import com.rs2.model.gameplay.castlewars.CastleWarsManager;
 import com.rs2.model.ground.GroundItemManager;
 import com.rs2.model.item.ItemDefinition;
 import com.rs2.model.item.ItemStack;
@@ -114,7 +115,7 @@ public class PlayerUpdateTask {
                     Object value5;
                     updatePlayerControlExit3: {
                         player3 = (Player)iterator.next();
-                        if (!player3.getPosition().isWithinViewport(player.getPosition()) || !player3.isVisibleToOtherPlayers() || player3.getConnectionState() == PlayerConnectionState.DISCONNECTED || player3.isTeleporting()) break updatePlayerControlExit1;
+                        if (!isWithinLocalPlayerViewport(player, player3) || !player3.isVisibleToOtherPlayers() || player3.getConnectionState() == PlayerConnectionState.DISCONNECTED || player3.isTeleporting()) break updatePlayerControlExit1;
                         Object value6 = packetWriter;
                         value3 = player3;
                         boolean localUpdateRequired = ((Entity)value3).getUpdateState().isUpdateRequired();
@@ -219,7 +220,7 @@ public class PlayerUpdateTask {
         while (index3 < World.getPlayers().length) {
             if (index2 > 15 || player.getLocalPlayers().size() >= 255) break;
             Player player4 = World.getPlayers()[index3];
-            if (player4 != null && player4 != player && player4.getConnectionState() != PlayerConnectionState.DISCONNECTED && !player.getLocalPlayers().contains(player4) && player4.getPosition().isWithinViewport(player.getPosition()) && player4.isVisibleToOtherPlayers()) {
+            if (player4 != null && player4 != player && player4.getConnectionState() != PlayerConnectionState.DISCONNECTED && !player.getLocalPlayers().contains(player4) && isWithinLocalPlayerViewport(player, player4) && player4.isVisibleToOtherPlayers()) {
                 ++index2;
                 player.getLocalPlayers().add(player4);
                 Player player5 = player4;
@@ -249,6 +250,14 @@ public class PlayerUpdateTask {
             GroundItemManager.getInstance().refreshForPlayer(player);
             player.planeChangeRefreshPending = false;
         }
+    }
+
+    private static boolean isWithinLocalPlayerViewport(Player viewer, Player other) {
+        if (viewer == null || other == null) {
+            return false;
+        }
+        return other.getPosition().isWithinViewport(viewer.getPosition())
+                || CastleWarsManager.isCastleWallCrossLevelPair(viewer, other);
     }
 
     public static void writeUpdateBlock(Player player, PacketWriter packetWriter, boolean enabled3, boolean enabled22, Player player22) {

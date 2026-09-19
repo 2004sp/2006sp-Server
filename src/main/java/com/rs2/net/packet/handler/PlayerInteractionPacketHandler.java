@@ -70,7 +70,7 @@ implements PacketHandler {
                     return;
                 }
                 Player targetPlayer = World.getPlayers()[targetIndex];
-                if (targetPlayer == null || !GameUtil.isWithinDistance(player.getPosition(), targetPlayer.getPosition(), 15)) {
+                if (targetPlayer == null || !isWithinCombatInteractionRange(player, targetPlayer)) {
                     return;
                 }
                 int actionSequence = player.nextActionSequence();
@@ -113,7 +113,7 @@ implements PacketHandler {
                     return;
                 }
                 Player targetPlayer = World.getPlayers()[targetIndex];
-                if (targetPlayer == null || !GameUtil.isWithinDistance(player.getPosition(), targetPlayer.getPosition(), 15)) {
+                if (targetPlayer == null || !isWithinCombatInteractionRange(player, targetPlayer)) {
                     return;
                 }
                 int spellButtonId = incomingPacket.getReader().readSignedShort(true, ByteOrder.LITTLE);
@@ -209,5 +209,13 @@ implements PacketHandler {
         player.setAttackRange(1);
         player.setMovementTarget(player2);
         World.scheduleTickTask(new DeferredTradeRequestTask(1, player2, player, value));
+    }
+
+    private static boolean isWithinCombatInteractionRange(Player player, Player targetPlayer) {
+        if (player == null || targetPlayer == null) {
+            return false;
+        }
+        return GameUtil.isWithinDistance(player.getPosition(), targetPlayer.getPosition(), 15)
+                || CastleWarsManager.isCastleWallCrossLevelPair(player, targetPlayer);
     }
 }

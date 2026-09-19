@@ -93,6 +93,7 @@ public final class CastleWarsEngineeringManager {
     private static final int SIDE_DOOR_LEVEL_NINETY_NINE_THRESHOLD = 256;
     private static final long GAME_TICK_MILLIS = 600L;
     private static final int CLIMBING_ROPE_LIFETIME_TICKS = 100;
+    private static final int CLIMBING_ROPE_OBJECT_TYPE = 4;
     private static final int CLIMBING_ROPE_PLANE = 0;
     private static final int CLIMBING_ROPE_DESTINATION_PLANE = 1;
     private static final long BARRICADE_BURN_DURATION_MILLIS = 20L * 1000L;
@@ -881,7 +882,9 @@ public final class CastleWarsEngineeringManager {
     }
 
     public static boolean handleClimbingRope(Player player, int objectId, int objectX, int objectY) {
-        if (objectId != CLIMBING_ROPE_OBJECT_ID) {
+        if (objectId != CLIMBING_ROPE_OBJECT_ID
+                && objectId != BATTLEMENT_OBJECT_ID
+                && objectId != BATTLEMENT_OBJECT_ID_ALT) {
             return false;
         }
         if (!CastleWarsManager.isInGame(player)) {
@@ -954,12 +957,11 @@ public final class CastleWarsEngineeringManager {
 
         int orientation = SkillActionHelper.getObjectOrientation(
                 battlementId, objectX, objectY, objectPlane);
-        int type = SkillActionHelper.getObjectType(
-                battlementId, objectX, objectY, objectPlane);
 
         player.getInventoryManager().removeItem(new ItemStack(CLIMBING_ROPE_ITEM_ID, 1));
         new DynamicObject(CLIMBING_ROPE_OBJECT_ID, objectX, objectY, objectPlane,
-                orientation, type, battlementId, CLIMBING_ROPE_LIFETIME_TICKS, false);
+                orientation, CLIMBING_ROPE_OBJECT_TYPE, ServerSettings.placeholderObjectId,
+                CLIMBING_ROPE_LIFETIME_TICKS, false);
         climbingRopes.put(key(new Position(objectX, objectY, objectPlane)),
                 new ClimbingRopeState(new Position(objectX, objectY, objectPlane), destination));
         player.getPacketSender().sendGameMessage("You attach the climbing rope to the battlements.");

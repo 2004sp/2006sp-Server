@@ -336,9 +336,11 @@ public class EntityTargetMovement {
     public static boolean canReachTarget(Entity entity, Entity entity2, int value2,
                                          CombatType combatType) {
         if (entity.isPlayer() && entity2.isPlayer()
-                && CastleWarsManager.canBotAttackAcrossCastleLevels(
-                        (Player)entity, (Player)entity2, combatType)) {
-            return entity.isWithinReach(entity2, value2);
+                && CastleWarsManager.isCastleWallCrossLevelPair(
+                        (Player)entity, (Player)entity2)) {
+            return CastleWarsManager.canAttackAcrossCastleLevels(
+                    (Player)entity, (Player)entity2, combatType)
+                    && entity.isWithinReach(entity2, value2);
         }
         return canReachTarget(entity, entity2, value2);
     }

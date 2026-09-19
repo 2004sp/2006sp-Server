@@ -10,6 +10,7 @@ import com.rs2.model.item.ItemStack;
 import com.rs2.model.item.consumable.PotionHandler;
 import com.rs2.model.npc.Npc;
 import com.rs2.model.player.Player;
+import com.rs2.model.task.TickTask;
 import com.rs2.util.GameUtil;
 import com.rs2.util.path.WalkingCollisionMap;
 
@@ -1217,6 +1218,7 @@ public final class CastleWarsManager {
 
     public static boolean jumpSteppingStone(Player player, Position destination) {
         if (player == null || destination == null || player.isMovementLocked()
+                || player.isActionLocked()
                 || player.getPosition().getPlane() != 0 || destination.getPlane() != 0
                 || !isInGame(player)) {
             return false;
@@ -1228,9 +1230,11 @@ public final class CastleWarsManager {
         }
 
         player.getMovementQueue().clear();
-        player.getUpdateState().setAnimation(STEPPING_STONE_JUMP_ANIMATION);
-        player.moveTo(new Position(destination.getX(), destination.getY(), 0));
         player.getMovementQueue().clearMovementActions();
+        player.setActionLocked(true);
+        player.getUpdateState().setAnimation(STEPPING_STONE_JUMP_ANIMATION);
+        World.scheduleTickTask(new SteppingStoneJumpTask(
+                player, current.copy(), destination.copy()));
         return true;
     }
 
@@ -1316,12 +1320,19 @@ public final class CastleWarsManager {
                 && isCastleWallCrossLevelPair(attacker, target);
     }
 
+    public static boolean canAttackAcrossCastleLevels(Player attacker, Player target,
+                                                       CombatType combatType) {
+        return attacker != null
+                && target != null
+                && (combatType == CombatType.RANGED || combatType == CombatType.MAGIC)
+                && isCastleWallCrossLevelPair(attacker, target);
+    }
+
     public static boolean canBotAttackAcrossCastleLevels(Player attacker, Player target,
                                                           CombatType combatType) {
         return attacker != null
                 && attacker.botEnabled
-                && (combatType == CombatType.RANGED || combatType == CombatType.MAGIC)
-                && isCastleWallCrossLevelPair(attacker, target);
+                && canAttackAcrossCastleLevels(attacker, target, combatType);
     }
 
     public static boolean isCastleWallCrossLevelBotCombatPair(Player first, Player second) {
@@ -2301,6 +2312,50 @@ public final class CastleWarsManager {
 
     private static String getTeamName(Team team) {
         return team == Team.SARADOMIN ? "Saradomin" : "Zamorak";
+    }
+
+    private static final class SteppingStoneJumpTask extends TickTask {
+        private final Player player;
+        private final Position source;
+        private final Position destination;
+        private int phase;
+
+        private SteppingStoneJumpTask(Player player, Position source, Position destination) {
+            super(1, false);
+            this.player = player;
+            this.source = source;
+            this.destination = destination;
+        }
+
+        @Override
+        public void execute() {
+            if (player == null || player.isDead() || !isInGame(player)) {
+                finish();
+                return;
+            }
+
+            if (phase == 0) {
+                if (!samePosition(player.getPosition(), source)) {
+                    finish();
+                    return;
+                }
+                player.getMovementQueue().clear();
+                player.moveTo(destination.copy());
+                player.getMovementQueue().clearMovementActions();
+                phase = 1;
+                return;
+            }
+
+            finish();
+        }
+
+        private void finish() {
+            if (player != null) {
+                player.getUpdateState().setAnimation(65535);
+                player.setActionLocked(false);
+            }
+            stop();
+        }
     }
 
     private enum God {

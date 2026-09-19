@@ -229,7 +229,7 @@ extends CycleEvent {
             return AttackValidationResult.INVALID_TARGET;
         }
         boolean castleWarsCrossLevelViewport = entity.isPlayer() && entity2.isPlayer()
-                && CastleWarsManager.isCastleWallCrossLevelBotCombatPair(
+                && CastleWarsManager.isCastleWallCrossLevelPair(
                         (Player)entity, (Player)entity2);
         if (entity2.isPlayer() && !((Player)entity2).isRegistered()
                 || !entity2.getPosition().isWithinViewport(entity.getPosition())
