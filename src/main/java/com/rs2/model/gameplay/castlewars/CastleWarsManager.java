@@ -451,6 +451,36 @@ public final class CastleWarsManager {
         }
     }
 
+    public static Position getWaitingRoomWanderTarget(Player player, int radius) {
+        Team team = waitingPlayers.get(player);
+        if (team == null) {
+            return null;
+        }
+
+        Position center = team == Team.SARADOMIN ? SARADOMIN_WAITING_ROOM : ZAMORAK_WAITING_ROOM;
+        Position current = player.getPosition();
+        int wanderRadius = Math.max(1, Math.min(radius, 5));
+
+        for (int attempt = 0; attempt < 30; ++attempt) {
+            int x = current.getX() - wanderRadius + GameUtil.randomInt(wanderRadius * 2 + 1);
+            int y = current.getY() - wanderRadius + GameUtil.randomInt(wanderRadius * 2 + 1);
+            if (x == current.getX() && y == current.getY()) {
+                continue;
+            }
+            if (Math.abs(x - center.getX()) > 9 || Math.abs(y - center.getY()) > 9) {
+                continue;
+            }
+            if (WalkingCollisionMap.getTileFlags(x, y, center.getPlane()) != 0) {
+                continue;
+            }
+            if (isOccupiedWaitingTile(x, y, center.getPlane(), player)) {
+                continue;
+            }
+            return new Position(x, y, center.getPlane());
+        }
+        return null;
+    }
+
     public static Team getGameTeam(Player player) {
         cleanupGamePlayers();
         return gamePlayers.get(player);
@@ -1873,24 +1903,27 @@ public final class CastleWarsManager {
         }
     }
 
-    private static boolean hasRestrictedInventoryItems(Player player) {
+    public static boolean isAllowedLobbyPortalInventoryItem(Player player, ItemStack item) {
+        if (item == null) {
+            return true;
+        }
+        if (item.getDefinition().getEquipmentSlot() >= 0) {
+            return true;
+        }
         PotionHandler potionHandler = new PotionHandler(player);
+        if (potionHandler.selectPotionForItemId(item.getId())) {
+            return true;
+        }
+        String itemName = item.getDefinition().getName();
+        return itemName != null && itemName.toLowerCase().endsWith(" rune");
+    }
+
+    private static boolean hasRestrictedInventoryItems(Player player) {
         ItemStack[] inventoryItems = player.getInventoryManager().getContainer().getItems();
         for (ItemStack item : inventoryItems) {
-            if (item == null) {
-                continue;
+            if (!isAllowedLobbyPortalInventoryItem(player, item)) {
+                return true;
             }
-            if (item.getDefinition().getEquipmentSlot() >= 0) {
-                continue;
-            }
-            if (potionHandler.selectPotionForItemId(item.getId())) {
-                continue;
-            }
-            String itemName = item.getDefinition().getName();
-            if (itemName != null && itemName.toLowerCase().endsWith(" rune")) {
-                continue;
-            }
-            return true;
         }
         return false;
     }
@@ -2131,7 +2164,7 @@ public final class CastleWarsManager {
         } else if (nextGameStartMillis >= 0L && hasMinimumPlayersToStartInternal()) {
             timerText = "Next Game Begins In: " + formatTime(Math.max(0L, nextGameStartMillis - now));
         } else {
-            timerText = "Waiting for players to join the other team.";
+            timerText = "Waiting for the other team...";
         }
 
         player.getPacketSender().showWalkableInterface(WAITING_INTERFACE_ID);
