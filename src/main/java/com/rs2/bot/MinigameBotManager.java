@@ -5,9 +5,14 @@ import com.rs2.bot.combat.BotCombatLoadoutManager;
 import com.rs2.model.Position;
 import com.rs2.model.gameplay.castlewars.CastleWarsManager;
 import com.rs2.util.GameUtil;
+import java.util.Collections;
+import java.util.IdentityHashMap;
+import java.util.Set;
 
 public final class MinigameBotManager {
     private static final Position CASTLE_WARS_LOBBY = new Position(2440, 3089, 0);
+    private static final Set<BotPlayer> spreadWaitingBots =
+        Collections.newSetFromMap(new IdentityHashMap<BotPlayer, Boolean>());
 
     private static final String[] WAITING_CHAT = new String[]{
         "gl all",
@@ -83,7 +88,14 @@ public final class MinigameBotManager {
         if (!botPlayer.isRegistered()) {
             return false;
         }
-        if (CastleWarsManager.isWaitingPlayer(botPlayer) || CastleWarsManager.isInGame(botPlayer)) {
+        if (CastleWarsManager.isInGame(botPlayer)) {
+            spreadWaitingBots.remove(botPlayer);
+            return true;
+        }
+        if (CastleWarsManager.isWaitingPlayer(botPlayer)) {
+            if (spreadWaitingBots.add(botPlayer)) {
+                CastleWarsManager.spreadWaitingPlayer(botPlayer);
+            }
             return true;
         }
 
@@ -92,6 +104,7 @@ public final class MinigameBotManager {
         boolean handled = CastleWarsManager.handleLobbyPortal(botPlayer, CastleWarsManager.GUTHIX_PORTAL_ID);
         if (handled && CastleWarsManager.isWaitingPlayer(botPlayer)) {
             CastleWarsManager.spreadWaitingPlayer(botPlayer);
+            spreadWaitingBots.add(botPlayer);
         }
         return handled;
     }
