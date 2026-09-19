@@ -8,6 +8,8 @@ import com.rs2.model.combat.CombatManager;
 import com.rs2.model.combat.CombatType;
 import com.rs2.model.combat.attack.WeaponCombatAttack;
 import com.rs2.model.combat.hit.HitType;
+import com.rs2.model.ground.GroundItem;
+import com.rs2.model.ground.GroundItemManager;
 import com.rs2.model.item.ItemStack;
 import com.rs2.model.objects.DynamicObject;
 import com.rs2.model.objects.ObjectManager;
@@ -83,6 +85,14 @@ public final class CastleWarsEngineeringManager {
     private static final int CLIMBING_ROPE_DESTINATION_PLANE = 1;
     private static final long BARRICADE_BURN_DURATION_MILLIS = 20L * 1000L;
     private static final long CATAPULT_BURN_DURATION_MILLIS = 20L * 1000L;
+    private static final int BUCKET_RESPAWN_DELAY_TICKS = (int) GameUtil.secondsToTicks(30L);
+
+    private static final Position[] BUCKET_SPAWN_POSITIONS = new Position[]{
+        new Position(2424, 3074, 0),
+        new Position(2425, 3074, 0),
+        new Position(2375, 3132, 0),
+        new Position(2376, 3132, 0)
+    };
 
     private static final Position[] ROCKSLIDE_POSITIONS = new Position[]{
         new Position(2391, 9501, 0),
@@ -92,6 +102,7 @@ public final class CastleWarsEngineeringManager {
     };
 
     private static final Map<String, BarricadeState> barricades = new HashMap<String, BarricadeState>();
+    private static final ArrayList<GroundItem> bucketSupplySpawns = new ArrayList<GroundItem>();
     private static final Map<String, ClimbingRopeState> climbingRopes =
             new HashMap<String, ClimbingRopeState>();
     private static final boolean[] rockslideCollapsed = new boolean[]{true, true, true, true};
@@ -136,6 +147,7 @@ public final class CastleWarsEngineeringManager {
     public static void resetForGame() {
         clearAllBarricades();
         clearAllClimbingRopes();
+        resetBucketSupplies();
         for (int i = 0; i < ROCKSLIDE_POSITIONS.length; ++i) {
             setRockslideState(i, true);
         }
@@ -151,6 +163,7 @@ public final class CastleWarsEngineeringManager {
     public static void cleanupAfterGame() {
         clearAllBarricades();
         clearAllClimbingRopes();
+        clearBucketSupplies();
         for (int i = 0; i < ROCKSLIDE_POSITIONS.length; ++i) {
             setRockslideState(i, true);
         }
@@ -592,6 +605,29 @@ public final class CastleWarsEngineeringManager {
         }
     }
 
+    private static void resetBucketSupplies() {
+        clearBucketSupplies();
+        for (Position position : BUCKET_SPAWN_POSITIONS) {
+            GroundItem groundItem = new GroundItem(
+                    new ItemStack(EMPTY_BUCKET_ITEM_ID, 1),
+                    position,
+                    BUCKET_RESPAWN_DELAY_TICKS,
+                    true);
+            bucketSupplySpawns.add(groundItem);
+            GroundItemManager.getInstance().spawn(groundItem);
+        }
+    }
+
+    private static void clearBucketSupplies() {
+        GroundItemManager manager = GroundItemManager.getInstance();
+        for (GroundItem groundItem : bucketSupplySpawns) {
+            if (manager.contains(groundItem)) {
+                manager.remove(groundItem);
+            }
+        }
+        bucketSupplySpawns.clear();
+    }
+
     public static int giveSupply(Player player, int itemId, int amount) {
         if (!CastleWarsManager.isInGame(player) || amount <= 0) {
             return 0;
@@ -606,7 +642,8 @@ public final class CastleWarsEngineeringManager {
 
     public static void cleanupPlayerSupplies(Player player) {
         int[] ids = new int[]{ROCK_ITEM_ID, EXPLOSIVE_POTION_ID, BARRICADE_ITEM_ID,
-                CLIMBING_ROPE_ITEM_ID, TOOLKIT_ID};
+                CLIMBING_ROPE_ITEM_ID, TOOLKIT_ID, EMPTY_BUCKET_ITEM_ID,
+                BUCKET_OF_WATER_ITEM_ID};
         for (int id : ids) {
             int amount = player.getInventoryManager().getItemAmount(id);
             if (amount > 0) {
