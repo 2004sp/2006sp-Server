@@ -1361,11 +1361,17 @@ public final class CastleWarsBotRoleAi {
         return rangedMageRank < 4;
     }
 
-    private static Role assignRole(BotPlayer bot, CastleWarsManager.Team team) {
-        if (isWallGuardCandidate(bot, team)) {
-            return Role.WALL_GUARD;
+    public static boolean isDedicatedFlagRunner(BotPlayer bot) {
+        if (bot == null) {
+            return false;
         }
+        CastleWarsManager.Team team = CastleWarsManager.getGameTeam(bot);
+        return team != null
+                && !isWallGuardCandidate(bot, team)
+                && getNonWallRank(bot, team) == 9;
+    }
 
+    private static int getNonWallRank(BotPlayer bot, CastleWarsManager.Team team) {
         int nonWallRank = 0;
         long nameHash = bot.getNameHash();
         for (Player player : World.getPlayers()) {
@@ -1381,7 +1387,15 @@ public final class CastleWarsBotRoleAi {
                 ++nonWallRank;
             }
         }
+        return nonWallRank;
+    }
 
+    private static Role assignRole(BotPlayer bot, CastleWarsManager.Team team) {
+        if (isWallGuardCandidate(bot, team)) {
+            return Role.WALL_GUARD;
+        }
+
+        int nonWallRank = getNonWallRank(bot, team);
         if (nonWallRank < 2) {
             return Role.DEFENDER;
         }
