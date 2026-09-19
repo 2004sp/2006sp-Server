@@ -78,7 +78,7 @@ public final class CastleWarsBotRoleAi {
                 && bot.getInventoryManager().getItemAmount(
                         CastleWarsEngineeringManager.EXPLOSIVE_POTION_ID) > 0) {
             if (CastleWarsEngineeringManager.destroyBarricadeWithExplosive(bot, enemyBarricade)) {
-                bot.queuePublicChatMessage("boom");
+                CastleWarsBotChat.sayEngineering(bot);
                 state.delayTicks = 2;
                 return true;
             }
@@ -282,7 +282,7 @@ public final class CastleWarsBotRoleAi {
             state.phase = Phase.CATAPULT_MOVE;
         } else if (state.role == Role.MIDFIGHTER) {
             state.phase = Phase.MID_RUSH;
-            bot.queuePublicChatMessage("rush mid");
+            CastleWarsBotChat.sayMid(bot);
         } else {
             state.phase = Phase.CATAPULT_ROAM;
         }
@@ -337,7 +337,7 @@ public final class CastleWarsBotRoleAi {
             }
             if (CastleWarsEngineeringManager.placeBarricade(bot)) {
                 ++state.barricadesPlaced;
-                bot.queuePublicChatMessage("def flag");
+                CastleWarsBotChat.sayDefence(bot);
                 state.delayTicks = 2;
                 return;
             }
@@ -398,7 +398,7 @@ public final class CastleWarsBotRoleAi {
             state.routeOffsetX = -4 + GameUtil.randomInt(9);
             state.routeOffsetY = -4 + GameUtil.randomInt(9);
             if (GameUtil.randomInt(5) == 0) {
-                bot.queuePublicChatMessage("hold mid");
+                CastleWarsBotChat.sayMid(bot);
             }
         }
 
@@ -435,7 +435,7 @@ public final class CastleWarsBotRoleAi {
 
         if (!CastleWarsEngineeringManager.isCatapultOperational(state.team)) {
             if (CastleWarsEngineeringManager.repairOwnCatapult(bot)) {
-                bot.queuePublicChatMessage("catapult fixed");
+                CastleWarsBotChat.sayCatapult(bot);
                 state.delayTicks = 4;
             }
             return;
@@ -449,7 +449,7 @@ public final class CastleWarsBotRoleAi {
 
         if (CastleWarsEngineeringManager.fireCatapult(bot)) {
             if (GameUtil.randomInt(3) == 0) {
-                bot.queuePublicChatMessage("incoming!");
+                CastleWarsBotChat.sayCatapult(bot);
             }
             state.delayTicks = 4;
         }
@@ -519,7 +519,7 @@ public final class CastleWarsBotRoleAi {
                     && GameUtil.randomInt(3) == 0) {
                 CastleWarsEngineeringManager.collapseRockslide(bot, state.pendingCollapseRock);
                 state.pendingCollapseRock = -1;
-                bot.queuePublicChatMessage("blocked tunnel");
+                CastleWarsBotChat.sayUnderground(bot);
             }
         }
 
@@ -578,7 +578,7 @@ public final class CastleWarsBotRoleAi {
                 return false;
             }
             state.delayTicks = 2;
-            bot.queuePublicChatMessage("clearing rocks");
+            CastleWarsBotChat.sayUnderground(bot);
         }
         return true;
     }
@@ -619,7 +619,7 @@ public final class CastleWarsBotRoleAi {
 
         if (CastleWarsManager.isFlagAtBase(enemy)
                 && CastleWarsManager.takeEnemyFlag(bot)) {
-            bot.queuePublicChatMessage("underground flag!");
+            CastleWarsBotChat.sayFlagCarrier(bot);
         }
         state.phase = Phase.ENEMY_DESCEND;
         state.repathDelay = 0;
@@ -636,7 +636,7 @@ public final class CastleWarsBotRoleAi {
 
         if (CastleWarsManager.isCarryingEnemyFlag(bot)
                 && CastleWarsManager.tryCaptureFlag(bot)) {
-            bot.queuePublicChatMessage("scored!");
+            CastleWarsBotChat.sayScore(bot);
         }
         state.resetForSpawn();
     }
