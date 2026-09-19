@@ -228,12 +228,8 @@ extends CycleEvent {
         if (entity2 == null || entity2.isDead()) {
             return AttackValidationResult.INVALID_TARGET;
         }
-        boolean castleWarsCrossLevelViewport = entity.isPlayer() && entity2.isPlayer()
-                && CastleWarsManager.isCastleWallCrossLevelPair(
-                        (Player)entity, (Player)entity2);
         if (entity2.isPlayer() && !((Player)entity2).isRegistered()
-                || !entity2.getPosition().isWithinViewport(entity.getPosition())
-                && !castleWarsCrossLevelViewport) {
+                || !entity2.getPosition().isWithinViewport(entity.getPosition())) {
             return AttackValidationResult.INVALID_TARGET;
         }
         if (entity2.getMaxHitpoints() <= 0) {

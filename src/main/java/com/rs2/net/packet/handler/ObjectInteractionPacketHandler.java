@@ -193,7 +193,7 @@ implements PacketHandler {
         if (castleWarsStairApproach != null) {
             PathFinder.getInstance();
             boolean foundPath = PathFinder.findPath(player,
-                    castleWarsStairApproach.getX(), castleWarsStairApproach.getY(), true, 0, 0);
+                    castleWarsStairApproach.getX(), castleWarsStairApproach.getY(), false, 0, 0);
             if (GameplayTrace.enabled()) {
                 GameplayTrace.log("castle-wars stair movement queued player="
                         + GameplayTrace.describe(player) + " objectId=" + objectId

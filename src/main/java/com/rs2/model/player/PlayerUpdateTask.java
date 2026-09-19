@@ -7,7 +7,6 @@ import com.rs2.model.EntityUpdateState;
 import com.rs2.model.Position;
 import com.rs2.model.World;
 import com.rs2.model.combat.WeaponProfile;
-import com.rs2.model.gameplay.castlewars.CastleWarsManager;
 import com.rs2.model.ground.GroundItemManager;
 import com.rs2.model.item.ItemDefinition;
 import com.rs2.model.item.ItemStack;
@@ -256,8 +255,7 @@ public class PlayerUpdateTask {
         if (viewer == null || other == null) {
             return false;
         }
-        return other.getPosition().isWithinViewport(viewer.getPosition())
-                || CastleWarsManager.isCastleWallCrossLevelPair(viewer, other);
+        return other.getPosition().isWithinViewport(viewer.getPosition());
     }
 
     public static void writeUpdateBlock(Player player, PacketWriter packetWriter, boolean enabled3, boolean enabled22, Player player22) {

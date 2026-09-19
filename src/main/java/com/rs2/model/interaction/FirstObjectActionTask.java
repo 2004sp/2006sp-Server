@@ -51,6 +51,7 @@ import com.rs2.model.travel.canoe.CanoeTravelManager;
 import com.rs2.model.travel.canoe.CanoeTreeDefinition;
 import com.rs2.util.GameUtil;
 import com.rs2.util.GameplayTrace;
+import com.rs2.util.path.PathFinder;
 
 public final class FirstObjectActionTask
 extends TickTask {
@@ -109,6 +110,22 @@ extends TickTask {
                     this.player, this.objectId, this.objectX, this.objectY)
                     && CastleWarsManager.handleFirstObjectAction(
                             this.player, this.objectId, this.objectX, this.objectY)) {
+                this.stop();
+                return;
+            }
+
+            PathFinder.getInstance();
+            boolean foundPath = PathFinder.findPath(this.player,
+                    castleWarsStairApproach.getX(), castleWarsStairApproach.getY(),
+                    false, 0, 0);
+            if (!foundPath) {
+                if (GameplayTrace.enabled()) {
+                    GameplayTrace.log("castle-wars stair interaction unreachable player="
+                            + GameplayTrace.describe(this.player)
+                            + " objectId=" + this.objectId
+                            + " object=" + this.objectX + "," + this.objectY + "," + this.objectPlane
+                            + " approach=" + GameplayTrace.position(castleWarsStairApproach));
+                }
                 this.stop();
             }
             return;

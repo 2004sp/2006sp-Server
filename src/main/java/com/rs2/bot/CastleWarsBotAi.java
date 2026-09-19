@@ -51,12 +51,18 @@ public final class CastleWarsBotAi {
             CastleWarsManager.useBandage(bot);
         }
 
+        boolean prioritizeTraversal = isTraversalPhase(state.phase);
+        if (prioritizeTraversal && bot.getCombatTarget() != null) {
+            CombatManager.stopCombat(bot);
+        }
+
         if (CastleWarsManager.isCarryingEnemyFlag(bot)) {
             Entity target = bot.getCombatTarget();
             if (target != null && !target.isDead()) {
                 CombatManager.stopCombat(bot);
             }
-        } else if (!CastleWarsManager.isInTeamSpawnArea(bot, team)) {
+        } else if (!CastleWarsManager.isInTeamSpawnArea(bot, team)
+                && !prioritizeTraversal) {
             if (hasActiveOpponent(bot)) {
                 return;
             }
@@ -534,15 +540,7 @@ public final class CastleWarsBotAi {
             CombatManager.stopCombat(bot);
             return false;
         }
-        boolean crossLevelTarget =
-                CastleWarsManager.canBotTargetAcrossCastleLevels(bot, targetPlayer);
-        if (targetPlayer.getPosition().getPlane() != bot.getPosition().getPlane()
-                && !crossLevelTarget) {
-            CombatManager.stopCombat(bot);
-            return false;
-        }
-        if (crossLevelTarget
-                && !bot.isWithinReach(targetPlayer, bot.getAttackRange())) {
+        if (targetPlayer.getPosition().getPlane() != bot.getPosition().getPlane()) {
             CombatManager.stopCombat(bot);
             return false;
         }
@@ -566,17 +564,10 @@ public final class CastleWarsBotAi {
             if (player == null || player == bot || player.isDead() || !CastleWarsManager.areOpponents(bot, player)) {
                 continue;
             }
-            boolean crossLevelTarget =
-                    CastleWarsManager.canBotTargetAcrossCastleLevels(bot, player);
-            if (player.getPosition().getPlane() != bot.getPosition().getPlane()
-                    && !crossLevelTarget) {
+            if (player.getPosition().getPlane() != bot.getPosition().getPlane()) {
                 continue;
             }
             int distance = GameUtil.getDistance(bot.getPosition(), player.getPosition());
-            if (crossLevelTarget
-                    && distance > CastleWarsManager.getBotCastleWallEngageRange(bot)) {
-                continue;
-            }
             if (distance <= radius && distance < bestDistance) {
                 best = player;
                 bestDistance = distance;
@@ -597,6 +588,25 @@ public final class CastleWarsBotAi {
             CastleWarsBotChat.sayCombat(bot);
         }
         return true;
+    }
+
+    private static boolean isTraversalPhase(Phase phase) {
+        switch (phase) {
+            case EXIT_BARRIER:
+            case DESCEND_HOME:
+            case EXIT_HOME_GROUND:
+            case ENTER_ENEMY:
+            case CLIMB_ENEMY:
+            case DESCEND_ENEMY:
+            case EXIT_ENEMY_GROUND:
+            case ENTER_HOME:
+            case CLIMB_HOME:
+            case DESCEND_AFTER_SCORE:
+            case EXIT_AFTER_SCORE:
+                return true;
+            default:
+                return false;
+        }
     }
 
     private static boolean shouldUseBandage(BotPlayer bot) {

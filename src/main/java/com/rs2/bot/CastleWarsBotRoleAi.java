@@ -50,7 +50,8 @@ public final class CastleWarsBotRoleAi {
                 && !CastleWarsManager.isCarryingEnemyFlag(bot)
                 && state.phase != Phase.SPAWN_SUPPLY
                 && state.phase != Phase.LEAVE_SPAWN
-                && state.phase != Phase.DESCEND_HOME) {
+                && state.phase != Phase.DESCEND_HOME
+                && state.phase != Phase.DEFENDER_CLIMB) {
             state.resetForSpawn();
         }
 
@@ -58,12 +59,18 @@ public final class CastleWarsBotRoleAi {
             CastleWarsManager.useBandage(bot);
         }
 
+        boolean prioritizeTraversal = isTraversalPhase(state.phase);
+        if (prioritizeTraversal && bot.getCombatTarget() != null) {
+            CombatManager.stopCombat(bot);
+        }
+
         if (CastleWarsManager.isCarryingEnemyFlag(bot)) {
             Entity combatTarget = bot.getCombatTarget();
             if (combatTarget != null && !combatTarget.isDead()) {
                 CombatManager.stopCombat(bot);
             }
-        } else if (!CastleWarsManager.isInTeamSpawnArea(bot, team)) {
+        } else if (!CastleWarsManager.isInTeamSpawnArea(bot, team)
+                && !prioritizeTraversal) {
             if (hasActiveOpponent(bot)) {
                 return true;
             }
@@ -381,20 +388,11 @@ public final class CastleWarsBotRoleAi {
 
         CastleWarsManager.Team ownFlagTeam = state.team;
         Player enemyHolder = CastleWarsManager.getFlagHolder(ownFlagTeam);
-        if (enemyHolder != null && !enemyHolder.isDead()) {
-            boolean crossLevelHolder =
-                    CastleWarsManager.canBotTargetAcrossCastleLevels(bot, enemyHolder);
-            int holderDistance = GameUtil.getDistance(bot.getPosition(), enemyHolder.getPosition());
-            boolean holderOnReachableLevel =
-                    enemyHolder.getPosition().getPlane() == bot.getPosition().getPlane()
-                    || crossLevelHolder;
-            boolean holderInRange = crossLevelHolder
-                    ? holderDistance <= CastleWarsManager.getBotCastleWallEngageRange(bot)
-                    : holderDistance <= 15;
-            if (holderOnReachableLevel && holderInRange) {
-                CombatManager.startCombat(bot, enemyHolder);
-                return;
-            }
+        if (enemyHolder != null && !enemyHolder.isDead()
+                && enemyHolder.getPosition().getPlane() == bot.getPosition().getPlane()
+                && GameUtil.getDistance(bot.getPosition(), enemyHolder.getPosition()) <= 15) {
+            CombatManager.startCombat(bot, enemyHolder);
+            return;
         }
 
         Position flag = state.team == CastleWarsManager.Team.SARADOMIN
@@ -776,6 +774,25 @@ public final class CastleWarsBotRoleAi {
                 : new Position(2369, 9525, 0);
     }
 
+    private static boolean isTraversalPhase(Phase phase) {
+        switch (phase) {
+            case LEAVE_SPAWN:
+            case DESCEND_HOME:
+            case EXIT_HOME:
+            case DEFENDER_CLIMB:
+            case UNDERGROUND_DESCEND:
+            case UNDERGROUND_OUT:
+            case ENEMY_CLIMB:
+            case ENEMY_DESCEND:
+            case UNDERGROUND_RETURN_DESCEND:
+            case UNDERGROUND_BACK:
+            case HOME_CLIMB:
+                return true;
+            default:
+                return false;
+        }
+    }
+
     private static boolean shouldUseBandage(BotPlayer bot) {
         if (bot.getInventoryManager().getItemAmount(4049) <= 0) {
             return false;
@@ -818,15 +835,7 @@ public final class CastleWarsBotRoleAi {
             CombatManager.stopCombat(bot);
             return false;
         }
-        boolean crossLevelTarget =
-                CastleWarsManager.canBotTargetAcrossCastleLevels(bot, targetPlayer);
-        if (targetPlayer.getPosition().getPlane() != bot.getPosition().getPlane()
-                && !crossLevelTarget) {
-            CombatManager.stopCombat(bot);
-            return false;
-        }
-        if (crossLevelTarget
-                && !bot.isWithinReach(targetPlayer, bot.getAttackRange())) {
+        if (targetPlayer.getPosition().getPlane() != bot.getPosition().getPlane()) {
             CombatManager.stopCombat(bot);
             return false;
         }
@@ -850,17 +859,10 @@ public final class CastleWarsBotRoleAi {
                     || !CastleWarsManager.areOpponents(bot, player)) {
                 continue;
             }
-            boolean crossLevelTarget =
-                    CastleWarsManager.canBotTargetAcrossCastleLevels(bot, player);
-            if (player.getPosition().getPlane() != bot.getPosition().getPlane()
-                    && !crossLevelTarget) {
+            if (player.getPosition().getPlane() != bot.getPosition().getPlane()) {
                 continue;
             }
             int distance = GameUtil.getDistance(bot.getPosition(), player.getPosition());
-            if (crossLevelTarget
-                    && distance > CastleWarsManager.getBotCastleWallEngageRange(bot)) {
-                continue;
-            }
             if (distance <= radius && distance < bestDistance) {
                 best = player;
                 bestDistance = distance;
@@ -991,7 +993,18 @@ public final class CastleWarsBotRoleAi {
         private RoleState(CastleWarsManager.Team team, int primaryCombatStyle) {
             this.team = team;
             this.primaryCombatStyle = primaryCombatStyle;
-            this.role = primaryCombatStyle == 0 ? Role.ATTACKER : Role.DEFENDER;
+            int roll = GameUtil.randomInt(100);
+            if (roll < 40) {
+                this.role = Role.ATTACKER;
+            } else if (roll < 65) {
+                this.role = Role.MIDFIGHTER;
+            } else if (roll < 80) {
+                this.role = Role.UNDERGROUND;
+            } else if (roll < 95) {
+                this.role = Role.DEFENDER;
+            } else {
+                this.role = Role.CATAPULT;
+            }
             resetForSpawn();
         }
 

@@ -1379,6 +1379,17 @@ public final class CastleWarsManager {
         }
         int plane = player.getPosition().getPlane();
 
+        // Spawn-room ladders need an exact reachable approach. Without this,
+        // generic object pathing can stop on the wrong side of the surrounding wall.
+        if (objectId == SARADOMIN_SPAWN_LADDER_ID
+                && objectX == 2429 && objectY == 3075 && plane == 1) {
+            return new Position(2429, 3074, 1);
+        }
+        if (objectId == ZAMORAK_SPAWN_LADDER_ID
+                && objectX == 2370 && objectY == 3132 && plane == 1) {
+            return new Position(2370, 3133, 1);
+        }
+
         // Saradomin ground stairs.
         if (objectId == 4419 && objectX == 2417 && objectY == 3074 && plane == 0) {
             Position outside = new Position(2416, 3074, 0);

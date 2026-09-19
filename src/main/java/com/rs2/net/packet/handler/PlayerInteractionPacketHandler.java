@@ -215,7 +215,6 @@ implements PacketHandler {
         if (player == null || targetPlayer == null) {
             return false;
         }
-        return GameUtil.isWithinDistance(player.getPosition(), targetPlayer.getPosition(), 15)
-                || CastleWarsManager.isCastleWallCrossLevelPair(player, targetPlayer);
+        return GameUtil.isWithinDistance(player.getPosition(), targetPlayer.getPosition(), 15);
     }
 }
