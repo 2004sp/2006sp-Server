@@ -35,6 +35,7 @@ public final class NpcDefinition {
     private int id;
     private int dropTableNpcIdOverride = -1;
     private String name;
+    private String[] actions = new String[5];
     public int respawnDelaySeconds = 0;
     private int legacyAttackBonus = 20;
     private int legacyMeleeDefenceBonus = 20;
@@ -247,8 +248,13 @@ public final class NpcDefinition {
                 }
                 if (value3 >= 30 && value3 < 40) {
                     String text = byteArrayReader2.readString();
-                    if (!text.toLowerCase().equals("attack") || npcDefinition.hitpoints <= 0) continue;
-                    npcDefinition.attackable = true;
+                    int actionSlot = value3 - 30;
+                    if (actionSlot < npcDefinition.actions.length && !text.equalsIgnoreCase("hidden")) {
+                        npcDefinition.actions[actionSlot] = text;
+                    }
+                    if (text.equalsIgnoreCase("attack") && npcDefinition.hitpoints > 0) {
+                        npcDefinition.attackable = true;
+                    }
                     continue;
                 }
                 if (value3 == 40) {
@@ -381,6 +387,7 @@ public final class NpcDefinition {
         npcDefinition.spawnRadius = npcDefinition2.spawnRadius;
         npcDefinition.chaseRadius = npcDefinition2.chaseRadius;
         npcDefinition.name = npcDefinition2.name;
+        npcDefinition.actions = npcDefinition2.actions.clone();
     }
 
     private static void initializeCombatDefinitions() {
@@ -577,6 +584,20 @@ public final class NpcDefinition {
 
     public final String getName() {
         return this.name;
+    }
+
+    public final String getAction(int actionSlot) {
+        if (actionSlot < 0 || actionSlot >= this.actions.length) {
+            return null;
+        }
+        return this.actions[actionSlot];
+    }
+
+    public final boolean actionStartsWith(int actionSlot, String prefix) {
+        String action = this.getAction(actionSlot);
+        return action != null
+                && prefix != null
+                && action.regionMatches(true, 0, prefix, 0, prefix.length());
     }
 
     public final int getDeathAnimationId() {
