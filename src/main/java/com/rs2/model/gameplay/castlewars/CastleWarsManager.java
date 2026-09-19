@@ -56,7 +56,7 @@ public final class CastleWarsManager {
     private static final int ZAMORAK_IMP_TRANSFORMATION_ID = 5728;
 
     public static final int MINIMUM_PLAYERS_PER_TEAM = 1;
-    public static final int WAITING_DURATION_SECONDS = 5 * 60;
+    public static final int WAITING_DURATION_SECONDS = 60; // Temporary test countdown.
     public static final int GAME_DURATION_SECONDS = 20 * 60;
 
     private static final int WAITING_INTERFACE_ID = 6673;
