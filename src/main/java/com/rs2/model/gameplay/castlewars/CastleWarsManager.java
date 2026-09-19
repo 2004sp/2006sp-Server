@@ -1,6 +1,7 @@
 package com.rs2.model.gameplay.castlewars;
 
 import com.rs2.model.Position;
+import com.rs2.model.combat.CombatType;
 import com.rs2.model.World;
 import com.rs2.model.item.ItemStack;
 import com.rs2.model.player.Player;
@@ -899,6 +900,81 @@ public final class CastleWarsManager {
             }
         }
         return -1;
+    }
+
+    public static boolean isCastleWallCrossLevelPair(Player first, Player second) {
+        if (first == null || second == null
+                || !isInGame(first) || !isInGame(second)
+                || !areOpponents(first, second)) {
+            return false;
+        }
+
+        Position firstPosition = first.getPosition();
+        Position secondPosition = second.getPosition();
+        if (!((firstPosition.getPlane() == 1 && secondPosition.getPlane() == 0)
+                || (firstPosition.getPlane() == 0 && secondPosition.getPlane() == 1))) {
+            return false;
+        }
+
+        Position wallPosition = firstPosition.getPlane() == 1 ? firstPosition : secondPosition;
+        Position groundPosition = firstPosition.getPlane() == 0 ? firstPosition : secondPosition;
+        if (!isCastleBattlementPosition(wallPosition)) {
+            return false;
+        }
+
+        return GameUtil.getDistance(wallPosition, groundPosition) <= 15;
+    }
+
+    public static boolean canBotTargetAcrossCastleLevels(Player attacker, Player target) {
+        return attacker != null
+                && attacker.botEnabled
+                && attacker.botPrimaryCombatStyle != 0
+                && isCastleWallCrossLevelPair(attacker, target);
+    }
+
+    public static boolean canBotAttackAcrossCastleLevels(Player attacker, Player target) {
+        return attacker != null
+                && attacker.botEnabled
+                && attacker.botActiveCombatStyle != 0
+                && isCastleWallCrossLevelPair(attacker, target);
+    }
+
+    public static boolean canBotAttackAcrossCastleLevels(Player attacker, Player target,
+                                                          CombatType combatType) {
+        return attacker != null
+                && attacker.botEnabled
+                && (combatType == CombatType.RANGED || combatType == CombatType.MAGIC)
+                && isCastleWallCrossLevelPair(attacker, target);
+    }
+
+    public static boolean isCastleWallCrossLevelBotCombatPair(Player first, Player second) {
+        if (!isCastleWallCrossLevelPair(first, second)) {
+            return false;
+        }
+        return first.botEnabled && first.botPrimaryCombatStyle != 0
+                || second.botEnabled && second.botPrimaryCombatStyle != 0;
+    }
+
+    public static int getBotCastleWallEngageRange(Player bot) {
+        if (bot == null || !bot.botEnabled) {
+            return 0;
+        }
+        return bot.botPrimaryCombatStyle == 2 ? 10
+                : bot.botPrimaryCombatStyle == 1 ? 7 : 0;
+    }
+
+    private static boolean isCastleBattlementPosition(Position position) {
+        if (position == null || position.getPlane() != 1) {
+            return false;
+        }
+
+        int x = position.getX();
+        int y = position.getY();
+        boolean saradominCastle = x >= 2415 && x <= 2431
+                && y >= 3072 && y <= 3083;
+        boolean zamorakCastle = x >= 2368 && x <= 2384
+                && y >= 3124 && y <= 3135;
+        return saradominCastle || zamorakCastle;
     }
 
     public static Position getStairTraversalApproach(Player player, int objectId,
