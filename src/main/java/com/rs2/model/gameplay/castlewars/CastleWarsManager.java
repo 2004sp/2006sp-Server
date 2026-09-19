@@ -1355,7 +1355,7 @@ public final class CastleWarsManager {
     }
 
     public static boolean isCastleBattlementPosition(Position position) {
-        if (position == null || position.getPlane() != 1) {
+        if (position == null || position.getPlane() != 0) {
             return false;
         }
 

@@ -98,7 +98,7 @@ public final class CastleWarsEngineeringManager {
     // without replacing the type-0 battlement underneath it.
     private static final int CLIMBING_ROPE_OBJECT_TYPE = 10;
     private static final int CLIMBING_ROPE_PLANE = 0;
-    private static final int CLIMBING_ROPE_DESTINATION_PLANE = 1;
+    private static final int CLIMBING_ROPE_DESTINATION_PLANE = 0;
     private static final long BARRICADE_BURN_DURATION_MILLIS = 20L * 1000L;
     private static final long CATAPULT_BURN_DURATION_MILLIS = 20L * 1000L;
     private static final int BUCKET_RESPAWN_DELAY_TICKS = (int) GameUtil.secondsToTicks(30L);
