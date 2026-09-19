@@ -603,15 +603,6 @@ public final class CastleWarsManager {
             return true;
         }
 
-        if (playerTeam == flagTeam) {
-            if (GroundItemManager.getInstance().removeForPickup(groundItem, player)) {
-                setDroppedFlag(flagTeam, null);
-                setFlagAtBase(flagTeam, true, null);
-                player.getPacketSender().sendGameMessage("You return the " + getTeamName(flagTeam) + " flag to its stand.");
-            }
-            return true;
-        }
-
         if (isCarryingEnemyFlag(player)) {
             player.getPacketSender().sendGameMessage("You are already carrying a flag.");
             return true;
@@ -671,6 +662,13 @@ public final class CastleWarsManager {
 
     private static GroundItem getDroppedFlag(Team flagTeam) {
         return flagTeam == Team.SARADOMIN ? saradominDroppedFlag : zamorakDroppedFlag;
+    }
+
+    private static String getFlagStatusText(Team flagTeam) {
+        if (isFlagAtBase(flagTeam)) {
+            return "Safe";
+        }
+        return getDroppedFlag(flagTeam) != null ? "Dropped" : "Taken";
     }
 
     private static void setDroppedFlag(Team flagTeam, GroundItem groundItem) {
@@ -1672,8 +1670,8 @@ public final class CastleWarsManager {
         player.getPacketSender().sendInterfaceText("Zamorak = " + zamorakScore, GAME_ZAMORAK_SCORE_TEXT_ID);
         player.getPacketSender().sendInterfaceText(saradominScore + " = Saradomin", GAME_SARADOMIN_SCORE_TEXT_ID);
         player.getPacketSender().sendInterfaceText(formatTime(Math.max(0L, gameEndMillis - now)), GAME_TIMER_TEXT_ID);
-        player.getPacketSender().sendInterfaceText(zamorakFlagAtBase ? "Safe" : "Taken", GAME_ZAMORAK_FLAG_TEXT_ID);
-        player.getPacketSender().sendInterfaceText(saradominFlagAtBase ? "Safe" : "Taken", GAME_SARADOMIN_FLAG_TEXT_ID);
+        player.getPacketSender().sendInterfaceText(getFlagStatusText(Team.ZAMORAK), GAME_ZAMORAK_FLAG_TEXT_ID);
+        player.getPacketSender().sendInterfaceText(getFlagStatusText(Team.SARADOMIN), GAME_SARADOMIN_FLAG_TEXT_ID);
         Team team = gamePlayers.get(player);
         updateEnemyFlagHint(player, team);
         if (team != null) {
