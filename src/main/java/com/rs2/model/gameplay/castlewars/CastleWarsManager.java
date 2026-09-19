@@ -49,6 +49,9 @@ public final class CastleWarsManager {
     private static final int GAME_TIMER_TEXT_ID = 11353;
     private static final int GAME_ZAMORAK_FLAG_TEXT_ID = 11349;
     private static final int GAME_SARADOMIN_FLAG_TEXT_ID = 11350;
+    private static final int GAME_TUNNEL_ONE_TEXT_ID = 11358;
+    private static final int GAME_TUNNEL_TWO_TEXT_ID = 11360;
+    private static final int GAME_CATAPULT_TEXT_ID = 11362;
 
     private static final Position CASTLE_WARS_LOBBY = new Position(2441, 3090, 0);
     private static final Position SARADOMIN_WAITING_ROOM = new Position(2377, 9485, 0);
@@ -1028,6 +1031,18 @@ public final class CastleWarsManager {
         player.getPacketSender().sendInterfaceText(formatTime(Math.max(0L, gameEndMillis - now)), GAME_TIMER_TEXT_ID);
         player.getPacketSender().sendInterfaceText(zamorakFlagAtBase ? "Safe" : "Taken", GAME_ZAMORAK_FLAG_TEXT_ID);
         player.getPacketSender().sendInterfaceText(saradominFlagAtBase ? "Safe" : "Taken", GAME_SARADOMIN_FLAG_TEXT_ID);
+        Team team = gamePlayers.get(player);
+        if (team != null) {
+            player.getPacketSender().sendInterfaceText(
+                    CastleWarsEngineeringManager.isHomeTunnelCollapsed(team, 0) ? "Collapsed" : "Cleared",
+                    GAME_TUNNEL_ONE_TEXT_ID);
+            player.getPacketSender().sendInterfaceText(
+                    CastleWarsEngineeringManager.isHomeTunnelCollapsed(team, 1) ? "Collapsed" : "Cleared",
+                    GAME_TUNNEL_TWO_TEXT_ID);
+            player.getPacketSender().sendInterfaceText(
+                    CastleWarsEngineeringManager.isCatapultOperational(team) ? "Operational" : "Destroyed",
+                    GAME_CATAPULT_TEXT_ID);
+        }
     }
 
     private static void clearCastleWarsInterface(Player player) {
