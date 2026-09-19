@@ -51,6 +51,20 @@ public final class CastleWarsBotAi {
             CastleWarsManager.useBandage(bot);
         }
 
+        // These are interaction/landing squares, not combat posts. After leaving
+        // either castle, get off the choke immediately before target acquisition
+        // can pin a crowd of bots to the same tile.
+        if (CastleWarsManager.isGroundCastleExteriorTransitionTile(bot.getPosition())
+                && state.phase != Phase.ENTER_ENEMY
+                && state.phase != Phase.ENTER_HOME) {
+            if (bot.getCombatTarget() != null) {
+                CombatManager.stopCombat(bot);
+            }
+            state.repathDelay = 0;
+            walk(bot, state, fieldWaypoint(state));
+            return;
+        }
+
         boolean prioritizeTraversal = isTraversalPhase(state.phase);
         if (prioritizeTraversal) {
             state.sightChaseTarget = null;
@@ -744,7 +758,7 @@ public final class CastleWarsBotAi {
             bot.moveTo(approach.copy());
             bot.getMovementQueue().clearMovementActions();
             state.repathDelay = 0;
-            return false;
+            return true;
         }
         walk(bot, state, approach);
         return false;
