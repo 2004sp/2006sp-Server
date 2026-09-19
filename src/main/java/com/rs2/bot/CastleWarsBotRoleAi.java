@@ -1047,7 +1047,7 @@ public final class CastleWarsBotRoleAi {
             return false;
         }
         if (!CastleWarsManager.hasBotCombatLineOfSight(bot, targetPlayer)) {
-            if (state.role != Role.WALL_GUARD) {
+            if (state.role != Role.WALL_GUARD && state.role != Role.DEFENDER) {
                 state.sightChaseTarget = targetPlayer;
                 state.sightChaseTicks = 36;
             }
@@ -1145,6 +1145,7 @@ public final class CastleWarsBotRoleAi {
                     bestVisibleDistance = distance;
                 }
             } else if (state.role != Role.WALL_GUARD
+                    && state.role != Role.DEFENDER
                     && distance < bestHiddenDistance) {
                 bestHidden = player;
                 bestHiddenDistance = distance;
