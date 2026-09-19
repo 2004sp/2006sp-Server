@@ -90,12 +90,16 @@ public final class CastleWarsManager {
 
     private static final Map<Player, Team> waitingPlayers = new IdentityHashMap<Player, Team>();
     private static final Map<Player, Team> gamePlayers = new IdentityHashMap<Player, Team>();
+    private static final Map<Player, ReplacementOffer> replacementOffers = new IdentityHashMap<Player, ReplacementOffer>();
+
+    private static final int REPLACEMENT_OFFER_DURATION_SECONDS = 30;
 
     private static boolean initialized;
     private static boolean gameInProgress;
     private static long nextGameStartMillis = -1L;
     private static long gameEndMillis = -1L;
     private static long lastProcessedSecond = -1L;
+    private static int gameTeamCapacity;
     private static int saradominScore;
     private static int zamorakScore;
     private static boolean saradominFlagAtBase = true;
@@ -185,6 +189,8 @@ public final class CastleWarsManager {
         if (gameInProgress) {
             if (now >= gameEndMillis) {
                 endGame(now);
+            } else {
+                processReplacementOffers(now);
             }
         } else {
             if (hasMinimumPlayersToStartInternal()) {
@@ -364,6 +370,7 @@ public final class CastleWarsManager {
         }
 
         gamePlayers.remove(player);
+        replacementOffers.remove(player);
         waitingPlayers.put(player, team);
         clearWaitingRoomGodTransformation(player);
         applyWaitingRoomGodTransformation(player, objectId);
@@ -436,6 +443,7 @@ public final class CastleWarsManager {
 
     public static void leaveWaitingRoom(Player player) {
         waitingPlayers.remove(player);
+        replacementOffers.remove(player);
         clearWaitingRoomGodTransformation(player);
     }
 
@@ -453,6 +461,45 @@ public final class CastleWarsManager {
         player.resetCombatState();
         moveToLobby(player);
         player.getPacketSender().sendGameMessage("You leave Castle Wars and return to the lobby.");
+    }
+
+    public static boolean handleReplacementOfferButton(Player player, int buttonId) {
+        if (buttonId != 2461 && buttonId != 2462) {
+            return false;
+        }
+
+        ReplacementOffer offer = replacementOffers.remove(player);
+        if (offer == null) {
+            return false;
+        }
+
+        long now = System.currentTimeMillis();
+        player.getPacketSender().closeInterfaces();
+
+        if (buttonId == 2462) {
+            player.getPacketSender().sendGameMessage("You remain in the waiting room for the next game.");
+            if (waitingPlayers.containsKey(player)) {
+                updateWaitingRoomInterface(player, now);
+            }
+            return true;
+        }
+
+        cleanupWaitingPlayers();
+        cleanupGamePlayers();
+        if (!gameInProgress
+                || now >= gameEndMillis
+                || now >= offer.expiresAtMillis
+                || waitingPlayers.get(player) != offer.team
+                || !hasReplacementVacancy(offer.team)) {
+            player.getPacketSender().sendGameMessage("That place in the Castle Wars game is no longer available.");
+            if (waitingPlayers.containsKey(player)) {
+                updateWaitingRoomInterface(player, now);
+            }
+            return true;
+        }
+
+        joinReplacementPlayer(player, offer.team, now);
+        return true;
     }
 
     public static boolean isTeamColourEquipmentSlot(int slot) {
@@ -1409,6 +1456,7 @@ public final class CastleWarsManager {
 
         IdentityHashMap<Player, Team> starters = new IdentityHashMap<Player, Team>(waitingPlayers);
         waitingPlayers.clear();
+        replacementOffers.clear();
 
         saradominScore = 0;
         zamorakScore = 0;
@@ -1439,6 +1487,10 @@ public final class CastleWarsManager {
             player.getPacketSender().sendGameMessage("The Castle Wars game has begun!");
             updateGameInterface(player, now);
         }
+
+        gameTeamCapacity = Math.max(
+                getGamePlayerCountInternal(Team.SARADOMIN),
+                getGamePlayerCountInternal(Team.ZAMORAK));
     }
 
     private static void endGame(long now) {
@@ -1450,6 +1502,8 @@ public final class CastleWarsManager {
 
         IdentityHashMap<Player, Team> finishers = new IdentityHashMap<Player, Team>(gamePlayers);
         gamePlayers.clear();
+        replacementOffers.clear();
+        gameTeamCapacity = 0;
         gameInProgress = false;
         gameEndMillis = -1L;
 
@@ -1696,6 +1750,100 @@ public final class CastleWarsManager {
         return count;
     }
 
+    private static int getGamePlayerCountInternal(Team team) {
+        int count = 0;
+        for (Team gameTeam : gamePlayers.values()) {
+            if (gameTeam == team) {
+                ++count;
+            }
+        }
+        return count;
+    }
+
+    private static boolean hasReplacementVacancy(Team team) {
+        return gameInProgress
+                && gameTeamCapacity > 0
+                && getGamePlayerCountInternal(team) < gameTeamCapacity;
+    }
+
+    private static void processReplacementOffers(long now) {
+        Iterator<Map.Entry<Player, ReplacementOffer>> offerIterator = replacementOffers.entrySet().iterator();
+        while (offerIterator.hasNext()) {
+            Map.Entry<Player, ReplacementOffer> entry = offerIterator.next();
+            Player player = entry.getKey();
+            ReplacementOffer offer = entry.getValue();
+            if (!isOnline(player)
+                    || waitingPlayers.get(player) != offer.team
+                    || now >= offer.expiresAtMillis
+                    || !hasReplacementVacancy(offer.team)) {
+                offerIterator.remove();
+            }
+        }
+
+        offerReplacementPlayers(Team.SARADOMIN, now);
+        offerReplacementPlayers(Team.ZAMORAK, now);
+    }
+
+    private static void offerReplacementPlayers(Team team, long now) {
+        int reserved = 0;
+        for (ReplacementOffer offer : replacementOffers.values()) {
+            if (offer.team == team) {
+                ++reserved;
+            }
+        }
+
+        int vacancies = gameTeamCapacity - getGamePlayerCountInternal(team) - reserved;
+        if (vacancies <= 0) {
+            return;
+        }
+
+        IdentityHashMap<Player, Team> candidates = new IdentityHashMap<Player, Team>(waitingPlayers);
+        for (Map.Entry<Player, Team> entry : candidates.entrySet()) {
+            if (vacancies <= 0) {
+                break;
+            }
+
+            Player player = entry.getKey();
+            if (entry.getValue() != team || replacementOffers.containsKey(player) || !isOnline(player)) {
+                continue;
+            }
+
+            if (player.isBot) {
+                joinReplacementPlayer(player, team, now);
+            } else {
+                replacementOffers.put(player, new ReplacementOffer(
+                        team,
+                        now + REPLACEMENT_OFFER_DURATION_SECONDS * 1000L));
+                player.getDialogueManager().showTwoOptionsWithTitle(
+                        "A place is available on the " + getTeamName(team) + " team.",
+                        "Join the game.",
+                        "Stay in the waiting room.");
+                player.getPacketSender().sendGameMessage(
+                        "A place has become available in the current Castle Wars game.");
+            }
+            --vacancies;
+        }
+    }
+
+    private static void joinReplacementPlayer(Player player, Team team, long now) {
+        if (waitingPlayers.remove(player) == null) {
+            return;
+        }
+
+        replacementOffers.remove(player);
+        clearWaitingRoomGodTransformation(player);
+        gamePlayers.put(player, team);
+        if (!isWearingTeamColours(player, team)) {
+            equipTeamColours(player, team);
+        }
+        setCastleWarsAttackOption(player, true);
+        player.resetCombatState();
+        moveToTeamSpawn(player, team);
+        player.getPacketSender().sendGameMessage(
+                "You join the ongoing Castle Wars game for the " + getTeamName(team) + " team.");
+        updateGameInterface(player, now);
+    }
+
     private static void cleanupWaitingPlayers() {
         Iterator<Map.Entry<Player, Team>> iterator = waitingPlayers.entrySet().iterator();
         while (iterator.hasNext()) {
@@ -1720,6 +1868,16 @@ public final class CastleWarsManager {
                 returnCarriedFlagToBase(entry.getKey());
                 iterator.remove();
             }
+        }
+    }
+
+    private static final class ReplacementOffer {
+        private final Team team;
+        private final long expiresAtMillis;
+
+        private ReplacementOffer(Team team, long expiresAtMillis) {
+            this.team = team;
+            this.expiresAtMillis = expiresAtMillis;
         }
     }
 
