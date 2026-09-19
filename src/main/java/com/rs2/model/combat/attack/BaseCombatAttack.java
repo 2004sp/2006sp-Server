@@ -167,7 +167,8 @@ public abstract class BaseCombatAttack extends CombatAttack {
             }
         }
         int range = this.getAttackRange() + (!target.isMoving() || !attacker.isMoving() ? 0 : (target.isRunningMovement() ? 2 : (target.isMoving() ? 1 : 0)));
-        if (!EntityTargetMovement.canReachTarget(attacker, target, range)) {
+        if (!EntityTargetMovement.canReachTarget(
+                attacker, target, range, this.getCombatType())) {
             return CombatAttackState.b;
         }
         return CombatAttackState.c;
