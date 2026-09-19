@@ -113,6 +113,10 @@ public final class MinigameBotManager {
         BotCombatLoadoutManager.selectCombatStyleFromStats(botPlayer, false);
         BotCombatLoadoutManager.prepareCombatLoadout(botPlayer, false);
         prepareCastleWarsEquipment(botPlayer);
+        botPlayer.getInventoryManager().refresh();
+        botPlayer.getEquipmentManager().refresh();
+        botPlayer.getUpdateState().setUpdateRequired(true);
+        botPlayer.setAppearanceUpdateRequired(true);
     }
 
     private static void prepareCastleWarsEquipment(BotPlayer botPlayer) {
@@ -127,8 +131,8 @@ public final class MinigameBotManager {
         }
         if (changed) {
             botPlayer.getEquipmentManager().refresh();
-            botPlayer.setAppearanceUpdateRequired(true);
         }
+        botPlayer.setAppearanceUpdateRequired(true);
     }
 
     private static void randomizeCombatLevels(BotPlayer botPlayer) {
