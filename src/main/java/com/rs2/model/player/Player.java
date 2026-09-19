@@ -4736,7 +4736,9 @@ extends Entity {
         if (!player.isPlayer()) {
             return;
         }
-        if (this.isInDuelArena()) {
+        if (this.isInDuelArena()
+                || CastleWarsManager.isInGame(this)
+                || CastleWarsManager.isInGame(player)) {
             return;
         }
         for (Object referenceObject : player.pvpCombatReferences) {
