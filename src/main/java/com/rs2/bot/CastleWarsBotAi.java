@@ -420,7 +420,7 @@ public final class CastleWarsBotAi {
 
         CastleWarsManager.Team destination = returningHome ? state.team : opposite(state.team);
         Position outside = CastleWarsManager.getBotMainDoorExteriorPosition(bot, destination);
-        if (!near(bot, outside, 2)) {
+        if (!near(bot, outside, 0)) {
             walk(bot, state, outside);
             return;
         }
