@@ -1287,8 +1287,21 @@ public final class CastleWarsManager {
         return -1;
     }
 
+    public static boolean isGroundCastleExteriorTransitionTile(Position position) {
+        if (position == null || position.getPlane() != 0) {
+            return false;
+        }
+        int x = position.getX();
+        int y = position.getY();
+        return x == 2416 && y == 3074
+                || x == 2383 && y == 3133;
+    }
+
     public static Team getCastleTeamAtPosition(Position position) {
         if (position == null || position.getPlane() < 0 || position.getPlane() > 3) {
+            return null;
+        }
+        if (isGroundCastleExteriorTransitionTile(position)) {
             return null;
         }
         int x = position.getX();
@@ -1469,6 +1482,7 @@ public final class CastleWarsManager {
                 player.getMovementQueue().reset();
                 player.moveTo(approach.copy());
                 player.getMovementQueue().clearMovementActions();
+                moveBotThroughGroundCastleStairs(player, castleTeam, enteringCastle);
                 return true;
             }
             player.getMovementQueue().setRunning(true);
@@ -1715,12 +1729,12 @@ public final class CastleWarsManager {
         // Only traverse from the known-safe approach square. A move-near
         // fallback beside it can be inside the staircase footprint.
         if (!samePosition(player.getPosition(), approach)) {
-            if (GameUtil.isWithinDistance(player.getPosition(), approach, 1)) {
-                player.getMovementQueue().reset();
-                player.moveTo(approach.copy());
-                player.getMovementQueue().clearMovementActions();
+            if (!GameUtil.isWithinDistance(player.getPosition(), approach, 1)) {
+                return false;
             }
-            return false;
+            player.getMovementQueue().reset();
+            player.moveTo(approach.copy());
+            player.getMovementQueue().clearMovementActions();
         }
 
         player.getMovementQueue().reset();
