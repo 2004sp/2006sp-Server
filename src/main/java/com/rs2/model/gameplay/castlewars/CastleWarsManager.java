@@ -1304,7 +1304,7 @@ public final class CastleWarsManager {
         return null;
     }
 
-    private static boolean isCastleBattlementFiringPosition(Position position) {
+    public static boolean isCastleBattlementFiringPosition(Position position) {
         Team team = getCastleTeamAtPosition(position);
         if (team == null || position.getPlane() != 0) {
             return false;
