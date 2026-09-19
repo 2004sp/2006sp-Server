@@ -718,7 +718,7 @@ public final class CastleWarsBotRoleAi {
                 } else if (plane == 2) {
                     useTraversal(bot, state, new Position(2430, 3080, 2), 4415, 2430, 3081);
                 } else if (plane == 1) {
-                    useTraversal(bot, state, new Position(2419, 3080, 1), 4415, 2419, 3080);
+                    useTraversal(bot, state, new Position(2420, 3080, 1), 4415, 2419, 3080);
                 }
             }
         } else {
@@ -736,7 +736,7 @@ public final class CastleWarsBotRoleAi {
                 } else if (plane == 2) {
                     useTraversal(bot, state, new Position(2369, 3127, 2), 4415, 2369, 3126);
                 } else if (plane == 1) {
-                    useTraversal(bot, state, new Position(2380, 3127, 1), 4415, 2380, 3127);
+                    useTraversal(bot, state, new Position(2379, 3127, 1), 4415, 2380, 3127);
                 }
             }
         }
