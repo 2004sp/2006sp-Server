@@ -157,15 +157,20 @@ public final class CastleWarsManager {
         if (objectId == SARADOMIN_GAME_EXIT_PORTAL_ID || objectId == ZAMORAK_GAME_EXIT_PORTAL_ID) {
             Team requiredTeam = objectId == SARADOMIN_GAME_EXIT_PORTAL_ID ? Team.SARADOMIN : Team.ZAMORAK;
             Team playerTeam = gamePlayers.get(player);
-            if (playerTeam == null) {
-                player.getPacketSender().sendGameMessage("You are not currently in a Castle Wars game.");
-                return true;
-            }
-            if (playerTeam != requiredTeam) {
+            if (playerTeam != null && playerTeam != requiredTeam) {
                 player.getPacketSender().sendGameMessage("You cannot use the other team's exit portal.");
                 return true;
             }
-            leaveGame(player);
+            if (playerTeam != null) {
+                leaveGame(player);
+            } else {
+                removeTeamColours(player);
+                removeBandages(player);
+                clearCastleWarsInterface(player);
+                player.resetCombatState();
+                moveToLobby(player);
+                player.getPacketSender().sendGameMessage("You return to the Castle Wars lobby.");
+            }
             return true;
         }
         return handleLobbyPortal(player, objectId);
