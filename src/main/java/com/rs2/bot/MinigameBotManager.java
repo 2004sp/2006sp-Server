@@ -98,7 +98,7 @@ public final class MinigameBotManager {
 
     private static void preparePvpLoadout(BotPlayer botPlayer) {
         BotCombatLoadoutManager.selectCombatStyleFromStats(botPlayer, false);
-        BotCombatLoadoutManager.prepareCombatLoadout(botPlayer, false);
+        BotCombatLoadoutManager.prepareMinigameCombatLoadout(botPlayer);
         prepareCastleWarsEquipment(botPlayer);
         botPlayer.getInventoryManager().refresh();
         botPlayer.getEquipmentManager().refresh();
