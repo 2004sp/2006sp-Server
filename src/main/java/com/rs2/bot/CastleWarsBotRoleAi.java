@@ -603,19 +603,61 @@ public final class CastleWarsBotRoleAi {
             state.repathDelay = 0;
             return;
         }
+        if (bot.getPosition().getPlane() != 0) {
+            state.phase = Phase.DESCEND_HOME;
+            state.repathDelay = 0;
+            return;
+        }
+
+        if (!state.wallAccessed) {
+            if (CastleWarsEngineeringManager.isBattlementWalkwayTile(
+                    bot.getPosition(), state.team)) {
+                state.wallAccessed = true;
+            } else {
+                Position stairApproach = state.team == CastleWarsManager.Team.SARADOMIN
+                        ? new Position(2416, 3074, 0)
+                        : new Position(2383, 3133, 0);
+                Position wallLanding = state.team == CastleWarsManager.Team.SARADOMIN
+                        ? new Position(2417, 3077, 0)
+                        : new Position(2382, 3130, 0);
+
+                if (near(bot, wallLanding, 0)) {
+                    state.wallAccessed = true;
+                    state.wallPatrolTarget = null;
+                    state.repathDelay = 0;
+                } else if (reachInteractionApproach(bot, state, stairApproach)) {
+                    if (CastleWarsManager.moveBotThroughGroundCastleStairs(
+                            bot, state.team, true)) {
+                        state.wallAccessed = true;
+                        state.wallPatrolTarget = null;
+                        state.repathDelay = 0;
+                    }
+                }
+                return;
+            }
+        }
 
         if (state.wallPatrolTarget == null
-                || state.wallPatrolTarget.getPlane() != bot.getPosition().getPlane()
                 || --state.wallPatrolTicks <= 0
                 || isWallPostCrowded(bot, state.wallPatrolTarget)) {
             state.wallPatrolTarget = chooseWallPatrolTarget(bot, state);
-            state.wallPatrolTicks = 18 + GameUtil.randomInt(28);
+            state.wallPatrolTicks = 12 + GameUtil.randomInt(22);
             state.repathDelay = 0;
         }
 
         if (state.wallPatrolTarget != null
-                && !near(bot, state.wallPatrolTarget, 1)) {
+                && !near(bot, state.wallPatrolTarget, 0)) {
             walk(bot, state, state.wallPatrolTarget);
+            return;
+        }
+
+        // If combat movement ever pulls a guard off the actual battlement
+        // walkway, force it back through the wall-access stairs.
+        if (!CastleWarsEngineeringManager.isBattlementWalkwayTile(
+                bot.getPosition(), state.team)) {
+            state.wallAccessed = false;
+            state.wallPatrolTarget = null;
+            state.repathDelay = 0;
             return;
         }
 
@@ -625,55 +667,88 @@ public final class CastleWarsBotRoleAi {
     }
 
     private static Position chooseWallPatrolTarget(BotPlayer bot, RoleState state) {
-        int minX = state.team == CastleWarsManager.Team.SARADOMIN ? 2412 : 2368;
-        int maxX = state.team == CastleWarsManager.Team.SARADOMIN ? 2431 : 2387;
-        int minY = state.team == CastleWarsManager.Team.SARADOMIN ? 3072 : 3117;
-        int maxY = state.team == CastleWarsManager.Team.SARADOMIN ? 3089 : 3135;
-        int plane = bot.getPosition().getPlane();
-
+        Position current = bot.getPosition();
+        long salt = bot.getNameHash() + (long)state.wallPatrolGeneration * 173L;
         Position best = null;
         int bestScore = Integer.MAX_VALUE;
-        long salt = bot.getNameHash() + (long)state.wallPatrolGeneration * 173L;
 
-        for (int x = minX; x <= maxX; ++x) {
-            for (int y = minY; y <= maxY; ++y) {
-                Position candidate = new Position(x, y, plane);
-                if (!CastleWarsManager.isCastleBattlementFiringPosition(candidate)) {
-                    continue;
-                }
-                if ((WalkingCollisionMap.getTileFlags(x, y, plane) & 0x1280100) != 0) {
-                    continue;
-                }
-
-                int crowding = 0;
-                for (Player player : World.getPlayers()) {
-                    if (player == null || player == bot || player.isDead()
-                            || CastleWarsManager.getGameTeam(player) != state.team
-                            || player.getPosition().getPlane() != plane) {
+        // Once a guard reaches the wall, it patrols only one clipped step at a
+        // time between actual battlement walkway tiles. This prevents pathing
+        // around the ground outside the castle to reach another wall post.
+        if (CastleWarsEngineeringManager.isBattlementWalkwayTile(current, state.team)) {
+            for (int dx = -1; dx <= 1; ++dx) {
+                for (int dy = -1; dy <= 1; ++dy) {
+                    if (dx == 0 && dy == 0) {
                         continue;
                     }
-                    int distance = GameUtil.getDistance(candidate, player.getPosition());
-                    if (distance <= 1) {
-                        crowding += 8;
-                    } else if (distance <= 3) {
-                        crowding += 3;
-                    } else if (distance <= 5) {
-                        crowding += 1;
+                    Position candidate = new Position(
+                            current.getX() + dx, current.getY() + dy, current.getPlane());
+                    if (!CastleWarsEngineeringManager.isBattlementWalkwayTile(
+                            candidate, state.team)
+                            || !bot.canStepToOffset(dx, dy)) {
+                        continue;
+                    }
+                    int score = wallPatrolCrowding(bot, state.team, candidate) * 100
+                            + (int)Math.abs((salt
+                            + candidate.getX() * 37L + candidate.getY() * 19L) % 17L);
+                    if (score < bestScore) {
+                        bestScore = score;
+                        best = candidate;
                     }
                 }
+            }
+        }
 
-                int score = crowding * 100
-                        + GameUtil.getDistance(bot.getPosition(), candidate)
-                        + (int)Math.abs((salt + x * 37L + y * 19L) % 17L);
-                if (score < bestScore) {
-                    bestScore = score;
-                    best = candidate;
+        // The staircase landing can sit immediately beside the first true wall
+        // tile, so allow one initial path onto the nearest battlement tile.
+        if (best == null) {
+            int minX = state.team == CastleWarsManager.Team.SARADOMIN ? 2412 : 2368;
+            int maxX = state.team == CastleWarsManager.Team.SARADOMIN ? 2431 : 2387;
+            int minY = state.team == CastleWarsManager.Team.SARADOMIN ? 3072 : 3117;
+            int maxY = state.team == CastleWarsManager.Team.SARADOMIN ? 3089 : 3135;
+            for (int x = minX; x <= maxX; ++x) {
+                for (int y = minY; y <= maxY; ++y) {
+                    Position candidate = new Position(x, y, 0);
+                    if (!CastleWarsEngineeringManager.isBattlementWalkwayTile(
+                            candidate, state.team)) {
+                        continue;
+                    }
+                    int distance = GameUtil.getDistance(current, candidate);
+                    int score = distance * 10
+                            + wallPatrolCrowding(bot, state.team, candidate) * 100
+                            + (int)Math.abs((salt + x * 37L + y * 19L) % 17L);
+                    if (score < bestScore) {
+                        bestScore = score;
+                        best = candidate;
+                    }
                 }
             }
         }
 
         ++state.wallPatrolGeneration;
         return best;
+    }
+
+    private static int wallPatrolCrowding(BotPlayer bot,
+                                           CastleWarsManager.Team team,
+                                           Position candidate) {
+        int crowding = 0;
+        for (Player player : World.getPlayers()) {
+            if (player == null || player == bot || player.isDead()
+                    || CastleWarsManager.getGameTeam(player) != team
+                    || player.getPosition().getPlane() != candidate.getPlane()) {
+                continue;
+            }
+            int distance = GameUtil.getDistance(candidate, player.getPosition());
+            if (distance <= 1) {
+                crowding += 8;
+            } else if (distance <= 3) {
+                crowding += 3;
+            } else if (distance <= 5) {
+                crowding += 1;
+            }
+        }
+        return crowding;
     }
 
     private static boolean isWallPostCrowded(BotPlayer bot, Position post) {
@@ -1063,7 +1138,15 @@ public final class CastleWarsBotRoleAi {
             CombatManager.stopCombat(bot);
             return false;
         }
-        if (GameUtil.getDistance(bot.getPosition(), targetPlayer.getPosition()) > 12) {
+        int targetDistance = GameUtil.getDistance(
+                bot.getPosition(), targetPlayer.getPosition());
+        if (state.role == Role.WALL_GUARD) {
+            int wallRange = CastleWarsManager.getBotCastleWallEngageRange(bot);
+            if (wallRange <= 0 || targetDistance > wallRange) {
+                CombatManager.stopCombat(bot);
+                return false;
+            }
+        } else if (targetDistance > 12) {
             CombatManager.stopCombat(bot);
             return false;
         }
@@ -1347,6 +1430,7 @@ public final class CastleWarsBotRoleAi {
         private Position wallPatrolTarget;
         private int wallPatrolTicks;
         private int wallPatrolGeneration;
+        private boolean wallAccessed;
         private int routeOffsetX;
         private int routeOffsetY;
         private int midPatrolTicks;
@@ -1379,6 +1463,7 @@ public final class CastleWarsBotRoleAi {
             this.wallPatrolTarget = null;
             this.wallPatrolTicks = 0;
             this.wallPatrolGeneration = GameUtil.randomInt(16);
+            this.wallAccessed = false;
             this.sightChaseTarget = null;
             this.sightChaseTicks = 0;
         }
