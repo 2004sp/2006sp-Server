@@ -207,7 +207,7 @@ extends TickTask {
             this.stop();
             return;
         }
-        if (CastleWarsManager.handlePortal(this.player, this.objectId)) {
+        if (CastleWarsManager.handleFirstObjectAction(this.player, this.objectId, this.objectX, this.objectY)) {
             this.stop();
             return;
         }
