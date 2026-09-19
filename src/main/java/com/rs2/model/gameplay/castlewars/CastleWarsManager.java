@@ -210,6 +210,9 @@ public final class CastleWarsManager {
         if (CastleWarsEngineeringManager.handleSupplyTable(player, objectId)) {
             return true;
         }
+        if (CastleWarsEngineeringManager.handleClimbingRope(player, objectId, objectX, objectY)) {
+            return true;
+        }
         if (CastleWarsEngineeringManager.operateCatapult(player, objectId)) {
             return true;
         }
@@ -1090,7 +1093,7 @@ public final class CastleWarsManager {
                 : bot.botPrimaryCombatStyle == 1 ? 7 : 0;
     }
 
-    private static boolean isCastleBattlementPosition(Position position) {
+    public static boolean isCastleBattlementPosition(Position position) {
         if (position == null || position.getPlane() != 1) {
             return false;
         }
