@@ -189,7 +189,9 @@ public final class CastleWarsBotRoleAi {
 
     private static void processSpawnSupply(BotPlayer bot, RoleState state) {
         if (!CastleWarsManager.isInTeamSpawnArea(bot, state.team)) {
-            if (state.role == Role.UNDERGROUND) {
+            if (bot.getPosition().getPlane() == 1 && state.role != Role.DEFENDER) {
+                state.phase = Phase.DESCEND_HOME;
+            } else if (state.role == Role.UNDERGROUND) {
                 state.phase = Phase.UNDERGROUND_DESCEND;
             } else if (state.role == Role.WALL_GUARD) {
                 state.phase = Phase.WALL_GUARD_PATROL;
@@ -254,21 +256,32 @@ public final class CastleWarsBotRoleAi {
     }
 
     private static void processLeaveSpawn(BotPlayer bot, RoleState state) {
+        boolean alternateExit = (bot.getNameHash() & 1L) != 0L;
+        Position barrier;
+        int objectId;
+        int objectX;
+        int objectY;
+
         if (state.team == CastleWarsManager.Team.SARADOMIN) {
-            Position barrier = new Position(2426, 3079, 1);
-            if (!reachInteractionApproach(bot, state, barrier)) {
-                return;
-            }
-            CastleWarsManager.handleFirstObjectAction(bot,
-                    CastleWarsManager.SARADOMIN_ENERGY_BARRIER_ID, 2426, 3080);
+            barrier = alternateExit
+                    ? new Position(2423, 3076, 1)
+                    : new Position(2426, 3079, 1);
+            objectId = CastleWarsManager.SARADOMIN_ENERGY_BARRIER_ID;
+            objectX = alternateExit ? 2422 : 2426;
+            objectY = alternateExit ? 3076 : 3080;
         } else {
-            Position barrier = new Position(2373, 3127, 1);
-            if (!reachInteractionApproach(bot, state, barrier)) {
-                return;
-            }
-            CastleWarsManager.handleFirstObjectAction(bot,
-                    CastleWarsManager.ZAMORAK_ENERGY_BARRIER_ID, 2373, 3126);
+            barrier = alternateExit
+                    ? new Position(2376, 3131, 1)
+                    : new Position(2373, 3127, 1);
+            objectId = CastleWarsManager.ZAMORAK_ENERGY_BARRIER_ID;
+            objectX = alternateExit ? 2377 : 2373;
+            objectY = alternateExit ? 3131 : 3126;
         }
+
+        if (!reachInteractionApproach(bot, state, barrier)) {
+            return;
+        }
+        CastleWarsManager.handleFirstObjectAction(bot, objectId, objectX, objectY);
         state.phase = Phase.DESCEND_HOME;
         state.repathDelay = 0;
     }
@@ -352,10 +365,12 @@ public final class CastleWarsBotRoleAi {
     private static void processOwnFlagClimb(BotPlayer bot, RoleState state) {
         int plane = bot.getPosition().getPlane();
         if (plane == 1) {
-            Position ladderApproach = state.team == CastleWarsManager.Team.SARADOMIN
-                    ? new Position(2429, 3074, 1)
-                    : new Position(2370, 3133, 1);
-            if (!reachInteractionApproach(bot, state, ladderApproach)) {
+            Position ladder = state.team == CastleWarsManager.Team.SARADOMIN
+                    ? new Position(2429, 3075, 1)
+                    : new Position(2370, 3132, 1);
+            Position ladderApproach =
+                    CastleWarsManager.getNearestAdjacentInteractionTile(bot, ladder);
+            if (ladderApproach == null || !reachInteractionApproach(bot, state, ladderApproach)) {
                 return;
             }
             if (state.team == CastleWarsManager.Team.SARADOMIN) {
@@ -365,6 +380,7 @@ public final class CastleWarsBotRoleAi {
                 CastleWarsManager.handleFirstObjectAction(bot,
                         CastleWarsManager.ZAMORAK_SPAWN_LADDER_ID, 2370, 3132);
             }
+            state.repathDelay = 0;
             return;
         }
         if (plane >= 3) {
