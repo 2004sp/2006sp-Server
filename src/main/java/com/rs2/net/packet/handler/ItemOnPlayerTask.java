@@ -2,6 +2,7 @@ package com.rs2.net.packet.handler;
 
 import com.rs2.model.EntityTargetMovement;
 import com.rs2.model.dialogue.DialogueManager;
+import com.rs2.model.gameplay.castlewars.CastleWarsManager;
 import com.rs2.model.item.ItemStack;
 import com.rs2.model.player.Player;
 import com.rs2.model.task.TickTask;
@@ -46,6 +47,26 @@ extends TickTask {
                 this.stop();
             }
             switch (this.usedItem.getId()) {
+                case 4049: {
+                    if (!CastleWarsManager.areTeamMates(this.requestingPlayer, this.targetPlayer)) {
+                        this.requestingPlayer.packetSender.sendGameMessage("You can only use bandages on your Castle Wars teammates.");
+                        break;
+                    }
+                    if (!this.requestingPlayer.getSkillManager().tryStartActionDelay(1800) || this.requestingPlayer.getCurrentHitpoints() <= 0) {
+                        break;
+                    }
+                    if (!this.requestingPlayer.getInventoryManager().removeItemFromSlot(new ItemStack(4049, 1), this.inventorySlot)) {
+                        break;
+                    }
+                    this.requestingPlayer.getUpdateState().setAnimation(829);
+                    this.targetPlayer.heal(this.targetPlayer.getMaxHitpoints() / 10);
+                    this.targetPlayer.addRunEnergyPercent(30);
+                    this.targetPlayer.packetSender.sendRunEnergy();
+                    this.targetPlayer.setPoisonDamage(0.0);
+                    this.requestingPlayer.nextActionSequence();
+                    this.requestingPlayer.getAttackDelayTimer().setDelayTicks(this.requestingPlayer.getAttackDelayTimer().getDelayTicks() + 2);
+                    break;
+                }
                 case 962: {
                     this.requestingPlayer.getInventoryManager().removeItem(this.usedItem);
                     Player player = this.requestingPlayer;
