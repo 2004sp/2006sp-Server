@@ -538,11 +538,6 @@ public final class CastleWarsManager {
         if (holder != player) {
             return false;
         }
-        if (!isFlagAtBase(team)) {
-            player.getPacketSender().sendGameMessage("Your team's flag must be at its stand before you can score.");
-            return false;
-        }
-
         clearFlagWeapon(player);
         setFlagAtBase(enemyFlagTeam, true, null);
         scorePoint(team);
