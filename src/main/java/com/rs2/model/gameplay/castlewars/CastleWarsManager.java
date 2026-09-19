@@ -211,6 +211,9 @@ public final class CastleWarsManager {
         if (CastleWarsEngineeringManager.operateCatapult(player, objectId)) {
             return true;
         }
+        if (CastleWarsEngineeringManager.handleSideDoor(player, objectId, objectX, objectY)) {
+            return true;
+        }
         if (CastleWarsEngineeringManager.handleMainDoor(player, objectId, objectX, objectY)) {
             return true;
         }
