@@ -550,7 +550,7 @@ public final class CastleWarsBotAi {
             CombatManager.stopCombat(bot);
             return false;
         }
-        int maxDistance = bot.botPrimaryCombatStyle == 0 ? 2 : 12;
+        int maxDistance = bot.botPrimaryCombatStyle == 0 ? 6 : 12;
         if (GameUtil.getDistance(bot.getPosition(), targetPlayer.getPosition()) > maxDistance) {
             CombatManager.stopCombat(bot);
             return false;
