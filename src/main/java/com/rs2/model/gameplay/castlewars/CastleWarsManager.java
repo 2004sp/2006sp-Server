@@ -91,6 +91,7 @@ public final class CastleWarsManager {
     private static final Map<Player, Team> waitingPlayers = new IdentityHashMap<Player, Team>();
     private static final Map<Player, Team> gamePlayers = new IdentityHashMap<Player, Team>();
     private static final Map<Player, ReplacementOffer> replacementOffers = new IdentityHashMap<Player, ReplacementOffer>();
+    private static final Map<Player, Long> replacementOfferCooldowns = new IdentityHashMap<Player, Long>();
 
     private static final int REPLACEMENT_OFFER_DURATION_SECONDS = 30;
 
@@ -130,6 +131,8 @@ public final class CastleWarsManager {
         cleanupGamePlayers();
         waitingPlayers.remove(player);
         gamePlayers.remove(player);
+        replacementOffers.remove(player);
+        replacementOfferCooldowns.remove(player);
         clearWaitingRoomGodTransformation(player);
 
         returnCarriedFlagToBase(player);
@@ -371,6 +374,7 @@ public final class CastleWarsManager {
 
         gamePlayers.remove(player);
         replacementOffers.remove(player);
+        replacementOfferCooldowns.remove(player);
         waitingPlayers.put(player, team);
         clearWaitingRoomGodTransformation(player);
         applyWaitingRoomGodTransformation(player, objectId);
@@ -444,6 +448,7 @@ public final class CastleWarsManager {
     public static void leaveWaitingRoom(Player player) {
         waitingPlayers.remove(player);
         replacementOffers.remove(player);
+        replacementOfferCooldowns.remove(player);
         clearWaitingRoomGodTransformation(player);
     }
 
@@ -477,6 +482,9 @@ public final class CastleWarsManager {
         player.getPacketSender().closeInterfaces();
 
         if (buttonId == 2462) {
+            replacementOfferCooldowns.put(
+                    player,
+                    now + REPLACEMENT_OFFER_DURATION_SECONDS * 1000L);
             player.getPacketSender().sendGameMessage("You remain in the waiting room for the next game.");
             if (waitingPlayers.containsKey(player)) {
                 updateWaitingRoomInterface(player, now);
@@ -1457,6 +1465,7 @@ public final class CastleWarsManager {
         IdentityHashMap<Player, Team> starters = new IdentityHashMap<Player, Team>(waitingPlayers);
         waitingPlayers.clear();
         replacementOffers.clear();
+        replacementOfferCooldowns.clear();
 
         saradominScore = 0;
         zamorakScore = 0;
@@ -1502,7 +1511,9 @@ public final class CastleWarsManager {
 
         IdentityHashMap<Player, Team> finishers = new IdentityHashMap<Player, Team>(gamePlayers);
         gamePlayers.clear();
+        closeAllReplacementOfferInterfaces();
         replacementOffers.clear();
+        replacementOfferCooldowns.clear();
         gameTeamCapacity = 0;
         gameInProgress = false;
         gameEndMillis = -1L;
@@ -1767,16 +1778,37 @@ public final class CastleWarsManager {
     }
 
     private static void processReplacementOffers(long now) {
+        Iterator<Map.Entry<Player, Long>> cooldownIterator = replacementOfferCooldowns.entrySet().iterator();
+        while (cooldownIterator.hasNext()) {
+            Map.Entry<Player, Long> entry = cooldownIterator.next();
+            if (!waitingPlayers.containsKey(entry.getKey()) || now >= entry.getValue()) {
+                cooldownIterator.remove();
+            }
+        }
+
         Iterator<Map.Entry<Player, ReplacementOffer>> offerIterator = replacementOffers.entrySet().iterator();
         while (offerIterator.hasNext()) {
             Map.Entry<Player, ReplacementOffer> entry = offerIterator.next();
             Player player = entry.getKey();
             ReplacementOffer offer = entry.getValue();
-            if (!isOnline(player)
-                    || waitingPlayers.get(player) != offer.team
-                    || now >= offer.expiresAtMillis
-                    || !hasReplacementVacancy(offer.team)) {
-                offerIterator.remove();
+            boolean expired = now >= offer.expiresAtMillis;
+            boolean valid = isOnline(player)
+                    && waitingPlayers.get(player) == offer.team
+                    && !expired
+                    && hasReplacementVacancy(offer.team);
+            if (valid) {
+                continue;
+            }
+
+            offerIterator.remove();
+            if (isOnline(player) && waitingPlayers.get(player) == offer.team) {
+                if (expired) {
+                    replacementOfferCooldowns.put(
+                            player,
+                            now + REPLACEMENT_OFFER_DURATION_SECONDS * 1000L);
+                }
+                closeReplacementOfferInterface(player);
+                updateWaitingRoomInterface(player, now);
             }
         }
 
@@ -1804,7 +1836,11 @@ public final class CastleWarsManager {
             }
 
             Player player = entry.getKey();
-            if (entry.getValue() != team || replacementOffers.containsKey(player) || !isOnline(player)) {
+            Long cooldownUntil = replacementOfferCooldowns.get(player);
+            if (entry.getValue() != team
+                    || replacementOffers.containsKey(player)
+                    || (cooldownUntil != null && now < cooldownUntil)
+                    || !isOnline(player)) {
                 continue;
             }
 
@@ -1831,6 +1867,7 @@ public final class CastleWarsManager {
         }
 
         replacementOffers.remove(player);
+        replacementOfferCooldowns.remove(player);
         clearWaitingRoomGodTransformation(player);
         gamePlayers.put(player, team);
         if (!isWearingTeamColours(player, team)) {
@@ -1868,6 +1905,19 @@ public final class CastleWarsManager {
                 returnCarriedFlagToBase(entry.getKey());
                 iterator.remove();
             }
+        }
+    }
+
+    private static void closeReplacementOfferInterface(Player player) {
+        if (player != null
+                && (player.isInterfaceIdOpen(2461) || player.isInterfaceIdOpen(2462))) {
+            player.getPacketSender().closeInterfaces();
+        }
+    }
+
+    private static void closeAllReplacementOfferInterfaces() {
+        for (Player player : replacementOffers.keySet()) {
+            closeReplacementOfferInterface(player);
         }
     }
 
