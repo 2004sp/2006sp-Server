@@ -1,6 +1,7 @@
 package com.rs2.model.gameplay.castlewars;
 
 import com.rs2.ServerSettings;
+import com.rs2.cache.InterfaceDefinition;
 import com.rs2.model.Position;
 import com.rs2.model.World;
 import com.rs2.model.combat.AttackStyleDefinition;
@@ -72,6 +73,15 @@ public final class CastleWarsEngineeringManager {
     public static final Position SARADOMIN_CATAPULT = new Position(2413, 3088, 0);
     public static final Position ZAMORAK_CATAPULT = new Position(2384, 3117, 0);
 
+    private static final int CATAPULT_INTERFACE_ID = 11169;
+    private static final int CATAPULT_CLOSE_BUTTON_ID = 11259;
+    private static final int CATAPULT_AIM_X_TEXT_ID = 11301;
+    private static final int CATAPULT_AIM_Y_TEXT_ID = 11302;
+    private static final int CATAPULT_FIRE_BUTTON_ID = 11328;
+    private static final int CATAPULT_MAX_AIM = 30;
+    private static final int CATAPULT_AIM_SCALE = 2;
+    private static final int CATAPULT_MISS_RADIUS = 1;
+
     private static final int MAIN_DOOR_MAX_HITPOINTS = 100;
     private static final int MAIN_DOOR_PLANE = 0;
     private static final int THIEVING_SKILL_INDEX = 17;
@@ -114,6 +124,12 @@ public final class CastleWarsEngineeringManager {
     private static long zamorakCatapultBurnExpiresAt;
     private static long saradominCatapultReadyAt;
     private static long zamorakCatapultReadyAt;
+    private static final Map<Player, CatapultAim> catapultAims =
+            new IdentityHashMap<Player, CatapultAim>();
+    private static int catapultAimUpButtonId = -1;
+    private static int catapultAimDownButtonId = -1;
+    private static int catapultAimLeftButtonId = -1;
+    private static int catapultAimRightButtonId = -1;
     private static final Map<Player, Long> mainDoorAttackReadyAt =
             new IdentityHashMap<Player, Long>();
     private static final MainDoorState saradominMainDoor = new MainDoorState(
@@ -157,6 +173,7 @@ public final class CastleWarsEngineeringManager {
         resetSideDoors();
         saradominCatapultReadyAt = 0L;
         zamorakCatapultReadyAt = 0L;
+        catapultAims.clear();
         mainDoorAttackReadyAt.clear();
     }
 
@@ -171,6 +188,7 @@ public final class CastleWarsEngineeringManager {
         setCatapultOperational(CastleWarsManager.Team.ZAMORAK, true);
         resetMainDoors();
         resetSideDoors();
+        catapultAims.clear();
         mainDoorAttackReadyAt.clear();
     }
 
@@ -293,24 +311,167 @@ public final class CastleWarsEngineeringManager {
         if (team == null) {
             return false;
         }
-        if (objectId == SARADOMIN_CATAPULT_ID && team != CastleWarsManager.Team.SARADOMIN
-                || objectId == ZAMORAK_CATAPULT_ID && team != CastleWarsManager.Team.ZAMORAK) {
+        if ((objectId == SARADOMIN_CATAPULT_ID && team != CastleWarsManager.Team.SARADOMIN)
+                || (objectId == ZAMORAK_CATAPULT_ID && team != CastleWarsManager.Team.ZAMORAK)) {
             player.getPacketSender().sendGameMessage("Your team can't use this catapult.");
             return true;
         }
         if (objectId != SARADOMIN_CATAPULT_ID && objectId != ZAMORAK_CATAPULT_ID) {
             return false;
         }
-        if (!fireCatapult(player)) {
-            if (player.getInventoryManager().getItemAmount(ROCK_ITEM_ID) <= 0) {
-                player.getPacketSender().sendGameMessage("You need a rock to fire the catapult.");
+        if (!isCatapultOperational(team) || isCatapultBurning(team)) {
+            player.getPacketSender().sendGameMessage("The catapult isn't ready to use.");
+            return true;
+        }
+        if (player.getInventoryManager().getItemAmount(ROCK_ITEM_ID) <= 0) {
+            player.getPacketSender().sendGameMessage("You need a rock to fire the catapult.");
+            return true;
+        }
+        Position catapult = getCatapultPosition(team);
+        if (player.getPosition().getPlane() != 0
+                || GameUtil.getDistance(player.getPosition(), catapult) > 3) {
+            return true;
+        }
+
+        CatapultAim aim = new CatapultAim(team);
+        catapultAims.put(player, aim);
+        player.getPacketSender().showInterface(CATAPULT_INTERFACE_ID);
+        refreshCatapultAimInterface(player, aim);
+        return true;
+    }
+
+    public static boolean handleCatapultButton(Player player, int buttonId) {
+        InterfaceDefinition definition = InterfaceDefinition.forId(buttonId);
+        if (definition == null || definition.getParentInterfaceId() != CATAPULT_INTERFACE_ID) {
+            return false;
+        }
+
+        if (buttonId == CATAPULT_CLOSE_BUTTON_ID) {
+            catapultAims.remove(player);
+            player.getPacketSender().closeInterfaces();
+            return true;
+        }
+
+        CatapultAim aim = catapultAims.get(player);
+        CastleWarsManager.Team team = CastleWarsManager.getGameTeam(player);
+        if (aim == null || team == null || aim.team != team) {
+            player.getPacketSender().closeInterfaces();
+            return true;
+        }
+
+        Position catapult = getCatapultPosition(team);
+        if (player.getPosition().getPlane() != 0
+                || GameUtil.getDistance(player.getPosition(), catapult) > 3) {
+            catapultAims.remove(player);
+            player.getPacketSender().closeInterfaces();
+            return true;
+        }
+
+        if (buttonId == CATAPULT_FIRE_BUTTON_ID) {
+            Position selectedTarget = resolveCatapultAimTarget(team, aim.x, aim.y);
+            Position impactTarget = scatterCatapultTarget(selectedTarget);
+            if (!fireCatapultAt(player, impactTarget)) {
+                if (player.getInventoryManager().getItemAmount(ROCK_ITEM_ID) <= 0) {
+                    player.getPacketSender().sendGameMessage("You need a rock to fire the catapult.");
+                } else {
+                    player.getPacketSender().sendGameMessage("The catapult isn't ready to fire yet.");
+                }
             } else {
-                player.getPacketSender().sendGameMessage("The catapult isn't ready to fire yet.");
+                player.getPacketSender().sendGameMessage("You fire the catapult!");
             }
-        } else {
-            player.getPacketSender().sendGameMessage("You fire the catapult!");
+            return true;
+        }
+
+        resolveCatapultAimButtons();
+        boolean changed = false;
+        if (buttonId == catapultAimUpButtonId && aim.x < CATAPULT_MAX_AIM) {
+            ++aim.x;
+            changed = true;
+        } else if (buttonId == catapultAimDownButtonId && aim.x > 0) {
+            --aim.x;
+            changed = true;
+        } else if (buttonId == catapultAimLeftButtonId && aim.y > 0) {
+            --aim.y;
+            changed = true;
+        } else if (buttonId == catapultAimRightButtonId && aim.y < CATAPULT_MAX_AIM) {
+            ++aim.y;
+            changed = true;
+        }
+        if (changed) {
+            refreshCatapultAimInterface(player, aim);
         }
         return true;
+    }
+
+    private static void refreshCatapultAimInterface(Player player, CatapultAim aim) {
+        player.getPacketSender().sendInterfaceText(twoDigitAimValue(aim.x), CATAPULT_AIM_X_TEXT_ID);
+        player.getPacketSender().sendInterfaceText(twoDigitAimValue(aim.y), CATAPULT_AIM_Y_TEXT_ID);
+    }
+
+    private static String twoDigitAimValue(int value) {
+        return value < 10 ? "0" + value : Integer.toString(value);
+    }
+
+    private static void resolveCatapultAimButtons() {
+        if (catapultAimUpButtonId >= 0 && catapultAimDownButtonId >= 0
+                && catapultAimLeftButtonId >= 0 && catapultAimRightButtonId >= 0) {
+            return;
+        }
+
+        ArrayList<InterfaceDefinition> controls = new ArrayList<InterfaceDefinition>();
+        for (int interfaceId = 0; interfaceId < InterfaceDefinition.interfaceCount; ++interfaceId) {
+            InterfaceDefinition definition = InterfaceDefinition.forId(interfaceId);
+            if (definition == null
+                    || definition.getParentInterfaceId() != CATAPULT_INTERFACE_ID
+                    || definition.getActionType() == 0
+                    || interfaceId == CATAPULT_CLOSE_BUTTON_ID
+                    || interfaceId == CATAPULT_FIRE_BUTTON_ID
+                    || definition.getParentChildX() == Integer.MIN_VALUE
+                    || definition.getParentChildY() == Integer.MIN_VALUE) {
+                continue;
+            }
+            controls.add(definition);
+        }
+        if (controls.size() != 4) {
+            return;
+        }
+
+        InterfaceDefinition up = controls.get(0);
+        InterfaceDefinition down = controls.get(1);
+        for (int i = 0; i < controls.size(); ++i) {
+            InterfaceDefinition candidate = controls.get(i);
+            if (candidate.getParentChildY() < up.getParentChildY()) {
+                down = up;
+                up = candidate;
+            } else if (candidate != up && candidate.getParentChildY() < down.getParentChildY()) {
+                down = candidate;
+            }
+        }
+
+        ArrayList<InterfaceDefinition> horizontal = new ArrayList<InterfaceDefinition>();
+        for (int i = 0; i < controls.size(); ++i) {
+            InterfaceDefinition control = controls.get(i);
+            if (control != up && control != down) {
+                horizontal.add(control);
+            }
+        }
+        if (up.getParentChildY() > down.getParentChildY()) {
+            InterfaceDefinition swap = up;
+            up = down;
+            down = swap;
+        }
+        InterfaceDefinition left = horizontal.get(0);
+        InterfaceDefinition right = horizontal.get(1);
+        if (left.getParentChildX() > right.getParentChildX()) {
+            InterfaceDefinition swap = left;
+            left = right;
+            right = swap;
+        }
+
+        catapultAimUpButtonId = up.getInterfaceId();
+        catapultAimDownButtonId = down.getInterfaceId();
+        catapultAimLeftButtonId = left.getInterfaceId();
+        catapultAimRightButtonId = right.getInterfaceId();
     }
 
     public static boolean handleSideDoor(Player player, int objectId, int objectX, int objectY) {
@@ -1040,16 +1201,26 @@ public final class CastleWarsEngineeringManager {
 
     public static boolean fireCatapult(Player player) {
         CastleWarsManager.Team team = CastleWarsManager.getGameTeam(player);
-        if (team == null || player.getInventoryManager().getItemAmount(ROCK_ITEM_ID) <= 0) {
+        if (team == null) {
+            return false;
+        }
+        Position target = chooseCatapultTarget(team);
+        return target != null && fireCatapultAt(player, target);
+    }
+
+    private static boolean fireCatapultAt(Player player, Position target) {
+        CastleWarsManager.Team team = CastleWarsManager.getGameTeam(player);
+        if (team == null || target == null
+                || player.getInventoryManager().getItemAmount(ROCK_ITEM_ID) <= 0) {
             return false;
         }
         if (!isCatapultOperational(team) || isCatapultBurning(team)) {
             return false;
         }
 
-        Position catapult = team == CastleWarsManager.Team.SARADOMIN
-                ? SARADOMIN_CATAPULT : ZAMORAK_CATAPULT;
-        if (GameUtil.getDistance(player.getPosition(), catapult) > 3 || player.getPosition().getPlane() != 0) {
+        Position catapult = getCatapultPosition(team);
+        if (GameUtil.getDistance(player.getPosition(), catapult) > 3
+                || player.getPosition().getPlane() != 0) {
             return false;
         }
 
@@ -1060,12 +1231,9 @@ public final class CastleWarsEngineeringManager {
             return false;
         }
 
-        Position target = chooseCatapultTarget(team);
-        if (target == null) {
+        if (!player.getInventoryManager().removeItem(new ItemStack(ROCK_ITEM_ID, 1))) {
             return false;
         }
-
-        player.getInventoryManager().removeItem(new ItemStack(ROCK_ITEM_ID, 1));
         if (team == CastleWarsManager.Team.SARADOMIN) {
             saradominCatapultReadyAt = now + 12000L;
         } else {
@@ -1075,6 +1243,24 @@ public final class CastleWarsEngineeringManager {
                 target.getX(), target.getY(), 0, 0);
         damageCatapultArea(target);
         return true;
+    }
+
+    private static Position resolveCatapultAimTarget(CastleWarsManager.Team team,
+                                                      int aimX, int aimY) {
+        int xDistance = (aimX + CATAPULT_AIM_SCALE - 1) / CATAPULT_AIM_SCALE;
+        int yDistance = (aimY + CATAPULT_AIM_SCALE - 1) / CATAPULT_AIM_SCALE;
+        if (team == CastleWarsManager.Team.SARADOMIN) {
+            return new Position(SARADOMIN_CATAPULT.getX() - 1 - xDistance,
+                    SARADOMIN_CATAPULT.getY() + 1 + yDistance, 0);
+        }
+        return new Position(ZAMORAK_CATAPULT.getX() + 1 + xDistance,
+                ZAMORAK_CATAPULT.getY() - 1 - yDistance, 0);
+    }
+
+    private static Position scatterCatapultTarget(Position selectedTarget) {
+        int spread = CATAPULT_MISS_RADIUS * 2 + 1;
+        return new Position(selectedTarget.getX() - CATAPULT_MISS_RADIUS + GameUtil.randomInt(spread),
+                selectedTarget.getY() - CATAPULT_MISS_RADIUS + GameUtil.randomInt(spread), 0);
     }
 
     public static boolean igniteEnemyCatapult(Player player, int objectId) {
@@ -1400,6 +1586,16 @@ public final class CastleWarsEngineeringManager {
 
     private static String key(Position position) {
         return position.getX() + ":" + position.getY() + ":" + position.getPlane();
+    }
+
+    private static final class CatapultAim {
+        private final CastleWarsManager.Team team;
+        private int x;
+        private int y;
+
+        private CatapultAim(CastleWarsManager.Team team) {
+            this.team = team;
+        }
     }
 
     private static final class SideDoorState {

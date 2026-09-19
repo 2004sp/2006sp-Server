@@ -9,14 +9,45 @@ import com.rs2.net.packet.PacketReader;
 public final class InterfaceDefinition {
     public static int interfaceCount = 0;
     private static InterfaceDefinition[] definitionsById;
-    private int parentInterfaceId;
+    private static int[] childXById;
+    private static int[] childYById;
+    private final int interfaceId;
+    private final int widgetType;
+    private final int actionType;
+    private final int parentInterfaceId;
 
-    private InterfaceDefinition(int value3, byte value4, int parentInterfaceId, boolean enabled2) {
+    private InterfaceDefinition(int interfaceId, int widgetType, int actionType,
+                                int parentInterfaceId, boolean enabled2) {
+        this.interfaceId = interfaceId;
+        this.widgetType = widgetType;
+        this.actionType = actionType;
         this.parentInterfaceId = parentInterfaceId;
+    }
+
+    public final int getInterfaceId() {
+        return this.interfaceId;
     }
 
     public final int getParentInterfaceId() {
         return this.parentInterfaceId;
+    }
+
+    public final int getWidgetType() {
+        return this.widgetType;
+    }
+
+    public final int getActionType() {
+        return this.actionType;
+    }
+
+    public final int getParentChildX() {
+        return childXById == null || interfaceId < 0 || interfaceId >= childXById.length
+                ? Integer.MIN_VALUE : childXById[interfaceId];
+    }
+
+    public final int getParentChildY() {
+        return childYById == null || interfaceId < 0 || interfaceId >= childYById.length
+                ? Integer.MIN_VALUE : childYById[interfaceId];
     }
 
     public static InterfaceDefinition forId(int value2) {
@@ -32,6 +63,12 @@ public final class InterfaceDefinition {
             instance = PacketBuffer.wrapReader(((CacheArchive)instance).getFileBuffer("data"));
             interfaceCount = ((PacketReader)instance).readSignedShort();
             definitionsById = new InterfaceDefinition[interfaceCount];
+            childXById = new int[interfaceCount];
+            childYById = new int[interfaceCount];
+            for (int interfaceId = 0; interfaceId < interfaceCount; ++interfaceId) {
+                childXById[interfaceId] = Integer.MIN_VALUE;
+                childYById[interfaceId] = Integer.MIN_VALUE;
+            }
             int initialValue = -1;
             while (((PacketReader)instance).getBuffer().hasRemaining()) {
                 int value = ((PacketReader)instance).readSignedShort();
@@ -50,7 +87,8 @@ public final class InterfaceDefinition {
                 int value6 = ((PacketReader)instance).readSignedByte();
                 int value7 = value4 = value4 == 512 && value5 == 334 ? 1 : 0;
                 if (value < interfaceCount && value > 0) {
-                    InterfaceDefinition.definitionsById[value] = new InterfaceDefinition(value, (byte)value2, initialValue, value4 != 0);
+                    InterfaceDefinition.definitionsById[value] =
+                            new InterfaceDefinition(value, value2, value3, initialValue, value4 != 0);
                 }
                 if (value6 != 0) {
                     ((PacketReader)instance).readSignedByte();
@@ -70,7 +108,17 @@ public final class InterfaceDefinition {
                     ((PacketReader)instance).readSignedShort();
                     ((PacketReader)instance).readSignedByte();
                     value = ((PacketReader)instance).readSignedShort();
-                    ((PacketReader)instance).readBytes(value * 6);
+                    int childIndex = 0;
+                    while (childIndex < value) {
+                        int childId = ((PacketReader)instance).readSignedShort();
+                        int childX = ((PacketReader)instance).readSignedShort();
+                        int childY = ((PacketReader)instance).readSignedShort();
+                        if (childId >= 0 && childId < interfaceCount) {
+                            childXById[childId] = childX;
+                            childYById[childId] = childY;
+                        }
+                        ++childIndex;
+                    }
                 }
                 if (value2 == 1) {
                     ((PacketReader)instance).readBytes(3);
