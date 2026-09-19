@@ -1814,11 +1814,17 @@ implements PacketHandler {
         int x = packetReader.readSignedShort(ByteOrder.LITTLE);
         int spellButtonId = packetReader.readSignedShort(ByteTransform.ADD);
         SpellDefinition spellDefinition = (SpellDefinition)((Object)player.getSpellbook().getSpellByButtonId().get(spellButtonId));
+        Position itemPosition = new Position(x, y, player.getPosition().getPlane());
+        GroundItem groundItem = GroundItemManager.findVisibleItem(player, itemId, itemPosition);
+        if (CastleWarsManager.isDroppedFlagGroundItem(groundItem)) {
+            player.getPacketSender().sendGameMessage("You cannot use Telekinetic Grab on a Castle Wars flag.");
+            return;
+        }
         if (player.getQuestManager().handleGroundItemInteraction(itemId)) {
             return;
         }
         if (spellDefinition != null) {
-            MagicSpellAction.scheduleTelekineticGrab(player, spellDefinition, itemId, new Position(x, y, player.getPosition().getPlane()));
+            MagicSpellAction.scheduleTelekineticGrab(player, spellDefinition, itemId, itemPosition);
             return;
         }
         if (player.getPlayerRights() > 1 && ServerSettings.debugModeEnabled) {
