@@ -5,6 +5,7 @@ import com.rs2.model.World;
 import com.rs2.model.item.ItemStack;
 import com.rs2.model.player.Player;
 import com.rs2.util.GameUtil;
+import com.rs2.util.path.WalkingCollisionMap;
 
 import java.util.IdentityHashMap;
 import java.util.Iterator;
@@ -162,6 +163,27 @@ public final class CastleWarsManager {
     public static Team getWaitingTeam(Player player) {
         cleanupWaitingPlayers();
         return waitingPlayers.get(player);
+    }
+
+    public static void spreadWaitingPlayer(Player player) {
+        Team team = waitingPlayers.get(player);
+        if (team == null) {
+            return;
+        }
+
+        Position center = team == Team.SARADOMIN ? SARADOMIN_WAITING_ROOM : ZAMORAK_WAITING_ROOM;
+        for (int attempt = 0; attempt < 40; ++attempt) {
+            int x = center.getX() - 9 + GameUtil.randomInt(19);
+            int y = center.getY() - 9 + GameUtil.randomInt(19);
+            if (WalkingCollisionMap.getTileFlags(x, y, center.getPlane()) != 0) {
+                continue;
+            }
+            if (isOccupiedWaitingTile(x, y, center.getPlane(), player)) {
+                continue;
+            }
+            player.moveTo(new Position(x, y, center.getPlane()));
+            return;
+        }
     }
 
     public static Team getGameTeam(Player player) {
@@ -426,6 +448,20 @@ public final class CastleWarsManager {
         return position.getPlane() == center.getPlane()
                 && Math.abs(position.getX() - center.getX()) <= 16
                 && Math.abs(position.getY() - center.getY()) <= 16;
+    }
+
+    private static boolean isOccupiedWaitingTile(int x, int y, int plane, Player ignoredPlayer) {
+        Player[] players = World.getPlayers();
+        for (Player player : players) {
+            if (player == null || player == ignoredPlayer) {
+                continue;
+            }
+            Position position = player.getPosition();
+            if (position.getX() == x && position.getY() == y && position.getPlane() == plane) {
+                return true;
+            }
+        }
+        return false;
     }
 
     private static void updateWaitingRoomInterfaces(long now) {
