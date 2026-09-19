@@ -442,6 +442,24 @@ public final class CastleWarsEngineeringManager {
                 ? saradominCatapultOperational : zamorakCatapultOperational;
     }
 
+    public static boolean repairOwnCatapult(Player player) {
+        CastleWarsManager.Team team = CastleWarsManager.getGameTeam(player);
+        if (team == null || isCatapultOperational(team)
+                || player.getInventoryManager().getItemAmount(TOOLKIT_ID) <= 0) {
+            return false;
+        }
+        Position target = team == CastleWarsManager.Team.SARADOMIN
+                ? SARADOMIN_CATAPULT : ZAMORAK_CATAPULT;
+        if (player.getPosition().getPlane() != 0
+                || GameUtil.getDistance(player.getPosition(), target) > 3) {
+            return false;
+        }
+        player.getUpdateState().setAnimation(898);
+        setCatapultOperational(team, true);
+        player.getPacketSender().sendGameMessage("You repair your team's catapult.");
+        return true;
+    }
+
     public static boolean isHomeTunnelCollapsed(CastleWarsManager.Team team, int route) {
         if (team == CastleWarsManager.Team.SARADOMIN) {
             return rockslideCollapsed[route == 0 ? 3 : 2];
