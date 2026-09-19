@@ -359,6 +359,9 @@ public final class CastleWarsEngineeringManager {
         Position position = ROCKSLIDE_POSITIONS[index];
         DynamicObject existing = ObjectManager.findDynamicObjectAt(
                 position.getX(), position.getY(), position.getPlane());
+        if (rockslideCollapsed[index] == collapsed && existing == null) {
+            return;
+        }
         if (existing != null) {
             ObjectManager.getInstance().removeDynamicObjectAt(
                     position.getX(), position.getY(), position.getPlane(), 10);
