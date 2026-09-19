@@ -35,11 +35,6 @@ public final class ShopManager {
             40, 60, 60, 80, 50,
             400, 600, 600, 800, 500
     };
-    private static final int[] CASTLE_WARS_REWARD_STOCK = new int[]{
-            100, 100, 100, 100, 100,
-            50, 50, 50, 50, 50,
-            25, 25, 25, 25, 25
-    };
     private static int castleWarsRewardShopId = -1;
 
     public static void refreshShopForPlayers(int value2) {
@@ -649,50 +644,9 @@ public final class ShopManager {
         return -1;
     }
 
-    private static void registerCastleWarsRewardShop() {
-        if (castleWarsRewardShopId >= 0) {
-            return;
-        }
-
-        ShopDefinition shopDefinition = new ShopDefinition();
-        ItemContainer originalStock = new ItemContainer(ItemContainerType.b, 40);
-        ItemContainer stock = new ItemContainer(ItemContainerType.b, 40);
-        ShopDefinition.setRestockDelayTicks(shopDefinition, new int[40]);
-        ShopDefinition.setRestockTasks(shopDefinition, new TickTask[40]);
-
-        int index = 0;
-        while (index < 40) {
-            ShopDefinition.getRestockDelayTicks(shopDefinition)[index] = 100;
-            ++index;
-        }
-
-        index = 0;
-        while (index < CASTLE_WARS_REWARD_ITEM_IDS.length) {
-            ItemStack originalItem = new ItemStack(
-                    CASTLE_WARS_REWARD_ITEM_IDS[index], CASTLE_WARS_REWARD_STOCK[index]);
-            originalStock.add(originalItem, -1);
-            stock.add(new ItemStack(
-                    CASTLE_WARS_REWARD_ITEM_IDS[index], CASTLE_WARS_REWARD_STOCK[index]), -1);
-            ++index;
-        }
-
-        shopDefinition.setGeneralStore(false);
-        shopDefinition.setOriginalStock(originalStock);
-        shopDefinition.setStock(stock);
-        shopDefinition.setName("Castle Wars Ticket Exchange");
-        shopDefinition.setMembersOnly(false);
-        shopDefinition.setCurrencyItemId(CASTLE_WARS_TICKET_ID);
-        shopDefinition.setCurrency(ShopCurrency.ITEM_CURRENCY);
-        shopDefinition.setBuyPricePercent(100);
-        shopDefinition.setSellPricePercent(100);
-        shopDefinition.setPriceChangeRateTenths(0);
-        ShopDefinition.setShopId(shopDefinition, shopDefinitions.size());
-        castleWarsRewardShopId = shopDefinition.getShopId();
-        shopDefinitions.add(shopDefinition);
-    }
-
     public static void loadShops() {
         try {
+            castleWarsRewardShopId = -1;
             byte[] byteValues = FileUtil.readBytes("./data/content/Shops.dat");
             ByteArrayReader byteArrayReader = new ByteArrayReader(byteValues);
             int value = byteArrayReader.readUnsignedShort();
@@ -744,10 +698,12 @@ public final class ShopManager {
                 shopDefinition.setSellPricePercent(value4);
                 shopDefinition.setPriceChangeRateTenths(value5);
                 ShopDefinition.setShopId(shopDefinition, index);
+                if ("Castle Wars Ticket Exchange".equals(text) && index2 == CASTLE_WARS_TICKET_ID) {
+                    castleWarsRewardShopId = index;
+                }
                 shopDefinitions.add(shopDefinition);
                 ++index;
             }
-            ShopManager.registerCastleWarsRewardShop();
             return;
         }
         catch (Exception exception) {
