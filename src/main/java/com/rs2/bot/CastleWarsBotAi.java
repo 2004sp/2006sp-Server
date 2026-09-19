@@ -75,10 +75,10 @@ public final class CastleWarsBotAi {
             if (processSightChase(bot, state)) {
                 return;
             }
-            // Flag runners only stop for opponents immediately blocking
-            // their route, but if that opponent ducks behind castle geometry
-            // they use the stairs instead of tracking through the wall.
-            if (tryEngageNearbyOpponent(bot, state, 2)) {
+            // Battlefield rushers keep pushing toward the flag, but fight
+            // opponents they pass instead of ignoring the battle around them.
+            int engageRadius = bot.botPrimaryCombatStyle == 0 ? 5 : 9;
+            if (tryEngageNearbyOpponent(bot, state, engageRadius)) {
                 return;
             }
         }
