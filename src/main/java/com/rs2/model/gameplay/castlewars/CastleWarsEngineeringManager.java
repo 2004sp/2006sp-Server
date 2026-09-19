@@ -1087,6 +1087,37 @@ public final class CastleWarsEngineeringManager {
         return null;
     }
 
+    public static boolean isBattlementWalkwayTile(Position position,
+                                                     CastleWarsManager.Team team) {
+        if (position == null || team == null || position.getPlane() != CLIMBING_ROPE_PLANE
+                || getBattlementTeam(position.getX(), position.getY()) != team) {
+            return false;
+        }
+        if ((WalkingCollisionMap.getTileFlags(position.getX(), position.getY(),
+                position.getPlane()) & 0x1280100) != 0) {
+            return false;
+        }
+
+        // A real wall patrol tile must sit on the inside edge of an actual
+        // battlement object. The old broad castle footprint also included ground
+        // around the outside of the wall, which let guards patrol off the wall.
+        for (int x = position.getX() - 2; x <= position.getX() + 2; ++x) {
+            for (int y = position.getY() - 2; y <= position.getY() + 2; ++y) {
+                if (Math.abs(x - position.getX()) + Math.abs(y - position.getY()) > 2
+                        || getBattlementTeam(x, y) != team) {
+                    continue;
+                }
+                if (SkillActionHelper.isObjectPresent(BATTLEMENT_OBJECT_ID,
+                        x, y, CLIMBING_ROPE_PLANE)
+                        || SkillActionHelper.isObjectPresent(BATTLEMENT_OBJECT_ID_ALT,
+                        x, y, CLIMBING_ROPE_PLANE)) {
+                    return true;
+                }
+            }
+        }
+        return false;
+    }
+
     public static Position findNearestClimbableBattlement(Player player,
                                                            CastleWarsManager.Team targetTeam) {
         if (player == null || targetTeam == null || player.getPosition().getPlane() != 0) {
