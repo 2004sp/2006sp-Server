@@ -30,6 +30,9 @@ public final class CastleWarsEngineeringManager {
     public static final int BARRICADE_ITEM_ID = 4053;
     public static final int CLIMBING_ROPE_ITEM_ID = 4047;
     public static final int BRONZE_PICKAXE_ID = 1265;
+    public static final int TINDERBOX_ITEM_ID = 590;
+    public static final int EMPTY_BUCKET_ITEM_ID = 1925;
+    public static final int BUCKET_OF_WATER_ITEM_ID = 1929;
 
     public static final int BARRICADE_OBJECT_SARADOMIN = 4421;
     public static final int BARRICADE_OBJECT_ZAMORAK = 4422;
@@ -76,6 +79,7 @@ public final class CastleWarsEngineeringManager {
     private static final int CLIMBING_ROPE_LIFETIME_TICKS = 100;
     private static final int CLIMBING_ROPE_PLANE = 0;
     private static final int CLIMBING_ROPE_DESTINATION_PLANE = 1;
+    private static final long BARRICADE_BURN_DURATION_MILLIS = 20L * 1000L;
 
     private static final Position[] ROCKSLIDE_POSITIONS = new Position[]{
         new Position(2391, 9501, 0),
@@ -196,6 +200,16 @@ public final class CastleWarsEngineeringManager {
         if (itemId == CLIMBING_ROPE_ITEM_ID
                 && (objectId == BATTLEMENT_OBJECT_ID || objectId == BATTLEMENT_OBJECT_ID_ALT)) {
             return attachClimbingRope(player, objectId, objectX, objectY, objectPlane);
+        }
+
+        if (objectId == BARRICADE_OBJECT_SARADOMIN || objectId == BARRICADE_OBJECT_ZAMORAK) {
+            Position barricadePosition = new Position(objectX, objectY, objectPlane);
+            if (itemId == TINDERBOX_ITEM_ID) {
+                return igniteBarricade(player, barricadePosition);
+            }
+            if (itemId == BUCKET_OF_WATER_ITEM_ID) {
+                return extinguishBarricade(player, barricadePosition);
+            }
         }
 
         if (itemId == EXPLOSIVE_POTION_ID) {
@@ -778,6 +792,49 @@ public final class CastleWarsEngineeringManager {
         return best == null ? null : best.copy();
     }
 
+    public static boolean igniteBarricade(Player player, Position position) {
+        if (player.getInventoryManager().getItemAmount(TINDERBOX_ITEM_ID) <= 0 || position == null) {
+            return false;
+        }
+        BarricadeState state = barricades.get(key(position));
+        if (state == null || GameUtil.getDistance(player.getPosition(), state.position) > 2) {
+            return false;
+        }
+        if (state.burning) {
+            player.getPacketSender().sendGameMessage("The barricade is already on fire.");
+            return true;
+        }
+
+        state.burning = true;
+        state.burnExpiresAt = System.currentTimeMillis() + BARRICADE_BURN_DURATION_MILLIS;
+        player.getUpdateState().setAnimation(733);
+        player.getPacketSender().sendGameMessage("You set fire to the barricade.");
+        return true;
+    }
+
+    public static boolean extinguishBarricade(Player player, Position position) {
+        if (player.getInventoryManager().getItemAmount(BUCKET_OF_WATER_ITEM_ID) <= 0 || position == null) {
+            return false;
+        }
+        BarricadeState state = barricades.get(key(position));
+        if (state == null || GameUtil.getDistance(player.getPosition(), state.position) > 2) {
+            return false;
+        }
+        if (!state.burning) {
+            player.getPacketSender().sendGameMessage("The barricade isn't on fire.");
+            return true;
+        }
+
+        if (!player.getInventoryManager().removeItem(new ItemStack(BUCKET_OF_WATER_ITEM_ID, 1))) {
+            return false;
+        }
+        player.getInventoryManager().addItem(new ItemStack(EMPTY_BUCKET_ITEM_ID, 1));
+        state.burning = false;
+        state.burnExpiresAt = 0L;
+        player.getPacketSender().sendGameMessage("You extinguish the barricade.");
+        return true;
+    }
+
     public static boolean destroyBarricadeWithExplosive(Player player, Position position) {
         if (player.getInventoryManager().getItemAmount(EXPLOSIVE_POTION_ID) <= 0 || position == null) {
             return false;
@@ -786,11 +843,30 @@ public final class CastleWarsEngineeringManager {
         if (state == null || GameUtil.getDistance(player.getPosition(), state.position) > 2) {
             return false;
         }
+        if (state.burning) {
+            player.getPacketSender().sendGameMessage("The burning barricade resists the explosive potion.");
+            return true;
+        }
         player.getInventoryManager().removeItem(new ItemStack(EXPLOSIVE_POTION_ID, 1));
         removeBarricade(state);
         player.getPacketSender().sendStillGraphicToNearbyPlayers(176,
                 position.getX(), position.getY(), position.getPlane(), 0);
         return true;
+    }
+
+    public static void processBarricadeFires(long now) {
+        if (barricades.isEmpty()) {
+            return;
+        }
+        ArrayList<BarricadeState> burnedOut = new ArrayList<BarricadeState>();
+        for (BarricadeState state : barricades.values()) {
+            if (state.burning && state.burnExpiresAt > 0L && now >= state.burnExpiresAt) {
+                burnedOut.add(state);
+            }
+        }
+        for (BarricadeState state : burnedOut) {
+            removeBarricade(state);
+        }
     }
 
     public static int getBarricadeCount(CastleWarsManager.Team team) {
@@ -1251,6 +1327,8 @@ public final class CastleWarsEngineeringManager {
         private final CastleWarsManager.Team team;
         private final Position position;
         private final int objectId;
+        private boolean burning;
+        private long burnExpiresAt;
 
         private BarricadeState(CastleWarsManager.Team team, Position position, int objectId) {
             this.team = team;
