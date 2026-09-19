@@ -14,32 +14,6 @@ public final class MinigameBotManager {
     private static final Set<BotPlayer> spreadWaitingBots =
         Collections.newSetFromMap(new IdentityHashMap<BotPlayer, Boolean>());
 
-    private static final String[] WAITING_CHAT = new String[]{
-        "gl all",
-        "how long left",
-        "ready",
-        "lets go",
-        "good luck",
-        "rush mid",
-        "def flag",
-        "who got flag",
-        "lol",
-        "nice"
-    };
-
-    private static final String[] GAME_CHAT = new String[]{
-        "rush mid",
-        "get the flag",
-        "def base",
-        "nice one",
-        "incoming",
-        "help mid",
-        "push",
-        "lol",
-        "gf",
-        "go go go"
-    };
-
     private MinigameBotManager() {
     }
 
@@ -90,12 +64,11 @@ public final class MinigameBotManager {
 
         CastleWarsManager.Team team = CastleWarsManager.getTeam(botPlayer);
         if (GameUtil.randomInt(5) == 0 && team != null) {
-            botPlayer.queuePublicChatMessage(team == CastleWarsManager.Team.SARADOMIN ? "sara ftw" : "zammy ftw");
+            CastleWarsBotChat.sayTeam(botPlayer, team);
             return;
         }
 
-        String[] chat = CastleWarsManager.isInGame(botPlayer) ? GAME_CHAT : WAITING_CHAT;
-        botPlayer.queuePublicChatMessage(chat[GameUtil.randomInt(chat.length)]);
+        CastleWarsBotChat.sayContextual(botPlayer);
     }
 
     public static boolean joinCastleWars(BotPlayer botPlayer) {
