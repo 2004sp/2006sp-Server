@@ -393,11 +393,20 @@ public final class CastleWarsBotRoleAi {
 
         CastleWarsManager.Team ownFlagTeam = state.team;
         Player enemyHolder = CastleWarsManager.getFlagHolder(ownFlagTeam);
-        if (enemyHolder != null && !enemyHolder.isDead()
-                && enemyHolder.getPosition().getPlane() == bot.getPosition().getPlane()
-                && GameUtil.getDistance(bot.getPosition(), enemyHolder.getPosition()) <= 15) {
-            CombatManager.startCombat(bot, enemyHolder);
-            return;
+        if (enemyHolder != null && !enemyHolder.isDead()) {
+            boolean crossLevelHolder =
+                    CastleWarsManager.canBotTargetAcrossCastleLevels(bot, enemyHolder);
+            int holderDistance = GameUtil.getDistance(bot.getPosition(), enemyHolder.getPosition());
+            boolean holderOnReachableLevel =
+                    enemyHolder.getPosition().getPlane() == bot.getPosition().getPlane()
+                    || crossLevelHolder;
+            boolean holderInRange = crossLevelHolder
+                    ? holderDistance <= CastleWarsManager.getBotCastleWallEngageRange(bot)
+                    : holderDistance <= 15;
+            if (holderOnReachableLevel && holderInRange) {
+                CombatManager.startCombat(bot, enemyHolder);
+                return;
+            }
         }
 
         Position flag = state.team == CastleWarsManager.Team.SARADOMIN
@@ -818,8 +827,19 @@ public final class CastleWarsBotRoleAi {
             return false;
         }
         Player targetPlayer = (Player)target;
-        if (!CastleWarsManager.areOpponents(bot, targetPlayer)
-                || targetPlayer.getPosition().getPlane() != bot.getPosition().getPlane()) {
+        if (!CastleWarsManager.areOpponents(bot, targetPlayer)) {
+            CombatManager.stopCombat(bot);
+            return false;
+        }
+        boolean crossLevelTarget =
+                CastleWarsManager.canBotTargetAcrossCastleLevels(bot, targetPlayer);
+        if (targetPlayer.getPosition().getPlane() != bot.getPosition().getPlane()
+                && !crossLevelTarget) {
+            CombatManager.stopCombat(bot);
+            return false;
+        }
+        if (crossLevelTarget
+                && !bot.isWithinReach(targetPlayer, bot.getAttackRange())) {
             CombatManager.stopCombat(bot);
             return false;
         }
@@ -840,11 +860,20 @@ public final class CastleWarsBotRoleAi {
         int bestDistance = Integer.MAX_VALUE;
         for (Player player : World.getPlayers()) {
             if (player == null || player == bot || player.isDead()
-                    || !CastleWarsManager.areOpponents(bot, player)
-                    || player.getPosition().getPlane() != bot.getPosition().getPlane()) {
+                    || !CastleWarsManager.areOpponents(bot, player)) {
+                continue;
+            }
+            boolean crossLevelTarget =
+                    CastleWarsManager.canBotTargetAcrossCastleLevels(bot, player);
+            if (player.getPosition().getPlane() != bot.getPosition().getPlane()
+                    && !crossLevelTarget) {
                 continue;
             }
             int distance = GameUtil.getDistance(bot.getPosition(), player.getPosition());
+            if (crossLevelTarget
+                    && distance > CastleWarsManager.getBotCastleWallEngageRange(bot)) {
+                continue;
+            }
             if (distance <= radius && distance < bestDistance) {
                 best = player;
                 bestDistance = distance;
