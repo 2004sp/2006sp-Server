@@ -1060,8 +1060,9 @@ public final class CastleWarsEngineeringManager {
         }
 
         Position battlementPosition = new Position(objectX, objectY, objectPlane);
-        int orientation = SkillActionHelper.getObjectOrientation(
+        int battlementOrientation = SkillActionHelper.getObjectOrientation(
                 battlementId, objectX, objectY, objectPlane);
+        int orientation = (battlementOrientation + 2) & 3;
 
         player.getInventoryManager().removeItem(new ItemStack(CLIMBING_ROPE_ITEM_ID, 1));
         new DynamicObject(CLIMBING_ROPE_OBJECT_ID,
