@@ -42,6 +42,19 @@ public final class DatabaseService {
         return instance;
     }
 
+    public final void shutdown() {
+        if (this.executor != null) {
+            this.executor.shutdownNow();
+        }
+    }
+
+    public static synchronized void shutdownInstance() {
+        if (instance != null) {
+            instance.shutdown();
+            instance = null;
+        }
+    }
+
     public static void setInstance(DatabaseService databaseService) {
         instance = databaseService;
     }
