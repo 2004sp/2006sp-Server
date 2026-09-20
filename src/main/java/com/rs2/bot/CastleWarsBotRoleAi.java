@@ -975,20 +975,20 @@ public final class CastleWarsBotRoleAi {
             return;
         }
 
-        if (state.team == CastleWarsManager.Team.SARADOMIN) {
-            Position ladder = new Position(2430, 3082, 0);
-            if (!near(bot, ladder, 1)) {
-                walk(bot, state, ladder);
-                return;
-            }
-            CastleWarsManager.handleFirstObjectAction(bot, 4912, 2430, 3082);
-        } else {
-            Position ladder = new Position(2369, 3125, 0);
-            if (!near(bot, ladder, 1)) {
-                walk(bot, state, ladder);
-                return;
-            }
-            CastleWarsManager.handleFirstObjectAction(bot, 4912, 2369, 3125);
+        // Stand on the exact staircase interaction square before clicking the
+        // tunnel entrance. Using near(..., 1) let bots activate the stairs from
+        // diagonal tiles, which looked like a teleport into the tunnel.
+        Position approach = state.team == CastleWarsManager.Team.SARADOMIN
+                ? new Position(2430, 3081, 0)
+                : new Position(2369, 3126, 0);
+        if (!reachInteractionApproach(bot, state, approach)) {
+            return;
+        }
+
+        int objectX = state.team == CastleWarsManager.Team.SARADOMIN ? 2430 : 2369;
+        int objectY = state.team == CastleWarsManager.Team.SARADOMIN ? 3082 : 3125;
+        if (CastleWarsManager.handleFirstObjectAction(bot, 4912, objectX, objectY)) {
+            state.repathDelay = 0;
         }
     }
 
@@ -1004,7 +1004,6 @@ public final class CastleWarsBotRoleAi {
 
         int[] rocks = undergroundRockRoute(state.team, state.routeVariant, returningHome);
         Position center = undergroundCenter(state.routeVariant);
-        Position exit = undergroundExit(state.team, returningHome);
 
         if (state.pendingCollapseRock >= 0) {
             Position previous = CastleWarsEngineeringManager.getRockslidePosition(state.pendingCollapseRock);
@@ -1046,17 +1045,26 @@ public final class CastleWarsBotRoleAi {
             return;
         }
 
-        if (!near(bot, exit, 2)) {
-            walk(bot, state, exit);
+        CastleWarsManager.Team destinationTeam =
+                returningHome ? state.team : opposite(state.team);
+        Position exitApproach = destinationTeam == CastleWarsManager.Team.SARADOMIN
+                ? new Position(2430, 9483, 0)
+                : new Position(2369, 9524, 0);
+        if (!reachInteractionApproach(bot, state, exitApproach)) {
             return;
         }
 
-        if (exit.getX() == 2430 && exit.getY() == 9482) {
-            CastleWarsManager.handleFirstObjectAction(bot, 1757, 2430, 9482);
-        } else {
-            CastleWarsManager.handleFirstObjectAction(bot, 1757, 2369, 9525);
+        int exitX = destinationTeam == CastleWarsManager.Team.SARADOMIN ? 2430 : 2369;
+        int exitY = destinationTeam == CastleWarsManager.Team.SARADOMIN ? 9482 : 9525;
+        if (!CastleWarsManager.handleFirstObjectAction(bot, 1757, exitX, exitY)) {
+            return;
         }
 
+        // The staircase action moves the bot back to the surface immediately.
+        // Only advance the route after that transition has actually happened.
+        if (bot.getPosition().getY() >= 9400) {
+            return;
+        }
         state.undergroundStage = 0;
         state.pendingCollapseRock = -1;
         state.repathDelay = 0;
@@ -1089,18 +1097,22 @@ public final class CastleWarsBotRoleAi {
         }
 
         CastleWarsManager.Team enemy = opposite(state.team);
-        Position ladder = enemy == CastleWarsManager.Team.SARADOMIN
-                ? new Position(2430, 3082, 0)
-                : new Position(2369, 3125, 0);
-        if (!near(bot, ladder, 1)) {
-            walk(bot, state, ladder);
+        Position approach = enemy == CastleWarsManager.Team.SARADOMIN
+                ? new Position(2430, 3081, 0)
+                : new Position(2369, 3126, 0);
+        if (!reachInteractionApproach(bot, state, approach)) {
             return;
         }
-        if (enemy == CastleWarsManager.Team.SARADOMIN) {
-            CastleWarsManager.handleFirstObjectAction(bot, 4912, 2430, 3082);
-        } else {
-            CastleWarsManager.handleFirstObjectAction(bot, 4912, 2369, 3125);
+
+        int objectX = enemy == CastleWarsManager.Team.SARADOMIN ? 2430 : 2369;
+        int objectY = enemy == CastleWarsManager.Team.SARADOMIN ? 3082 : 3125;
+        if (!CastleWarsManager.handleFirstObjectAction(bot, 4912, objectX, objectY)) {
+            return;
         }
+        if (bot.getPosition().getY() < 9400) {
+            return;
+        }
+
         state.undergroundStage = 0;
         state.phase = Phase.UNDERGROUND_BACK;
         state.repathDelay = 0;
@@ -1222,13 +1234,6 @@ public final class CastleWarsBotRoleAi {
         return routeVariant == 0
                 ? new Position(2398, 9499, 0)
                 : new Position(2400, 9508, 0);
-    }
-
-    private static Position undergroundExit(CastleWarsManager.Team team, boolean returningHome) {
-        CastleWarsManager.Team destination = returningHome ? team : opposite(team);
-        return destination == CastleWarsManager.Team.SARADOMIN
-                ? new Position(2430, 9482, 0)
-                : new Position(2369, 9525, 0);
     }
 
     private static boolean isTraversalPhase(Phase phase) {
