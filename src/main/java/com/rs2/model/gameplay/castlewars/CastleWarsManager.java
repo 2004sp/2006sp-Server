@@ -285,6 +285,10 @@ public final class CastleWarsManager {
         if (CastleWarsEngineeringManager.handleSupplyTable(player, objectId)) {
             return true;
         }
+        if (CastleWarsEngineeringManager.handleRockslideObjectAction(
+                player, objectId, objectX, objectY)) {
+            return true;
+        }
         if (CastleWarsEngineeringManager.handleClimbingRope(player, objectId, objectX, objectY)) {
             return true;
         }
@@ -2107,12 +2111,12 @@ public final class CastleWarsManager {
         if (objectId == 4912 && plane == 0) {
             if (objectX == 2430 && objectY == 3082) {
                 player.getUpdateState().setAnimation(827);
-                player.moveTo(new Position(2430, 9482, 0));
+                player.moveTo(new Position(2430, 9483, 0));
                 return true;
             }
             if (objectX == 2369 && objectY == 3125) {
                 player.getUpdateState().setAnimation(827);
-                player.moveTo(new Position(2369, 9525, 0));
+                player.moveTo(new Position(2369, 9524, 0));
                 return true;
             }
         }
