@@ -62,9 +62,10 @@ public final class CastleWarsManager {
     public static final int CASTLE_WARS_TICKET_ID = 4067;
     public static final int LANTHUS_NPC_ID = 1526;
 
-    private static final int GUTHIX_SHEEP_TRANSFORMATION_ID = 5726;
-    private static final int SARADOMIN_RABBIT_TRANSFORMATION_ID = 5727;
-    private static final int ZAMORAK_IMP_TRANSFORMATION_ID = 5728;
+    // Cache 377 Castle Wars waiting-room transformation NPCs.
+    private static final int GUTHIX_SHEEP_TRANSFORMATION_ID = 1529;
+    private static final int SARADOMIN_RABBIT_TRANSFORMATION_ID = 1530;
+    private static final int ZAMORAK_IMP_TRANSFORMATION_ID = 1531;
     private static final int HOLY_SYMBOL_ID = 1718;
     private static final int UNHOLY_SYMBOL_ID = 1724;
 
