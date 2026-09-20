@@ -16,6 +16,7 @@ import com.rs2.model.item.ItemDefinition;
 import com.rs2.model.item.ItemService;
 import com.rs2.model.item.ItemStack;
 import com.rs2.model.item.consumable.PotionHandler;
+import com.rs2.model.item.consumable.PotionDefinition;
 import com.rs2.model.player.GrandExchangeManager;
 import com.rs2.model.player.InventoryManager;
 import com.rs2.model.player.Player;
@@ -404,12 +405,17 @@ public final class BotCombatHelper {
             ItemStack itemStack = itemStackArray[index2];
             ++index;
             if (itemStack != null && player.getPotionHandler().selectPotionForItemId(itemStack.getId())) {
-                while (0 < PotionHandler.definitions[player.getPotionHandler().selectedDefinitionIndex].getSkillIds().length) {
-                    if (PotionHandler.definitions[player.getPotionHandler().selectedDefinitionIndex].getSkillIds()[0] == 2) {
-                        player.getPotionHandler().drinkPotion(itemStack.getId(), index - 1);
-                        return true;
+                PotionDefinition definition = PotionHandler.definitions[player.getPotionHandler().selectedDefinitionIndex];
+                int[] skillIds = definition == null ? null : definition.getSkillIds();
+                if (skillIds != null) {
+                    int skillIndex = 0;
+                    while (skillIndex < skillIds.length) {
+                        if (skillIds[skillIndex] == 2) {
+                            player.getPotionHandler().drinkPotion(itemStack.getId(), index - 1);
+                            return true;
+                        }
+                        ++skillIndex;
                     }
-                    ++index;
                 }
             }
             ++index2;
