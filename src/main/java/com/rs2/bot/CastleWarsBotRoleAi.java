@@ -84,6 +84,15 @@ public final class CastleWarsBotRoleAi {
             return true;
         }
 
+        // Melee underground bots are the tunnel clearers. If the next rockslide
+        // on their active route is collapsed, clearing it takes priority over
+        // ordinary combat so the rest of the team does not bunch up behind it.
+        if (state.role == Role.UNDERGROUND
+                && bot.botPrimaryCombatStyle == 0
+                && prioritizeMeleeRockClearing(bot, state)) {
+            return true;
+        }
+
         // Underground raiders should use the tunnel hazards against opponents,
         // not simply run through each other. Give a safe rock-collapse attempt
         // priority over normal combat when an enemy is standing in the crush zone.
@@ -1001,6 +1010,63 @@ public final class CastleWarsBotRoleAi {
         }
     }
 
+    private static boolean prioritizeMeleeRockClearing(BotPlayer bot, RoleState state) {
+        if (!isUndergroundTunnel(bot)) {
+            return false;
+        }
+
+        boolean returningHome;
+        if (state.phase == Phase.UNDERGROUND_OUT) {
+            returningHome = false;
+        } else if (state.phase == Phase.UNDERGROUND_BACK) {
+            returningHome = true;
+        } else {
+            return false;
+        }
+
+        int[] rocks = undergroundRockRoute(state.team, state.routeVariant, returningHome);
+        int rockIndex;
+        if (state.undergroundStage == 0) {
+            rockIndex = rocks[0];
+        } else if (state.undergroundStage == 2) {
+            rockIndex = rocks[1];
+        } else {
+            return false;
+        }
+
+        if (!CastleWarsEngineeringManager.isRockslideCollapsed(rockIndex)) {
+            return false;
+        }
+
+        Position rock = CastleWarsEngineeringManager.getRockslidePosition(rockIndex);
+        if (rock == null) {
+            return false;
+        }
+
+        // Clearing the route is more important than taking an ordinary tunnel fight.
+        if (bot.getCombatTarget() != null) {
+            CombatManager.stopCombat(bot);
+        }
+        state.sightChaseTarget = null;
+        state.sightChaseTicks = 0;
+
+        if (!near(bot, rock, 3)) {
+            walk(bot, state, rock);
+            return true;
+        }
+
+        if (CastleWarsEngineeringManager.clearRockslideWithPickaxe(bot, rockIndex)) {
+            state.delayTicks = 2;
+            state.repathDelay = 0;
+            CastleWarsBotChat.sayUnderground(bot);
+            return true;
+        }
+
+        // This should be rare because underground bots stock a bronze pickaxe,
+        // but do not deadlock the route if the tool has somehow disappeared.
+        return false;
+    }
+
     private static boolean tryCollapseRockslideOnOpponent(BotPlayer bot, RoleState state) {
         if (!isUndergroundTunnel(bot)
                 || bot.getInventoryManager().getItemAmount(
@@ -1174,7 +1240,10 @@ public final class CastleWarsBotRoleAi {
             return false;
         }
         if (CastleWarsEngineeringManager.isRockslideCollapsed(rockIndex)) {
-            if (!CastleWarsEngineeringManager.clearRockslide(bot, rockIndex)) {
+            boolean cleared = bot.botPrimaryCombatStyle == 0
+                    ? CastleWarsEngineeringManager.clearRockslideWithPickaxe(bot, rockIndex)
+                    : CastleWarsEngineeringManager.clearRockslide(bot, rockIndex);
+            if (!cleared) {
                 return false;
             }
             state.delayTicks = 2;
