@@ -1146,7 +1146,8 @@ public final class CastleWarsBotRoleAi {
     }
 
     private static boolean processOwnDroppedFlagRecovery(BotPlayer bot, RoleState state) {
-        if (CastleWarsManager.isCarryingFlag(bot)
+        if (isTraversalPhase(state.phase)
+                || CastleWarsManager.isCarryingFlag(bot)
                 || CastleWarsManager.isInTeamSpawnArea(bot, state.team)) {
             return false;
         }
@@ -1206,7 +1207,8 @@ public final class CastleWarsBotRoleAi {
     }
 
     private static boolean processFlagCarrierFocus(BotPlayer bot, RoleState state) {
-        if (CastleWarsManager.isCarryingFlag(bot)
+        if (isTraversalPhase(state.phase)
+                || CastleWarsManager.isCarryingFlag(bot)
                 || CastleWarsManager.isInTeamSpawnArea(bot, state.team)) {
             return false;
         }
