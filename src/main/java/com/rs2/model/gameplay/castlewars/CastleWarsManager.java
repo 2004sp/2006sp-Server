@@ -2283,6 +2283,12 @@ public final class CastleWarsManager {
     private static void applyWaitingRoomGodTransformation(Player player, int portalId) {
         int transformationId = -1;
         if (portalId == SARADOMIN_PORTAL_ID) {
+            // A Holy symbol explicitly declares Saradomin allegiance and must
+            // prevent the Saradomin waiting-room disguise even if other god
+            // equipment is also present.
+            if (hasItemAnywhere(player, HOLY_SYMBOL_ID)) {
+                return;
+            }
             if (hasGodEquipment(player, God.GUTHIX) || hasGodEquipment(player, God.ZAMORAK)) {
                 transformationId = SARADOMIN_RABBIT_TRANSFORMATION_ID;
             }
@@ -2291,6 +2297,11 @@ public final class CastleWarsManager {
                 transformationId = GUTHIX_SHEEP_TRANSFORMATION_ID;
             }
         } else if (portalId == ZAMORAK_PORTAL_ID) {
+            // Likewise, an Unholy symbol explicitly exempts a Zamorak entrant
+            // from the Zamorak waiting-room disguise.
+            if (hasItemAnywhere(player, UNHOLY_SYMBOL_ID)) {
+                return;
+            }
             if (hasGodEquipment(player, God.SARADOMIN) || hasGodEquipment(player, God.GUTHIX)) {
                 transformationId = ZAMORAK_IMP_TRANSFORMATION_ID;
             }
@@ -2298,8 +2309,29 @@ public final class CastleWarsManager {
 
         if (transformationId > 0) {
             player.npcTransformationId = transformationId;
+            // Clear any animation that was already active before the morph.
+            player.getUpdateState().setAnimation(-1);
             player.setAppearanceUpdateRequired(true);
         }
+    }
+
+    private static boolean hasItemAnywhere(Player player, int itemId) {
+        if (player == null) {
+            return false;
+        }
+        ItemStack[] equipment = player.getEquipmentManager().getContainer().getItems();
+        for (ItemStack item : equipment) {
+            if (item != null && item.getId() == itemId) {
+                return true;
+            }
+        }
+        ItemStack[] inventory = player.getInventoryManager().getContainer().getItems();
+        for (ItemStack item : inventory) {
+            if (item != null && item.getId() == itemId) {
+                return true;
+            }
+        }
+        return false;
     }
 
     private static boolean hasGodEquipment(Player player, God god) {
@@ -2345,14 +2377,18 @@ public final class CastleWarsManager {
         return false;
     }
 
-    private static void clearWaitingRoomGodTransformation(Player player) {
+    public static boolean isWaitingRoomGodTransformation(Player player) {
         if (player == null) {
-            return;
+            return false;
         }
         int transformationId = player.npcTransformationId;
-        if (transformationId != GUTHIX_SHEEP_TRANSFORMATION_ID
-                && transformationId != SARADOMIN_RABBIT_TRANSFORMATION_ID
-                && transformationId != ZAMORAK_IMP_TRANSFORMATION_ID) {
+        return transformationId == GUTHIX_SHEEP_TRANSFORMATION_ID
+                || transformationId == SARADOMIN_RABBIT_TRANSFORMATION_ID
+                || transformationId == ZAMORAK_IMP_TRANSFORMATION_ID;
+    }
+
+    private static void clearWaitingRoomGodTransformation(Player player) {
+        if (!isWaitingRoomGodTransformation(player)) {
             return;
         }
         player.npcTransformationId = -1;
