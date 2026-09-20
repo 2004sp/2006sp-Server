@@ -106,12 +106,7 @@ public final class CastleWarsEngineeringManager {
     private static final long CATAPULT_BURN_DURATION_MILLIS = 20L * 1000L;
     private static final int BUCKET_RESPAWN_DELAY_TICKS = (int) GameUtil.secondsToTicks(30L);
 
-    private static final Position[] BUCKET_SPAWN_POSITIONS = new Position[]{
-        new Position(2424, 3074, 0),
-        new Position(2425, 3074, 0),
-        new Position(2375, 3132, 0),
-        new Position(2376, 3132, 0)
-    };
+    private static final Position[] BUCKET_SPAWN_POSITIONS = new Position[0];
 
     private static final Position[] ROCKSLIDE_POSITIONS = new Position[]{
         new Position(2391, 9501, 0),
