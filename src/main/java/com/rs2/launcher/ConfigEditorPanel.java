@@ -86,7 +86,7 @@ public final class ConfigEditorPanel extends JPanel {
             clientConfigFile,
             new HashSet<String>(),
             false,
-            "Client config changes take effect on the next client launch."
+            "Client config changes take effect after Reload Userconfig or the next client launch."
         );
         sourceTabs.addTab("Client", this.clientPanel);
 
