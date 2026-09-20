@@ -93,10 +93,10 @@ public final class CastleWarsEngineeringManager {
     private static final int SIDE_DOOR_LEVEL_NINETY_NINE_THRESHOLD = 256;
     private static final long GAME_TICK_MILLIS = 600L;
     private static final int CLIMBING_ROPE_LIFETIME_TICKS = 100;
-    // Object 4444 is a normal scenery model. Spawning it as a wall-decoration
-    // type leaves the model invisible in this cache; type 10 renders the rope
-    // without replacing the type-0 battlement underneath it.
-    private static final int CLIMBING_ROPE_OBJECT_TYPE = 10;
+    // The Castle Wars rope is attached to the battlement as a wall decoration.
+    // The client contains a cache-model fallback for object 4444 so the native
+    // rope model still renders if this legacy cache advertises a different type.
+    private static final int CLIMBING_ROPE_OBJECT_TYPE = 4;
     private static final int CLIMBING_ROPE_PLANE = 0;
     private static final int CLIMBING_ROPE_DESTINATION_PLANE = 0;
     private static final long BARRICADE_BURN_DURATION_MILLIS = 20L * 1000L;
@@ -1060,23 +1060,16 @@ public final class CastleWarsEngineeringManager {
         }
 
         Position battlementPosition = new Position(objectX, objectY, objectPlane);
-        Position ropeObjectPosition = findClimbingRopeObjectPosition(
-                player, battlementPosition, targetTeam);
-        if (ropeObjectPosition == null) {
-            player.getPacketSender().sendGameMessage("You cannot attach a rope to this part of the wall.");
-            return true;
-        }
-
         int orientation = SkillActionHelper.getObjectOrientation(
                 battlementId, objectX, objectY, objectPlane);
 
         player.getInventoryManager().removeItem(new ItemStack(CLIMBING_ROPE_ITEM_ID, 1));
         new DynamicObject(CLIMBING_ROPE_OBJECT_ID,
-                ropeObjectPosition.getX(), ropeObjectPosition.getY(), ropeObjectPosition.getPlane(),
+                objectX, objectY, objectPlane,
                 orientation, CLIMBING_ROPE_OBJECT_TYPE, ServerSettings.placeholderObjectId,
                 CLIMBING_ROPE_LIFETIME_TICKS, false);
         climbingRopes.put(key(battlementPosition),
-                new ClimbingRopeState(battlementPosition, ropeObjectPosition, destination));
+                new ClimbingRopeState(battlementPosition, battlementPosition, destination));
         player.getPacketSender().sendGameMessage("You attach the climbing rope to the battlements.");
         return true;
     }
@@ -1108,38 +1101,6 @@ public final class CastleWarsEngineeringManager {
             return null;
         }
         return rope;
-    }
-
-    private static Position findClimbingRopeObjectPosition(Player player,
-                                                            Position battlement,
-                                                            CastleWarsManager.Team targetTeam) {
-        int[][] offsets = new int[][]{
-                {-1, 0}, {1, 0}, {0, -1}, {0, 1}
-        };
-        Position best = null;
-        int bestDistance = Integer.MAX_VALUE;
-
-        for (int[] offset : offsets) {
-            Position candidate = new Position(
-                    battlement.getX() + offset[0],
-                    battlement.getY() + offset[1],
-                    battlement.getPlane());
-            if (getBattlementTeam(candidate.getX(), candidate.getY()) == targetTeam
-                    || ObjectManager.findDynamicObjectAt(
-                    candidate.getX(), candidate.getY(), candidate.getPlane()) != null) {
-                continue;
-            }
-            int distance = GameUtil.getDistance(player.getPosition(), candidate);
-            if (distance < bestDistance) {
-                bestDistance = distance;
-                best = candidate;
-            }
-        }
-
-        // Some corner battlements do not have a cardinal tile outside the broad
-        // castle footprint. In that case use the wall tile rather than failing
-        // the interaction entirely.
-        return best == null ? battlement.copy() : best;
     }
 
     private static Position findClimbingRopeDestination(int objectX, int objectY) {
