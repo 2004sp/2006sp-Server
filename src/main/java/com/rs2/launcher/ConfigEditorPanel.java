@@ -121,8 +121,8 @@ public final class ConfigEditorPanel extends JPanel {
         }
 
         File[] candidates = new File[]{
-            new File("../2006sp client/runtime/userConfig.cfg"),
-            new File("../2006sp client/userConfig.cfg"),
+            new File("../2006sp-Client/runtime/userConfig.cfg"),
+            new File("../2006sp-Client/userConfig.cfg"),
             new File("runtime/userConfig.cfg"),
             new File("userConfig.cfg")
         };
