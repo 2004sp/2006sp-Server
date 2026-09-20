@@ -84,7 +84,11 @@ public final class CastleWarsEngineeringManager {
     private static final int CATAPULT_CLOSE_BUTTON_ID = 11259;
     private static final int CATAPULT_AIM_X_TEXT_ID = 11301;
     private static final int CATAPULT_AIM_Y_TEXT_ID = 11302;
-    private static final int CATAPULT_FIRE_BUTTON_ID = 11328;
+    private static final int CATAPULT_AIM_UP_BUTTON_ID = 11321;
+    private static final int CATAPULT_AIM_DOWN_BUTTON_ID = 11322;
+    private static final int CATAPULT_AIM_RIGHT_BUTTON_ID = 11323;
+    private static final int CATAPULT_AIM_LEFT_BUTTON_ID = 11324;
+    private static final int CATAPULT_FIRE_BUTTON_ID = 11329;
     private static final int CATAPULT_MAX_AIM = 30;
     private static final int CATAPULT_AIM_SCALE = 2;
     private static final int CATAPULT_MISS_RADIUS = 1;
@@ -134,10 +138,10 @@ public final class CastleWarsEngineeringManager {
             new IdentityHashMap<Player, Long>();
     private static final Map<Player, CatapultAim> catapultAims =
             new IdentityHashMap<Player, CatapultAim>();
-    private static int catapultAimUpButtonId = -1;
-    private static int catapultAimDownButtonId = -1;
-    private static int catapultAimLeftButtonId = -1;
-    private static int catapultAimRightButtonId = -1;
+    private static int catapultAimUpButtonId = CATAPULT_AIM_UP_BUTTON_ID;
+    private static int catapultAimDownButtonId = CATAPULT_AIM_DOWN_BUTTON_ID;
+    private static int catapultAimLeftButtonId = CATAPULT_AIM_LEFT_BUTTON_ID;
+    private static int catapultAimRightButtonId = CATAPULT_AIM_RIGHT_BUTTON_ID;
     private static final Map<Player, Long> mainDoorAttackReadyAt =
             new IdentityHashMap<Player, Long>();
     private static final MainDoorState saradominMainDoor = new MainDoorState(
@@ -487,8 +491,13 @@ public final class CastleWarsEngineeringManager {
     }
 
     private static void resolveCatapultAimButtons() {
-        if (catapultAimUpButtonId >= 0 && catapultAimDownButtonId >= 0
-                && catapultAimLeftButtonId >= 0 && catapultAimRightButtonId >= 0) {
+        // Native cache-377 Castle Wars catapult controls.
+        // These are fixed IDs; keep the old discovery code below only as a
+        // fallback if a compatible client changes them at runtime.
+        if (catapultAimUpButtonId == CATAPULT_AIM_UP_BUTTON_ID
+                && catapultAimDownButtonId == CATAPULT_AIM_DOWN_BUTTON_ID
+                && catapultAimLeftButtonId == CATAPULT_AIM_LEFT_BUTTON_ID
+                && catapultAimRightButtonId == CATAPULT_AIM_RIGHT_BUTTON_ID) {
             return;
         }
 
