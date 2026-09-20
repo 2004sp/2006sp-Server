@@ -45,7 +45,9 @@ public final class CastleWarsEngineeringManager {
     public static final int BARRICADE_OBJECT_SARADOMIN = 4421;
     public static final int BARRICADE_OBJECT_ZAMORAK = 4422;
     public static final int COLLAPSED_ROCK_OBJECT_ID = 4437;
+    public static final int PARTIAL_ROCK_OBJECT_ID = 4438;
     public static final int CLEARED_ROCK_OBJECT_ID = 4439;
+    public static final int CAVE_WALL_OBJECT_ID = 4448;
     public static final int CLIMBING_ROPE_OBJECT_ID = 4444;
     public static final int BATTLEMENT_OBJECT_ID = 4446;
     public static final int BATTLEMENT_OBJECT_ID_ALT = 4447;
@@ -280,10 +282,13 @@ public final class CastleWarsEngineeringManager {
                 return destroyBarricadeWithExplosive(player,
                         new Position(objectX, objectY, objectPlane));
             }
-            int rockIndex = findRockslideIndex(objectX, objectY);
-            if ((objectId == COLLAPSED_ROCK_OBJECT_ID || objectId == CLEARED_ROCK_OBJECT_ID)
-                    && rockIndex >= 0) {
-                return useRockslideExplosive(player, rockIndex);
+            int rockIndex = findRockslideIndexForObject(objectId, objectX, objectY);
+            if (rockIndex >= 0 && (objectId == CAVE_WALL_OBJECT_ID
+                    || objectId == COLLAPSED_ROCK_OBJECT_ID
+                    || objectId == PARTIAL_ROCK_OBJECT_ID
+                    || objectId == CLEARED_ROCK_OBJECT_ID)) {
+                return useRockslideExplosive(player, rockIndex,
+                        objectId == CAVE_WALL_OBJECT_ID);
             }
             if (objectId == SARADOMIN_CATAPULT_ID || objectId == ZAMORAK_CATAPULT_ID
                     || objectId == SARADOMIN_BURNING_CATAPULT_ID
@@ -293,9 +298,13 @@ public final class CastleWarsEngineeringManager {
         }
 
         if (isPickaxeItemId(itemId)) {
-            int rockIndex = findRockslideIndex(objectX, objectY);
-            if (rockIndex >= 0) {
-                return useRockslidePickaxe(player, rockIndex, itemId);
+            int rockIndex = findRockslideIndexForObject(objectId, objectX, objectY);
+            if (rockIndex >= 0 && (objectId == CAVE_WALL_OBJECT_ID
+                    || objectId == COLLAPSED_ROCK_OBJECT_ID
+                    || objectId == PARTIAL_ROCK_OBJECT_ID
+                    || objectId == CLEARED_ROCK_OBJECT_ID)) {
+                return useRockslidePickaxe(player, rockIndex, itemId,
+                        objectId == CAVE_WALL_OBJECT_ID);
             }
         }
 
@@ -447,41 +456,57 @@ public final class CastleWarsEngineeringManager {
             }
             controls.add(definition);
         }
-        if (controls.size() != 4) {
+        if (controls.size() < 4) {
             return;
         }
 
-        InterfaceDefinition up = controls.get(0);
-        InterfaceDefinition down = controls.get(1);
-        for (int i = 0; i < controls.size(); ++i) {
-            InterfaceDefinition candidate = controls.get(i);
-            if (candidate.getParentChildY() < up.getParentChildY()) {
-                down = up;
-                up = candidate;
-            } else if (candidate != up && candidate.getParentChildY() < down.getParentChildY()) {
-                down = candidate;
+        // This cache has extra clickable children in the catapult panel, so do
+        // not require exactly four controls. The vertical arrows are the two
+        // right-most clickable children; the horizontal arrows are the two
+        // lowest remaining children.
+        InterfaceDefinition verticalOne = null;
+        InterfaceDefinition verticalTwo = null;
+        for (InterfaceDefinition candidate : controls) {
+            if (verticalOne == null
+                    || candidate.getParentChildX() > verticalOne.getParentChildX()) {
+                verticalTwo = verticalOne;
+                verticalOne = candidate;
+            } else if (verticalTwo == null
+                    || candidate.getParentChildX() > verticalTwo.getParentChildX()) {
+                verticalTwo = candidate;
             }
+        }
+        if (verticalOne == null || verticalTwo == null) {
+            return;
         }
 
-        ArrayList<InterfaceDefinition> horizontal = new ArrayList<InterfaceDefinition>();
-        for (int i = 0; i < controls.size(); ++i) {
-            InterfaceDefinition control = controls.get(i);
-            if (control != up && control != down) {
-                horizontal.add(control);
+        InterfaceDefinition up = verticalOne.getParentChildY() < verticalTwo.getParentChildY()
+                ? verticalOne : verticalTwo;
+        InterfaceDefinition down = up == verticalOne ? verticalTwo : verticalOne;
+
+        InterfaceDefinition horizontalOne = null;
+        InterfaceDefinition horizontalTwo = null;
+        for (InterfaceDefinition candidate : controls) {
+            if (candidate == up || candidate == down) {
+                continue;
+            }
+            if (horizontalOne == null
+                    || candidate.getParentChildY() > horizontalOne.getParentChildY()) {
+                horizontalTwo = horizontalOne;
+                horizontalOne = candidate;
+            } else if (horizontalTwo == null
+                    || candidate.getParentChildY() > horizontalTwo.getParentChildY()) {
+                horizontalTwo = candidate;
             }
         }
-        if (up.getParentChildY() > down.getParentChildY()) {
-            InterfaceDefinition swap = up;
-            up = down;
-            down = swap;
+        if (horizontalOne == null || horizontalTwo == null) {
+            return;
         }
-        InterfaceDefinition left = horizontal.get(0);
-        InterfaceDefinition right = horizontal.get(1);
-        if (left.getParentChildX() > right.getParentChildX()) {
-            InterfaceDefinition swap = left;
-            left = right;
-            right = swap;
-        }
+
+        InterfaceDefinition left =
+                horizontalOne.getParentChildX() < horizontalTwo.getParentChildX()
+                ? horizontalOne : horizontalTwo;
+        InterfaceDefinition right = left == horizontalOne ? horizontalTwo : horizontalOne;
 
         catapultAimUpButtonId = up.getInterfaceId();
         catapultAimDownButtonId = down.getInterfaceId();
@@ -1599,7 +1624,8 @@ public final class CastleWarsEngineeringManager {
         return true;
     }
 
-    private static boolean useRockslideExplosive(Player player, int index) {
+    private static boolean useRockslideExplosive(Player player, int index,
+                                                   boolean collapse) {
         if (index < 0 || index >= ROCKSLIDE_POSITIONS.length) {
             return false;
         }
@@ -1608,15 +1634,28 @@ public final class CastleWarsEngineeringManager {
                 || player.getInventoryManager().getItemAmount(EXPLOSIVE_POTION_ID) <= 0) {
             return false;
         }
+        if (rockslideCollapsed[index] == collapse) {
+            player.getPacketSender().sendGameMessage(collapse
+                    ? "This passage is already collapsed."
+                    : "These rocks have already been cleared.");
+            return true;
+        }
 
         player.getInventoryManager().removeItem(new ItemStack(EXPLOSIVE_POTION_ID, 1));
         player.getPacketSender().sendStillGraphicToNearbyPlayers(
                 176, position.getX(), position.getY(), 0, 0);
-        toggleRockslide(player, index, position);
+        setRockslideState(index, collapse);
+        if (collapse) {
+            crushPlayersAtRockslide(position);
+            player.getPacketSender().sendGameMessage("You collapse the tunnel.");
+        } else {
+            player.getPacketSender().sendGameMessage("You clear the fallen rocks.");
+        }
         return true;
     }
 
-    private static boolean useRockslidePickaxe(Player player, int index, int itemId) {
+    private static boolean useRockslidePickaxe(Player player, int index, int itemId,
+                                                boolean collapse) {
         if (index < 0 || index >= ROCKSLIDE_POSITIONS.length) {
             return false;
         }
@@ -1628,7 +1667,8 @@ public final class CastleWarsEngineeringManager {
         if (GameUtil.getDistance(player.getPosition(), position) > 4) {
             return false;
         }
-        if (player.getInventoryManager().getItemAmount(itemId) <= 0) {
+        if (player.getInventoryManager().getItemAmount(itemId) <= 0
+                && (player.getEquipmentManager().getContainer().getItemAmount(itemId) <= 0)) {
             return true;
         }
         if (player.getSkillManager().getCurrentLevels()[14] < pickaxe.getRequiredLevel()) {
@@ -1637,11 +1677,49 @@ public final class CastleWarsEngineeringManager {
                     + " to use this pickaxe.");
             return true;
         }
+        if (rockslideCollapsed[index] == collapse) {
+            player.getPacketSender().sendGameMessage(collapse
+                    ? "This passage is already collapsed."
+                    : "These rocks have already been cleared.");
+            return true;
+        }
 
-        player.getPacketSender().sendGameMessage("You attempt to mine the rocks...");
+        player.getPacketSender().sendGameMessage(collapse
+                ? "You attempt to collapse the passage..."
+                : "You attempt to mine the rocks...");
         player.getUpdateState().setAnimation(pickaxe.getGatherAnimationId());
-        toggleRockslide(player, index, position);
+        setRockslideState(index, collapse);
+        if (collapse) {
+            crushPlayersAtRockslide(position);
+            player.getPacketSender().sendGameMessage("You collapse the tunnel.");
+        } else {
+            player.getPacketSender().sendGameMessage("You clear the fallen rocks.");
+        }
         return true;
+    }
+
+    public static boolean handleRockslideObjectAction(Player player, int objectId,
+                                                       int objectX, int objectY) {
+        if (player == null || !CastleWarsManager.isInGame(player)
+                || (objectId != CAVE_WALL_OBJECT_ID
+                && objectId != COLLAPSED_ROCK_OBJECT_ID
+                && objectId != PARTIAL_ROCK_OBJECT_ID)) {
+            return false;
+        }
+        int index = findRockslideIndexForObject(objectId, objectX, objectY);
+        if (index < 0) {
+            return false;
+        }
+
+        GatheringToolDefinition pickaxe =
+                ItemCombinationHandler.findUsableGatheringTool(player, 14);
+        if (pickaxe == null) {
+            player.getPacketSender().sendGameMessage(
+                    "You do not have a pickaxe that you can use.");
+            return true;
+        }
+        return useRockslidePickaxe(player, index, pickaxe.getToolItemId(),
+                objectId == CAVE_WALL_OBJECT_ID);
     }
 
     private static void toggleRockslide(Player player, int index, Position position) {
@@ -1674,6 +1752,31 @@ public final class CastleWarsEngineeringManager {
             if (position.getX() == x && position.getY() == y) {
                 return i;
             }
+        }
+        return -1;
+    }
+
+    private static int findRockslideIndexForObject(int objectId, int x, int y) {
+        int exact = findRockslideIndex(x, y);
+        if (exact >= 0) {
+            return exact;
+        }
+        if (objectId != CAVE_WALL_OBJECT_ID) {
+            return -1;
+        }
+
+        // Cave-wall objects span the 4x4 collapse zones around each rock pile.
+        if (x >= 2390 && x <= 2393 && y >= 9500 && y <= 9503) {
+            return 0;
+        }
+        if (x >= 2399 && x <= 2402 && y >= 9511 && y <= 9514) {
+            return 1;
+        }
+        if (x >= 2408 && x <= 2411 && y >= 9502 && y <= 9505) {
+            return 2;
+        }
+        if (x >= 2400 && x <= 2403 && y >= 9493 && y <= 9496) {
+            return 3;
         }
         return -1;
     }
