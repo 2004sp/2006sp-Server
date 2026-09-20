@@ -66,7 +66,7 @@ public class ItemDefinition {
     private static ItemDefinition createDragonClawsDefinition() {
         int[] bonuses = new int[]{
                 41, 57, -4, 0, 0,
-                0, 0, 0, 0, 0,
+                13, 26, 7, 0, 0,
                 56, 0, 0, 0
         };
         int[] requiredLevels = new int[25];
