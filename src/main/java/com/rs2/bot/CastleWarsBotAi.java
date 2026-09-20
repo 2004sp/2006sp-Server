@@ -751,7 +751,7 @@ public final class CastleWarsBotAi {
     private static Player findFlagCarrierThreat(BotPlayer bot, Player carrier) {
         Player best = null;
         int bestScore = Integer.MAX_VALUE;
-        for (Player player : World.getPlayers()) {
+        for (Player player : CastleWarsManager.getGamePlayersView()) {
             if (player == null || player == bot || player.isDead()
                     || !player.isRegistered() || !CastleWarsManager.areOpponents(bot, player)) {
                 continue;
@@ -872,7 +872,7 @@ public final class CastleWarsBotAi {
         int bestVisibleDistance = Integer.MAX_VALUE;
         int bestHiddenDistance = Integer.MAX_VALUE;
         Map<Player, Integer> teamTargetCounts = getTeamBotTargetCounts(bot);
-        for (Player player : World.getPlayers()) {
+        for (Player player : CastleWarsManager.getGamePlayersView()) {
             if (player == null || player == bot || player.isDead()
                     || !CastleWarsManager.areOpponents(bot, player)) {
                 continue;
@@ -931,7 +931,7 @@ public final class CastleWarsBotAi {
         saradominTargetCounts.clear();
         zamorakTargetCounts.clear();
 
-        for (Player player : World.getPlayers()) {
+        for (Player player : CastleWarsManager.getGamePlayersView()) {
             if (!(player instanceof BotPlayer)) {
                 continue;
             }
