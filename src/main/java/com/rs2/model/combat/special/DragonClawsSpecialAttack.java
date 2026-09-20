@@ -2,7 +2,10 @@ package com.rs2.model.combat.special;
 
 import com.rs2.model.Entity;
 import com.rs2.model.animation.GraphicEffect;
+import com.rs2.model.combat.AttackBonusType;
+import com.rs2.model.combat.AttackStyleDefinition;
 import com.rs2.model.combat.CombatManager;
+import com.rs2.model.combat.CombatType;
 import com.rs2.model.combat.WeaponProfile;
 import com.rs2.model.combat.attack.WeaponCombatAttack;
 import com.rs2.model.combat.hit.HitDefinition;
@@ -101,8 +104,14 @@ extends WeaponCombatAttack {
     }
 
     private boolean rollNormalAccuracy() {
+        // Slice and Dice always rolls against slash defence, even if the
+        // controlled (stab) claw style is selected.
+        AttackStyleDefinition slashStyle = new AttackStyleDefinition(
+                CombatType.MELEE,
+                this.getAttackStyle().getXpMode(),
+                AttackBonusType.SLASH);
         HitDefinition accuracyProbe = new HitDefinition(
-                this.getAttackStyle(), HitType.NORMAL, 0)
+                slashStyle, HitType.NORMAL, 0)
                 .enableAccuracyCheck();
         double attackRoll = CombatManager.calculateAttackRoll(
                 this.getAttacker(), accuracyProbe);
