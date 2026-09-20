@@ -608,7 +608,9 @@ public final class BankManager {
     }
 
     public static void rearrangeBankItem(Player player, int sourceSlot, int targetSlot, int sourceInterfaceId, int targetInterfaceId) {
-        if (targetSlot >= player.getBankContainer().getCapacity() || sourceSlot >= player.getBankContainer().getCapacity()) {
+        if (sourceSlot < 0 || targetSlot < 0
+                || targetSlot >= player.getBankContainer().getCapacity()
+                || sourceSlot >= player.getBankContainer().getCapacity()) {
             return;
         }
         int targetTab = 0;
@@ -641,13 +643,34 @@ public final class BankManager {
             }
         }
         if (moveBetweenTabs) {
+            if (sourceTab < 0 || sourceTab >= player.getBankContainer().getTabLimit()
+                    || targetTab < 0 || targetTab >= player.getBankContainer().getTabLimit()
+                    || sourceTab == targetTab) {
+                return;
+            }
             ItemStack sourceItem = player.getBankContainer().getItemAtTabSlot(sourceSlot, sourceTab);
             if (sourceItem == null) {
                 return;
             }
             ItemStack movedItem = new ItemStack(sourceItem.getId(), sourceItem.getAmount(), sourceItem.getMetadata());
-            player.getBankContainer().removeFromTab(player.getBankContainer().getItemAtTabSlot(sourceSlot, sourceTab), sourceSlot, sourceTab);
-            player.getBankContainer().addToTab(movedItem, targetTab);
+            int removedAmount = player.getBankContainer().removeFromTab(sourceItem, sourceSlot, sourceTab);
+            if (removedAmount != movedItem.getAmount()) {
+                if (removedAmount > 0) {
+                    player.getBankContainer().setTabItem(sourceSlot, movedItem, sourceTab);
+                }
+                return;
+            }
+            boolean addedToTarget = false;
+            try {
+                addedToTarget = player.getBankContainer().addToTab(movedItem, targetTab);
+            } catch (RuntimeException exception) {
+                player.getBankContainer().setTabItem(sourceSlot, movedItem, sourceTab);
+                throw exception;
+            }
+            if (!addedToTarget) {
+                player.getBankContainer().setTabItem(sourceSlot, movedItem, sourceTab);
+                return;
+            }
         } else if (!player.getBankRearrangeMode().equals(BankRearrangeMode.SWAP) && player.getBankRearrangeMode().equals(BankRearrangeMode.INSERT) && targetTab == sourceTab) {
             player.getBankContainer().moveTabItem(sourceSlot, targetSlot, sourceTab);
         } else {

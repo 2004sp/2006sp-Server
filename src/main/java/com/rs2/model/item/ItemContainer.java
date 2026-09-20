@@ -208,8 +208,13 @@ public class ItemContainer {
             return false;
         }
         value3 = this.getFirstFreeTabSlot(value22);
-        if ((itemStack.getDefinition().isStackable() || this.containerType.equals((Object)ItemContainerType.b)) && !this.containerType.equals((Object)ItemContainerType.c) && this.getItemAmount(itemStack.getId()) > 0 && itemStack.getMetadata() == -1) {
-            value3 = this.indexOfItemInTab(itemStack.getId(), value22);
+        if ((itemStack.getDefinition().isStackable() || this.containerType.equals((Object)ItemContainerType.b))
+                && !this.containerType.equals((Object)ItemContainerType.c)
+                && itemStack.getMetadata() == -1) {
+            int existingTargetSlot = this.indexOfItemInTab(itemStack.getId(), value22);
+            if (existingTargetSlot != -1) {
+                value3 = existingTargetSlot;
+            }
         }
         if (value3 == -1) {
             return false;
