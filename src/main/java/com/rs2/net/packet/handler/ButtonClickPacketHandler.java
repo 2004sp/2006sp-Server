@@ -54,6 +54,7 @@ implements PacketHandler {
         // catapult handler validate those controls against its own open state
         // before the generic direct-parent interface guard discards the click.
         if (CastleWarsEngineeringManager.handleCatapultButton(player, buttonId)) return;
+        if (CastleWarsManager.handleCastleWarsManualButton(player, buttonId)) return;
 
         if (!interfaceOpen) {
             if (player.isInteractionDebugEnabled()) {
