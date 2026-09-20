@@ -1033,7 +1033,55 @@ public final class CastleWarsEngineeringManager {
                         leaf.openOrientation, 0, ServerSettings.placeholderObjectId, 999999999);
             }
         }
+
+        // DynamicObject's legacy removal path is not reliable for rotated wall
+        // objects. Normalize both leaves explicitly so opening/breaking the large
+        // Castle Wars gates also clears the original closed-door clipping.
+        applyMainDoorCollisionState(door, mode);
         door.mode = mode;
+    }
+
+    private static void applyMainDoorCollisionState(MainDoorState door, MainDoorMode mode) {
+        for (MainDoorLeaf leaf : door.leaves) {
+            WalkingCollisionMap.removeObjectCollision(
+                    leaf.closedId, leaf.closedX, leaf.closedY, MAIN_DOOR_PLANE,
+                    leaf.closedOrientation, 0);
+            ProjectileCollisionMap.removeObjectCollision(
+                    leaf.closedId, leaf.closedX, leaf.closedY, MAIN_DOOR_PLANE,
+                    leaf.closedOrientation, 0);
+
+            WalkingCollisionMap.removeObjectCollision(
+                    leaf.openId, leaf.openX, leaf.openY, MAIN_DOOR_PLANE,
+                    leaf.openOrientation, 0);
+            ProjectileCollisionMap.removeObjectCollision(
+                    leaf.openId, leaf.openX, leaf.openY, MAIN_DOOR_PLANE,
+                    leaf.openOrientation, 0);
+
+            WalkingCollisionMap.removeObjectCollision(
+                    leaf.brokenId, leaf.openX, leaf.openY, MAIN_DOOR_PLANE,
+                    leaf.openOrientation, 0);
+            ProjectileCollisionMap.removeObjectCollision(
+                    leaf.brokenId, leaf.openX, leaf.openY, MAIN_DOOR_PLANE,
+                    leaf.openOrientation, 0);
+
+            if (mode == MainDoorMode.CLOSED) {
+                WalkingCollisionMap.addObjectCollision(
+                        leaf.closedId, leaf.closedX, leaf.closedY, MAIN_DOOR_PLANE,
+                        leaf.closedOrientation, 0, false);
+                ProjectileCollisionMap.addObjectCollision(
+                        leaf.closedId, leaf.closedX, leaf.closedY, MAIN_DOOR_PLANE,
+                        leaf.closedOrientation, 0, false);
+            } else if (mode == MainDoorMode.OPEN) {
+                WalkingCollisionMap.addObjectCollision(
+                        leaf.openId, leaf.openX, leaf.openY, MAIN_DOOR_PLANE,
+                        leaf.openOrientation, 0, false);
+                ProjectileCollisionMap.addObjectCollision(
+                        leaf.openId, leaf.openX, leaf.openY, MAIN_DOOR_PLANE,
+                        leaf.openOrientation, 0, false);
+            }
+            // Broken gates intentionally add no wall collision so the opening is
+            // fully passable even if the broken-door model itself has clipping.
+        }
     }
 
     private static void removeMainDoorDynamicObject(int x, int y) {
