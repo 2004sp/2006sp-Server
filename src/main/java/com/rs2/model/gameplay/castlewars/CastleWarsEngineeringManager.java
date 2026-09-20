@@ -190,7 +190,6 @@ public final class CastleWarsEngineeringManager {
         resetMainDoors();
         resetSideDoors();
         catapultReadyAt.clear();
-        catapultReadyAt.clear();
         catapultAims.clear();
         mainDoorAttackReadyAt.clear();
     }
@@ -206,6 +205,7 @@ public final class CastleWarsEngineeringManager {
         setCatapultOperational(CastleWarsManager.Team.ZAMORAK, true);
         resetMainDoors();
         resetSideDoors();
+        catapultReadyAt.clear();
         catapultAims.clear();
         mainDoorAttackReadyAt.clear();
     }
