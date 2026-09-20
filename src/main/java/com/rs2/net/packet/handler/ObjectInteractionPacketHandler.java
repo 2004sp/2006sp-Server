@@ -4,6 +4,7 @@ import com.rs2.ServerSettings;
 import com.rs2.cache.InterfaceDefinition;
 import com.rs2.model.EntityTargetMovement;
 import com.rs2.model.Position;
+import com.rs2.model.gameplay.castlewars.CastleWarsEngineeringManager;
 import com.rs2.model.gameplay.castlewars.CastleWarsManager;
 import com.rs2.model.interaction.InteractionDispatcher;
 import com.rs2.model.interaction.InteractionType;
@@ -188,6 +189,17 @@ implements PacketHandler {
             }
             return;
         }
+        Position castleWarsMainDoorApproach =
+                CastleWarsEngineeringManager.getMainDoorInteractionApproach(
+                        player, objectId, objectX, objectY);
+        if (castleWarsMainDoorApproach != null) {
+            PathFinder.getInstance();
+            PathFinder.findPath(player,
+                    castleWarsMainDoorApproach.getX(), castleWarsMainDoorApproach.getY(),
+                    false, 0, 0);
+            return;
+        }
+
         Position castleWarsStairApproach =
                 CastleWarsManager.getStairTraversalApproach(player, objectId, objectX, objectY);
         if (castleWarsStairApproach != null) {
