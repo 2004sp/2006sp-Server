@@ -847,11 +847,26 @@ public final class BotCombatLoadoutManager {
             }
         }
 
-        if (GameUtil.randomInt(2) == 0
-                && ItemDefinition.isDefined(4151)
-                && player.getEquipmentManager().canEquipItem(4151)) {
-            player.botWeaponItemId = 4151;
-            player.getEquipmentManager().getContainer().setItem(3, new ItemStack(player.botWeaponItemId));
+        if (GameUtil.randomInt(2) == 0) {
+            ArrayList<Integer> highTierPrimaryWeapons = new ArrayList<Integer>();
+            if (ItemDefinition.isDefined(4151)
+                    && player.getEquipmentManager().canEquipItem(4151)) {
+                highTierPrimaryWeapons.add(4151);
+            }
+
+            int dragonClawsId = ItemDefinition.findIdByName("Dragon claws");
+            if (dragonClawsId > 0
+                    && ItemDefinition.isDefined(dragonClawsId)
+                    && player.getEquipmentManager().canEquipItem(dragonClawsId)) {
+                highTierPrimaryWeapons.add(dragonClawsId);
+            }
+
+            if (!highTierPrimaryWeapons.isEmpty()) {
+                player.botWeaponItemId =
+                        highTierPrimaryWeapons.get(GameUtil.randomInt(highTierPrimaryWeapons.size()));
+                player.getEquipmentManager().getContainer().setItem(
+                        3, new ItemStack(player.botWeaponItemId));
+            }
         }
 
         int[] highTierSpecials = new int[]{5698, 4153};
