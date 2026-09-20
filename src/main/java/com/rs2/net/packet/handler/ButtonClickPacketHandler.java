@@ -48,6 +48,13 @@ implements PacketHandler {
                 + " interfaceOpen=" + interfaceOpen
                 + " spellbook=" + player.getSpellbook());
         }
+
+        // The native 377 catapult interface contains nested controls whose
+        // immediate parent is not always the root open interface. Let the
+        // catapult handler validate those controls against its own open state
+        // before the generic direct-parent interface guard discards the click.
+        if (CastleWarsEngineeringManager.handleCatapultButton(player, buttonId)) return;
+
         if (!interfaceOpen) {
             return;
         }
@@ -55,7 +62,6 @@ implements PacketHandler {
             System.out.println("button id: " + buttonId);
         }
         if (CastleWarsManager.handleReplacementOfferButton(player, buttonId)) return;
-        if (CastleWarsEngineeringManager.handleCatapultButton(player, buttonId)) return;
         if (player.getDuelSession().handleButtonClick(buttonId) != false) return;
         if (player.getQuestManager().handleButtonClick(buttonId) != false) return;
         if (buttonId >= 18792 && buttonId <= 18812) {
