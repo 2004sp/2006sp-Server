@@ -440,10 +440,9 @@ public final class CastleWarsBotRoleAi {
 
         if (state.defenderPatrolTarget == null
                 || state.defenderPatrolTarget.getPlane() != bot.getPosition().getPlane()
-                || --state.defenderPatrolTicks <= 0
                 || isDefenderPostCrowded(bot, state.defenderPatrolTarget)) {
             state.defenderPatrolTarget = chooseDefenderPatrolTarget(bot, state, flag);
-            state.defenderPatrolTicks = 12 + GameUtil.randomInt(22);
+            state.defenderPatrolTicks = 3 + GameUtil.randomInt(5);
             state.repathDelay = 0;
         }
 
@@ -453,14 +452,24 @@ public final class CastleWarsBotRoleAi {
             return;
         }
 
-        // Once a defender reaches a post, linger briefly before moving to another
-        // section of the wall. This keeps defenders visibly patrolling instead of
-        // converging on the flag tile and standing there for the rest of the game.
+        // Patrol timing starts only after the defender actually reaches its post.
+        // After a short guard pause, choose another post several tiles away so
+        // defenders keep visibly moving around the flag room instead of looking AFK.
         if (state.defenderPatrolTarget != null
-                && near(bot, state.defenderPatrolTarget, 1)
-                && state.defenderPatrolTicks > 6
-                && GameUtil.randomInt(18) == 0) {
-            CastleWarsBotChat.sayDefence(bot);
+                && near(bot, state.defenderPatrolTarget, 1)) {
+            if (--state.defenderPatrolTicks <= 0) {
+                state.defenderPatrolTarget = chooseDefenderPatrolTarget(bot, state, flag);
+                state.defenderPatrolTicks = 3 + GameUtil.randomInt(5);
+                state.repathDelay = 0;
+                if (state.defenderPatrolTarget != null
+                        && !near(bot, state.defenderPatrolTarget, 1)) {
+                    walk(bot, state, state.defenderPatrolTarget);
+                }
+                return;
+            }
+            if (GameUtil.randomInt(18) == 0) {
+                CastleWarsBotChat.sayDefence(bot);
+            }
         }
     }
 
@@ -506,10 +515,17 @@ public final class CastleWarsBotRoleAi {
                     }
                 }
 
-                int movementCost = GameUtil.getDistance(bot.getPosition(), candidate);
+                int movementDistance = GameUtil.getDistance(bot.getPosition(), candidate);
                 int guardBandCost = Math.abs(flagDistance - 6) * 4;
+                // Prefer a meaningful patrol hop rather than selecting the nearest
+                // legal tile over and over. Around six tiles keeps the movement
+                // visible without pulling defenders too far away from their flag.
+                int patrolHopCost = Math.abs(movementDistance - 6) * 3;
+                if (movementDistance < 3) {
+                    patrolHopCost += 18;
+                }
                 int jitter = (int)Math.abs((patrolSalt + x * 31L + y * 17L) % 11L);
-                int score = crowding * 100 + guardBandCost + movementCost + jitter;
+                int score = crowding * 100 + guardBandCost + patrolHopCost + jitter;
                 if (score < bestScore) {
                     bestScore = score;
                     best = candidate;
