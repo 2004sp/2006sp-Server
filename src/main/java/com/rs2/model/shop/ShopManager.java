@@ -187,8 +187,12 @@ public final class ShopManager {
             enabled = true;
         }
         if (shopDefinition.getCurrency() == ShopCurrency.ITEM_CURRENCY) {
-            ItemService.getInstance();
-            value4 = ItemService.getPrice(value10, "buyfromshop", value5);
+            if (isCastleWarsManualPurchase(shopDefinition, value10)) {
+                value4 = CASTLE_WARS_MANUAL_COIN_PRICE;
+            } else {
+                ItemService.getInstance();
+                value4 = ItemService.getPrice(value10, "buyfromshop", value5);
+            }
         } else {
             ItemService.getInstance();
             value4 = ItemService.getPrice(value10, "donator", value5);
