@@ -134,6 +134,63 @@ extends BotTaskDefinition {
         player.getSkillManager().refreshAllSkills();
     }
 
+    private static boolean hasValidRouteSegmentIndex(Player player) {
+        return player.botPathSegmentIndex >= 0 && player.botPathSegmentIndex < taskRouteSegments.length;
+    }
+
+    private static void recoverRouteState(Player player, boolean walkingToBank) {
+        int previousSegmentIndex = player.botPathSegmentIndex;
+        int bestSegmentIndex = 0;
+        int bestWaypointIndex = 0;
+        int bestDistance = Integer.MAX_VALUE;
+
+        for (int segmentIndex = 0; segmentIndex < taskRouteSegments.length; ++segmentIndex) {
+            BotRoute route = walkingToBank ? taskRouteSegments[segmentIndex].reversed() : taskRouteSegments[segmentIndex];
+            for (int waypointIndex = 0; waypointIndex < route.waypoints.length; ++waypointIndex) {
+                int distance = GameUtil.getDistance(player.getPosition(), route.waypoints[waypointIndex]);
+                if (distance < bestDistance) {
+                    bestDistance = distance;
+                    bestSegmentIndex = segmentIndex;
+                    bestWaypointIndex = waypointIndex;
+                }
+            }
+        }
+
+        player.botPathSegmentIndex = bestSegmentIndex;
+        player.botPathWaypointIndex = bestWaypointIndex;
+        player.currentBotRoute = walkingToBank ? taskRouteSegments[bestSegmentIndex].reversed() : taskRouteSegments[bestSegmentIndex];
+        player.botTargetNpcId = 1804;
+
+        if (walkingToBank) {
+            player.botTaskState = bestSegmentIndex == 0 ? "walk to bank" : "walk towards bank";
+        } else {
+            player.botTaskState = bestSegmentIndex == taskRouteSegments.length - 1 ? "walk to task" : "walk towards task";
+        }
+
+        System.out.println(
+            "Recovered hill giant bot route for " + player.username
+                + " from segment " + previousSegmentIndex
+                + " to segment " + bestSegmentIndex
+                + ", waypoint " + bestWaypointIndex
+                + " at " + player.getPosition()
+        );
+    }
+
+    private static void validateRouteState(Player player, boolean walkingToBank) {
+        if (!hasValidRouteSegmentIndex(player)) {
+            recoverRouteState(player, walkingToBank);
+            return;
+        }
+
+        BotRoute route = walkingToBank ? taskRouteSegments[player.botPathSegmentIndex].reversed() : taskRouteSegments[player.botPathSegmentIndex];
+        if (player.botPathWaypointIndex < 0 || player.botPathWaypointIndex >= route.waypoints.length) {
+            recoverRouteState(player, walkingToBank);
+            return;
+        }
+
+        player.currentBotRoute = route;
+    }
+
     @Override
     public final void startWalkToTask(Player player) {
         player.setAutoRetaliate(true);
@@ -158,7 +215,7 @@ extends BotTaskDefinition {
     public final void continueWalkToTask(Player player, int value2) {
         player.setAutoRetaliate(true);
         player.botPathWaypointIndex = value2;
-        player.currentBotRoute = taskRouteSegments[player.botPathSegmentIndex];
+        validateRouteState(player, false);
         this.advanceTaskRouteSegment(player, true);
     }
 
@@ -166,49 +223,75 @@ extends BotTaskDefinition {
     public final void continueWalkToBank(Player player, int value2) {
         player.setAutoRetaliate(false);
         player.botPathWaypointIndex = value2;
-        player.currentBotRoute = taskRouteSegments[player.botPathSegmentIndex].reversed();
+        validateRouteState(player, true);
         this.advanceTaskRouteSegment(player, true);
     }
 
     @Override
     public final void advanceTaskRouteSegment(Player player, boolean continuing) {
-        if (player.botTaskState.equals("walk towards task") || player.botTaskState.equals("walk to task") && continuing) {
+        if (player.botTaskState.equals("walk towards task") || (player.botTaskState.equals("walk to task") && continuing)) {
             if (!continuing) {
+                if (!hasValidRouteSegmentIndex(player) || player.botPathSegmentIndex >= taskRouteSegments.length - 1) {
+                    recoverRouteState(player, false);
+                    return;
+                }
                 ++player.botPathSegmentIndex;
-            }
-            player.currentBotRoute = taskRouteSegments[player.botPathSegmentIndex];
-            if (!continuing) {
                 player.botPathWaypointIndex = 0;
             }
-            int regionId = GameUtil.getRegionId(player.getPosition().getX(), player.getPosition().getY());
-            if (player.botPathSegmentIndex == taskRouteSegments.length - 1 && regionId == 12341) {
-                player.botTaskState = "walk to task";
-                ArrayList<Integer> arrayList = new ArrayList<Integer>();
-                arrayList.add(1754);
-                player.interactWithBotObjectTargets(arrayList);
-                player.botRouteActionPending = true;
+
+            if (!hasValidRouteSegmentIndex(player)) {
+                recoverRouteState(player, false);
                 return;
             }
+
+            player.currentBotRoute = taskRouteSegments[player.botPathSegmentIndex];
+            int regionId = GameUtil.getRegionId(player.getPosition().getX(), player.getPosition().getY());
+            if (player.botPathSegmentIndex == taskRouteSegments.length - 1) {
+                player.botTaskState = "walk to task";
+                if (regionId == 12341) {
+                    ArrayList<Integer> arrayList = new ArrayList<Integer>();
+                    arrayList.add(1754);
+                    player.interactWithBotObjectTargets(arrayList);
+                    player.botRouteActionPending = true;
+                    return;
+                }
+            }
+
             player.botTargetNpcId = 1804;
             return;
         }
-        if (player.botTaskState.equals("walk towards bank") || player.botTaskState.equals("walk to bank") && continuing) {
+
+        if (player.botTaskState.equals("walk towards bank") || (player.botTaskState.equals("walk to bank") && continuing)) {
             if (!continuing) {
+                if (!hasValidRouteSegmentIndex(player) || player.botPathSegmentIndex <= 0) {
+                    recoverRouteState(player, true);
+                    return;
+                }
                 --player.botPathSegmentIndex;
-            }
-            player.currentBotRoute = taskRouteSegments[player.botPathSegmentIndex].reversed();
-            if (!continuing) {
                 player.botPathWaypointIndex = 0;
             }
+
+            if (!hasValidRouteSegmentIndex(player)) {
+                recoverRouteState(player, true);
+                return;
+            }
+
+            player.currentBotRoute = taskRouteSegments[player.botPathSegmentIndex].reversed();
             int regionId = GameUtil.getRegionId(player.getPosition().getX(), player.getPosition().getY());
             if (player.botPathSegmentIndex == taskRouteSegments.length - 2 && regionId == 12441) {
                 ArrayList<Integer> arrayList = new ArrayList<Integer>();
                 arrayList.add(1755);
                 player.interactWithBotObjectTargets(arrayList);
                 player.botRouteActionPending = true;
+                player.botTaskState = "walk towards bank";
                 return;
             }
-            player.botTaskState = "walk to bank";
+
+            if (player.botPathSegmentIndex == 0) {
+                player.botTaskState = "walk to bank";
+            } else {
+                player.botTaskState = "walk towards bank";
+            }
             player.botTargetNpcId = 1804;
         }
     }
