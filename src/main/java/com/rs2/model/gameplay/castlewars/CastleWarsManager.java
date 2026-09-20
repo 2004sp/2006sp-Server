@@ -165,7 +165,6 @@ public final class CastleWarsManager {
             "Rock passages may also be",
             "collapsed to block pursuit,",
             "so watch the tunnel behind you.",
-            "",
             ""
         },
         new String[]{
@@ -188,7 +187,6 @@ public final class CastleWarsManager {
             "Each shot consumes one rock,",
             "so return for more ammunition",
             "when your supply runs out.",
-            "",
             ""
         }
     };
@@ -2405,12 +2403,9 @@ public final class CastleWarsManager {
         player.getPacketSender().sendInterfaceText(
                 "Castle Wars Manual", CASTLE_WARS_MANUAL_TITLE_TEXT_ID);
         player.getPacketSender().sendInterfaceText(
-                leftPage > 1 ? "Page " + leftPage : "",
-                CASTLE_WARS_MANUAL_LEFT_PAGE_TEXT_ID);
+                "Page " + leftPage, CASTLE_WARS_MANUAL_LEFT_PAGE_TEXT_ID);
         player.getPacketSender().sendInterfaceText(
-                rightPage < CASTLE_WARS_MANUAL_PAGES.length * 2
-                        ? "Page " + rightPage : "",
-                CASTLE_WARS_MANUAL_RIGHT_PAGE_TEXT_ID);
+                "Page " + rightPage, CASTLE_WARS_MANUAL_RIGHT_PAGE_TEXT_ID);
         player.getPacketSender().showInterface(CASTLE_WARS_MANUAL_INTERFACE_ID);
     }
 
