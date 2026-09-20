@@ -465,6 +465,37 @@ public final class World {
         return npcs;
     }
 
+    public static synchronized void resetForServerRestart() {
+        Player[] playerSnapshot = players.clone();
+        for (Player player : playerSnapshot) {
+            if (player == null) {
+                continue;
+            }
+
+            try {
+                player.disconnect();
+            }
+            catch (Exception exception) {
+                exception.printStackTrace();
+            }
+
+            if (player.getIndex() != -1) {
+                unregisterPlayer(player);
+            }
+        }
+
+        Npc[] npcSnapshot = npcs.clone();
+        for (Npc npc : npcSnapshot) {
+            if (npc != null && npc.getIndex() != -1) {
+                unregisterNpc(npc);
+            }
+        }
+
+        taskScheduler = new TaskScheduler();
+        tickCount = 0;
+        instance.objectRegionIndex = new WorldObjectRegionIndex();
+    }
+
     public static TaskScheduler getTaskScheduler() {
         return taskScheduler;
     }
