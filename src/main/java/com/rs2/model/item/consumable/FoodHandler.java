@@ -109,6 +109,11 @@ public class FoodHandler {
 
     public static void loadPotionDefinitions() {
         try {
+            // The control panel can now stop and start the game server without
+            // restarting the JVM. Potion definitions are static, so clear the
+            // previous run before loading them again or definitionCount grows
+            // past the populated entries and potion lookups hit null slots.
+            PotionHandler.resetDefinitions();
             byte[] byteValues = FileUtil.readBytes("./data/content/combat/potiondef.dat");
             ByteArrayReader byteArrayReader = new ByteArrayReader(byteValues);
             int value = byteArrayReader.readUnsignedShort();
