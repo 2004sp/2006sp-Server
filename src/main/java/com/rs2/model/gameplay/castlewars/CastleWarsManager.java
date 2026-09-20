@@ -627,6 +627,15 @@ public final class CastleWarsManager {
         return count;
     }
 
+    public static int getTotalGamePlayerCount() {
+        return gamePlayers.size();
+    }
+
+    public static Iterable<Player> getGamePlayersView() {
+        return gamePlayers.keySet();
+    }
+
+
     public static boolean isGameInProgress() {
         return gameInProgress;
     }
@@ -2662,13 +2671,12 @@ public final class CastleWarsManager {
     }
 
     private static boolean isOnline(Player player) {
-        Player[] players = World.getPlayers();
-        for (Player onlinePlayer : players) {
-            if (onlinePlayer == player) {
-                return true;
-            }
+        if (player == null) {
+            return false;
         }
-        return false;
+        int index = player.getIndex();
+        Player[] players = World.getPlayers();
+        return index >= 0 && index < players.length && players[index] == player;
     }
 
     private static boolean isInWaitingRoom(Player player, Team team) {
