@@ -154,6 +154,9 @@ public final class CastleWarsBotRoleAi {
             case DEFEND_FLAG:
                 processDefender(bot, state);
                 break;
+            case GROUND_DEFENCE:
+                processGroundDefender(bot, state);
+                break;
             case WALL_GUARD_PATROL:
                 processWallGuard(bot, state);
                 break;
@@ -205,16 +208,18 @@ public final class CastleWarsBotRoleAi {
 
     private static void processSpawnSupply(BotPlayer bot, RoleState state) {
         if (!CastleWarsManager.isInTeamSpawnArea(bot, state.team)) {
-            if (bot.getPosition().getPlane() == 1 && state.role != Role.DEFENDER) {
+            if (bot.getPosition().getPlane() == 1) {
                 state.phase = Phase.DESCEND_HOME;
             } else if (state.role == Role.UNDERGROUND) {
                 state.phase = Phase.UNDERGROUND_DESCEND;
+            } else if (state.role == Role.DEFENDER) {
+                state.phase = Phase.GROUND_SUPPLY;
             } else if (state.role == Role.WALL_GUARD) {
                 state.phase = Phase.WALL_GUARD_PATROL;
             } else if (state.role == Role.CATAPULT) {
                 state.phase = Phase.CATAPULT_MOVE;
             } else {
-                state.phase = Phase.DEFENDER_CLIMB;
+                state.phase = Phase.EXIT_HOME;
             }
             return;
         }
@@ -255,11 +260,8 @@ public final class CastleWarsBotRoleAi {
             return;
         }
 
-        if (state.role == Role.DEFENDER) {
-            state.phase = Phase.DEFENDER_CLIMB;
-            return;
-        }
-
+        // Ground defenders leave the spawn room like everyone else, descend to
+        // plane 0, then patrol the resource room and castle interior.
         state.phase = Phase.LEAVE_SPAWN;
         state.repathDelay = 0;
     }
@@ -344,6 +346,10 @@ public final class CastleWarsBotRoleAi {
 
         if (state.role == Role.UNDERGROUND) {
             state.phase = Phase.UNDERGROUND_DESCEND;
+        } else if (state.role == Role.DEFENDER) {
+            state.phase = Phase.GROUND_DEFENCE;
+            state.defenderPatrolTarget = null;
+            state.defenderPatrolTicks = 0;
         } else if (state.role == Role.WALL_GUARD) {
             state.phase = Phase.WALL_GUARD_PATROL;
             state.wallPatrolTarget = null;
@@ -394,6 +400,123 @@ public final class CastleWarsBotRoleAi {
             return;
         }
         processCastleClimb(bot, state, state.team, true, Phase.DEFEND_FLAG);
+    }
+
+    private static void processGroundDefender(BotPlayer bot, RoleState state) {
+        if (bot.getPosition().getPlane() != 0) {
+            state.phase = Phase.DESCEND_HOME;
+            state.repathDelay = 0;
+            return;
+        }
+
+        CastleWarsManager.Team ownFlagTeam = state.team;
+        Player enemyHolder = CastleWarsManager.getFlagHolder(ownFlagTeam);
+        if (enemyHolder != null && !enemyHolder.isDead()
+                && enemyHolder.getPosition().getPlane() == 0
+                && GameUtil.getDistance(bot.getPosition(), enemyHolder.getPosition()) <= 15) {
+            CombatManager.startCombat(bot, enemyHolder);
+            return;
+        }
+
+        if (state.defenderPatrolTarget == null
+                || state.defenderPatrolTarget.getPlane() != 0
+                || CastleWarsManager.getCastleTeamAtPosition(state.defenderPatrolTarget) != state.team
+                || isDefenderPostCrowded(bot, state.defenderPatrolTarget)) {
+            state.defenderPatrolTarget = chooseGroundDefenderPatrolTarget(bot, state);
+            state.defenderPatrolTicks = 3 + GameUtil.randomInt(5);
+            state.repathDelay = 0;
+        }
+
+        if (state.defenderPatrolTarget != null
+                && !near(bot, state.defenderPatrolTarget, 1)) {
+            walk(bot, state, state.defenderPatrolTarget);
+            return;
+        }
+
+        if (state.defenderPatrolTarget != null
+                && near(bot, state.defenderPatrolTarget, 1)) {
+            if (--state.defenderPatrolTicks <= 0) {
+                state.defenderPatrolTarget = chooseGroundDefenderPatrolTarget(bot, state);
+                state.defenderPatrolTicks = 3 + GameUtil.randomInt(5);
+                state.repathDelay = 0;
+                if (state.defenderPatrolTarget != null
+                        && !near(bot, state.defenderPatrolTarget, 1)) {
+                    walk(bot, state, state.defenderPatrolTarget);
+                }
+                return;
+            }
+            if (GameUtil.randomInt(18) == 0) {
+                CastleWarsBotChat.sayDefence(bot);
+            }
+        }
+    }
+
+    private static Position chooseGroundDefenderPatrolTarget(BotPlayer bot, RoleState state) {
+        int minX = state.team == CastleWarsManager.Team.SARADOMIN ? 2415 : 2368;
+        int maxX = state.team == CastleWarsManager.Team.SARADOMIN ? 2431 : 2387;
+        int minY = state.team == CastleWarsManager.Team.SARADOMIN ? 3072 : 3117;
+        int maxY = state.team == CastleWarsManager.Team.SARADOMIN ? 3088 : 3135;
+        Position resourceRoom = state.team == CastleWarsManager.Team.SARADOMIN
+                ? new Position(2426, 3075, 0)
+                : new Position(2373, 3131, 0);
+        Position doorInterior = CastleWarsManager.getBotMainDoorInteriorPosition(bot, state.team);
+
+        Position best = null;
+        int bestScore = Integer.MAX_VALUE;
+        long patrolSalt = bot.getNameHash() + (long)state.defenderPatrolGeneration * 131L;
+
+        for (int x = minX; x <= maxX; ++x) {
+            for (int y = minY; y <= maxY; ++y) {
+                Position candidate = new Position(x, y, 0);
+                if (CastleWarsManager.getCastleTeamAtPosition(candidate) != state.team
+                        || CastleWarsManager.isGroundCastleExteriorTransitionTile(candidate)) {
+                    continue;
+                }
+
+                int clipping = WalkingCollisionMap.getTileFlags(x, y, 0);
+                if ((clipping & 0x1280100) != 0) {
+                    continue;
+                }
+
+                int movementDistance = GameUtil.getDistance(bot.getPosition(), candidate);
+                if (movementDistance < 3) {
+                    continue;
+                }
+
+                int crowding = 0;
+                for (Player player : CastleWarsManager.getGamePlayersView()) {
+                    if (player == null || player == bot || player.isDead()
+                            || CastleWarsManager.getGameTeam(player) != state.team
+                            || player.getPosition().getPlane() != 0) {
+                        continue;
+                    }
+                    int distance = GameUtil.getDistance(candidate, player.getPosition());
+                    if (distance <= 1) {
+                        crowding += 6;
+                    } else if (distance <= 3) {
+                        crowding += 2;
+                    }
+                }
+
+                // Alternate the preferred area between the resource room and the
+                // interior entrance so defenders visibly patrol the whole ground floor.
+                Position focus = (state.defenderPatrolGeneration & 1) == 0
+                        ? resourceRoom : doorInterior;
+                int focusDistance = focus == null ? 0 : GameUtil.getDistance(candidate, focus);
+                int patrolHopCost = Math.abs(movementDistance - 7) * 3;
+                int focusCost = Math.abs(focusDistance - 4) * 2;
+                int jitter = (int)Math.abs((patrolSalt + x * 31L + y * 17L) % 13L);
+                int score = crowding * 100 + patrolHopCost + focusCost + jitter;
+
+                if (score < bestScore) {
+                    bestScore = score;
+                    best = candidate;
+                }
+            }
+        }
+
+        ++state.defenderPatrolGeneration;
+        return best;
     }
 
     private static void processDefender(BotPlayer bot, RoleState state) {
@@ -1765,6 +1888,7 @@ public final class CastleWarsBotRoleAi {
         EXIT_HOME,
         DEFENDER_CLIMB,
         DEFEND_FLAG,
+        GROUND_DEFENCE,
         WALL_GUARD_PATROL,
         CATAPULT_MOVE,
         CATAPULT_ROAM,
