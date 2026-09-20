@@ -13,8 +13,10 @@ import com.rs2.model.ground.GroundItem;
 import com.rs2.model.ground.GroundItemManager;
 import com.rs2.model.item.ItemStack;
 import com.rs2.model.objects.DynamicObject;
+import com.rs2.model.objects.LoadedWorldObject;
 import com.rs2.model.objects.ObjectDefinition;
 import com.rs2.model.objects.ObjectManager;
+import com.rs2.model.objects.WorldObjectLookup;
 import com.rs2.model.player.Player;
 import com.rs2.model.skill.GatheringToolDefinition;
 import com.rs2.model.skill.ItemCombinationHandler;
@@ -1114,17 +1116,12 @@ public final class CastleWarsEngineeringManager {
         }
 
         // Castle Wars maps can contain cache variants of the same battlement
-        // model under different object IDs. Resolve the actual object at the
-        // tile and accept it when the cache definition names it Battlements.
-        for (int objectId = 0; objectId < 20000; ++objectId) {
-            ObjectDefinition definition = ObjectDefinition.forId(objectId);
-            if (definition == null || definition.name == null
-                    || !"battlements".equalsIgnoreCase(definition.name.trim())) {
-                continue;
-            }
-            if (SkillActionHelper.isObjectPresent(objectId, x, y, plane)) {
-                return objectId;
-            }
+        // model under different object IDs. Resolve the object by its cache name
+        // directly from the region bucket instead of scanning every object ID.
+        LoadedWorldObject battlement =
+                WorldObjectLookup.findObjectByNameAt("battlements", x, y, plane);
+        if (battlement != null) {
+            return battlement.getWorldObject().getObjectId();
         }
         return -1;
     }
