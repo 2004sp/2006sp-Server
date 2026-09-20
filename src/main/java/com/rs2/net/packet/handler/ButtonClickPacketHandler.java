@@ -56,6 +56,15 @@ implements PacketHandler {
         if (CastleWarsEngineeringManager.handleCatapultButton(player, buttonId)) return;
 
         if (!interfaceOpen) {
+            if (player.isInteractionDebugEnabled()) {
+                int parentInterfaceId = interfaceDefinition == null
+                        ? -1 : interfaceDefinition.getParentInterfaceId();
+                String debugMessage = "Unhandled button: " + buttonId
+                        + " (parent=" + parentInterfaceId + ", open=false)";
+                player.packetSender.sendGameMessage(debugMessage);
+                System.out.println("[button-debug] " + player.getUsername()
+                        + " " + debugMessage);
+            }
             return;
         }
         if (ServerSettings.debugModeEnabled) {
@@ -884,6 +893,18 @@ implements PacketHandler {
         if (GameplayHelper.handleFlourDoughButton(player, buttonId) != false) return;
         if (SmeltingHandler.handleSmeltingButton(player, buttonId, 0) != false) return;
         if (player.getDialogueManager().handleOptionButton(buttonId) != false) return;
+
+        if (player.isInteractionDebugEnabled()) {
+            int parentInterfaceId = interfaceDefinition == null
+                    ? -1 : interfaceDefinition.getParentInterfaceId();
+            String debugMessage = "Unhandled button: " + buttonId
+                    + " (parent=" + parentInterfaceId + ", open=true)";
+            player.packetSender.sendGameMessage(debugMessage);
+            System.out.println("[button-debug] " + player.getUsername()
+                    + " " + debugMessage);
+        }
+
+        // Preserve the old global staff/server debug logging as well.
         if (player.getPlayerRights() <= 1) return;
         if (ServerSettings.debugModeEnabled == false) return;
         System.out.println("button " + buttonId + " doesn't do anything");
