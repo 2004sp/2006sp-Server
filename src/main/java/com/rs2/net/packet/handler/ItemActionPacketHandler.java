@@ -87,6 +87,12 @@ import com.rs2.util.GameUtil;
 
 public final class ItemActionPacketHandler
 implements PacketHandler {
+    private static boolean isItemActionInterfaceOpen(Player player, int interfaceId, InterfaceDefinition interfaceDefinition) {
+        return player.isInterfaceOpen(interfaceDefinition)
+                || player.getOpenInterfaceId() == 5292
+                && BankManager.isBankItemContainerInterfaceId(interfaceId);
+    }
+
     @Override
     public final void handle(Player player, IncomingPacket packet) {
         if (player.isActionLocked()) {
@@ -208,7 +214,7 @@ implements PacketHandler {
                 player.setSelectedItemSlot(packet.getReader().readSignedShort(ByteTransform.ADD));
                 int itemId = packet.getReader().readSignedShort(ByteTransform.ADD);
                 InterfaceDefinition interfaceDefinition = InterfaceDefinition.forId(interfaceId);
-                boolean interfaceOpen = player.isInterfaceIdOpen(interfaceId);
+                boolean interfaceOpen = ItemActionPacketHandler.isItemActionInterfaceOpen(player, interfaceId, interfaceDefinition);
                 if (GameplayTrace.enabled() && interfaceId == 1688) {
                     GameplayTrace.log("equipment unequip decoded player=" + GameplayTrace.describe(player) + " interfaceId=" + interfaceId + " slot=" + player.getSelectedItemSlot() + " itemId=" + itemId + " interfaceOpen=" + interfaceOpen);
                 }
@@ -957,7 +963,7 @@ implements PacketHandler {
         int itemId = incomingPacket.getReader().readShort(true, ByteTransform.ADD, ByteOrder.LITTLE);
         player.setSelectedItemSlot(incomingPacket.getReader().readSignedShort(true, ByteOrder.LITTLE));
         InterfaceDefinition interfaceDefinition = InterfaceDefinition.forId(interfaceId);
-        if (!player.isInterfaceOpen(interfaceDefinition)) {
+        if (!ItemActionPacketHandler.isItemActionInterfaceOpen(player, interfaceId, interfaceDefinition)) {
             return;
         }
         if (GameplayTrace.enabled() && (interfaceId == 3900 || interfaceId == 3823)) {
@@ -1014,7 +1020,7 @@ implements PacketHandler {
         int reader2 = incomingPacket.getReader().readSignedShort(ByteTransform.ADD);
         int reader3 = incomingPacket.getReader().readSignedShort(ByteTransform.ADD);
         Object value = InterfaceDefinition.forId(reader);
-        if (!player.isInterfaceOpen((InterfaceDefinition)value)) {
+        if (!ItemActionPacketHandler.isItemActionInterfaceOpen(player, reader, (InterfaceDefinition)value)) {
             return;
         }
         if (reader != 1688 || reader2 != 11283) {
@@ -1190,7 +1196,7 @@ implements PacketHandler {
         int reader = incomingPacket.getReader().readSignedShort();
         int reader2 = incomingPacket.getReader().readSignedShort(ByteTransform.ADD);
         Object value = InterfaceDefinition.forId(reader);
-        if (!player.isInterfaceOpen((InterfaceDefinition)value)) {
+        if (!ItemActionPacketHandler.isItemActionInterfaceOpen(player, reader, (InterfaceDefinition)value)) {
             return;
         }
         if (GameplayTrace.enabled() && (reader == 3900 || reader == 3823)) {
