@@ -2381,6 +2381,10 @@ public final class CastleWarsEngineeringManager {
 
         private CatapultAim(CastleWarsManager.Team team) {
             this.team = team;
+            // Start in the middle of the 0..30 aiming range so every arrow
+            // immediately has room to move in both directions.
+            this.x = CATAPULT_MAX_AIM / 2;
+            this.y = CATAPULT_MAX_AIM / 2;
         }
     }
 
