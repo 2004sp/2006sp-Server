@@ -485,11 +485,9 @@ public final class CastleWarsEngineeringManager {
             InterfaceDefinition definition = InterfaceDefinition.forId(interfaceId);
             if (definition == null
                     || !isInterfaceDescendantOf(interfaceId, CATAPULT_INTERFACE_ID)
-                    || definition.getActionType() == 0
                     || interfaceId == CATAPULT_CLOSE_BUTTON_ID
                     || interfaceId == CATAPULT_FIRE_BUTTON_ID
-                    || definition.getParentChildX() == Integer.MIN_VALUE
-                    || definition.getParentChildY() == Integer.MIN_VALUE) {
+                    || !isCatapultArrowCandidate(definition)) {
                 continue;
             }
             controls.add(definition);
@@ -498,58 +496,140 @@ public final class CastleWarsEngineeringManager {
             return;
         }
 
-        // This cache has extra clickable children in the catapult panel, so do
-        // not require exactly four controls. The vertical arrows are the two
-        // right-most clickable children; the horizontal arrows are the two
-        // lowest remaining children.
-        InterfaceDefinition verticalOne = null;
-        InterfaceDefinition verticalTwo = null;
-        for (InterfaceDefinition candidate : controls) {
-            if (verticalOne == null
-                    || candidate.getParentChildX() > verticalOne.getParentChildX()) {
-                verticalTwo = verticalOne;
-                verticalOne = candidate;
-            } else if (verticalTwo == null
-                    || candidate.getParentChildX() > verticalTwo.getParentChildX()) {
-                verticalTwo = candidate;
-            }
-        }
-        if (verticalOne == null || verticalTwo == null) {
-            return;
-        }
+        // The 377 catapult arrows are native sprite widgets, but their cache
+        // action type is not reliable. Resolve them by their absolute position
+        // inside interface 11169 instead of requiring actionType != 0.
+        ArrayList<InterfaceDefinition> verticalCandidates =
+                new ArrayList<InterfaceDefinition>();
+        ArrayList<InterfaceDefinition> horizontalCandidates =
+                new ArrayList<InterfaceDefinition>();
 
-        InterfaceDefinition up = verticalOne.getParentChildY() < verticalTwo.getParentChildY()
-                ? verticalOne : verticalTwo;
-        InterfaceDefinition down = up == verticalOne ? verticalTwo : verticalOne;
-
-        InterfaceDefinition horizontalOne = null;
-        InterfaceDefinition horizontalTwo = null;
         for (InterfaceDefinition candidate : controls) {
-            if (candidate == up || candidate == down) {
+            int x = catapultAbsoluteX(candidate);
+            int y = catapultAbsoluteY(candidate);
+            if (x == Integer.MIN_VALUE || y == Integer.MIN_VALUE) {
                 continue;
             }
-            if (horizontalOne == null
-                    || candidate.getParentChildY() > horizontalOne.getParentChildY()) {
-                horizontalTwo = horizontalOne;
-                horizontalOne = candidate;
-            } else if (horizontalTwo == null
-                    || candidate.getParentChildY() > horizontalTwo.getParentChildY()) {
-                horizontalTwo = candidate;
+            if (x >= 330 && y >= 15 && y <= 145) {
+                verticalCandidates.add(candidate);
+            }
+            if (x >= 230 && y >= 145 && y <= 245) {
+                horizontalCandidates.add(candidate);
             }
         }
-        if (horizontalOne == null || horizontalTwo == null) {
+
+        InterfaceDefinition[] vertical = selectTwoByAxis(
+                verticalCandidates.size() >= 2 ? verticalCandidates : controls, true);
+        if (vertical == null) {
             return;
         }
 
-        InterfaceDefinition left =
-                horizontalOne.getParentChildX() < horizontalTwo.getParentChildX()
-                ? horizontalOne : horizontalTwo;
-        InterfaceDefinition right = left == horizontalOne ? horizontalTwo : horizontalOne;
+        InterfaceDefinition up = catapultAbsoluteY(vertical[0])
+                <= catapultAbsoluteY(vertical[1]) ? vertical[0] : vertical[1];
+        InterfaceDefinition down = up == vertical[0] ? vertical[1] : vertical[0];
+
+        ArrayList<InterfaceDefinition> horizontalPool =
+                horizontalCandidates.size() >= 2 ? horizontalCandidates : controls;
+        ArrayList<InterfaceDefinition> withoutVertical =
+                new ArrayList<InterfaceDefinition>();
+        for (InterfaceDefinition candidate : horizontalPool) {
+            if (candidate != up && candidate != down) {
+                withoutVertical.add(candidate);
+            }
+        }
+
+        InterfaceDefinition[] horizontal = selectTwoByAxis(withoutVertical, false);
+        if (horizontal == null) {
+            return;
+        }
+
+        InterfaceDefinition left = catapultAbsoluteX(horizontal[0])
+                <= catapultAbsoluteX(horizontal[1]) ? horizontal[0] : horizontal[1];
+        InterfaceDefinition right = left == horizontal[0] ? horizontal[1] : horizontal[0];
 
         catapultAimUpButtonId = up.getInterfaceId();
         catapultAimDownButtonId = down.getInterfaceId();
         catapultAimLeftButtonId = left.getInterfaceId();
         catapultAimRightButtonId = right.getInterfaceId();
+    }
+
+    private static boolean isCatapultArrowCandidate(InterfaceDefinition definition) {
+        int type = definition.getWidgetType();
+        if (type != 5 && type != 17 && type != 18 && type != 19) {
+            return false;
+        }
+        int width = definition.getWidth();
+        int height = definition.getHeight();
+        return width > 0 && height > 0 && width <= 64 && height <= 64;
+    }
+
+    private static InterfaceDefinition[] selectTwoByAxis(
+            ArrayList<InterfaceDefinition> controls, boolean useX) {
+        if (controls == null || controls.size() < 2) {
+            return null;
+        }
+
+        InterfaceDefinition first = null;
+        InterfaceDefinition second = null;
+        int firstValue = Integer.MIN_VALUE;
+        int secondValue = Integer.MIN_VALUE;
+
+        for (InterfaceDefinition candidate : controls) {
+            int value = useX ? catapultAbsoluteX(candidate) : catapultAbsoluteY(candidate);
+            if (value == Integer.MIN_VALUE) {
+                continue;
+            }
+            if (first == null || value > firstValue) {
+                second = first;
+                secondValue = firstValue;
+                first = candidate;
+                firstValue = value;
+            } else if (candidate != first && (second == null || value > secondValue)) {
+                second = candidate;
+                secondValue = value;
+            }
+        }
+
+        return first == null || second == null
+                ? null : new InterfaceDefinition[]{first, second};
+    }
+
+    private static int catapultAbsoluteX(InterfaceDefinition definition) {
+        return catapultAbsoluteCoordinate(definition, true);
+    }
+
+    private static int catapultAbsoluteY(InterfaceDefinition definition) {
+        return catapultAbsoluteCoordinate(definition, false);
+    }
+
+    private static int catapultAbsoluteCoordinate(
+            InterfaceDefinition definition, boolean xAxis) {
+        if (definition == null) {
+            return Integer.MIN_VALUE;
+        }
+
+        int coordinate = 0;
+        int currentId = definition.getInterfaceId();
+        for (int depth = 0; depth < 16 && currentId != CATAPULT_INTERFACE_ID; ++depth) {
+            InterfaceDefinition current = InterfaceDefinition.forId(currentId);
+            if (current == null) {
+                return Integer.MIN_VALUE;
+            }
+            int childCoordinate = xAxis
+                    ? current.getParentChildX() : current.getParentChildY();
+            if (childCoordinate == Integer.MIN_VALUE) {
+                return Integer.MIN_VALUE;
+            }
+            coordinate += childCoordinate;
+
+            int parent = current.getParentInterfaceId();
+            if (parent < 0 || parent == currentId) {
+                return Integer.MIN_VALUE;
+            }
+            currentId = parent;
+        }
+        return currentId == CATAPULT_INTERFACE_ID
+                ? coordinate : Integer.MIN_VALUE;
     }
 
     public static Position getSideDoorInteractionApproach(Player player,
