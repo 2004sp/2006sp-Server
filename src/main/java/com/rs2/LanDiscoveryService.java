@@ -17,17 +17,25 @@ public final class LanDiscoveryService {
         running = true;
     }
 
-    public static void startListener() {
+    public static synchronized void startListener() {
         try {
+            running = true;
             Object bytes = requestMessage.getBytes();
             bytes = new DatagramPacket((byte[])bytes, ((byte[])bytes).length);
             new LanDiscoveryListener("Connection Listener", (DatagramPacket)bytes).start();
             return;
         }
         catch (Exception exception) {
-            Exception exception2 = exception;
             exception.printStackTrace();
             return;
+        }
+    }
+
+    public static synchronized void stopListener() {
+        running = false;
+        if (socket != null) {
+            socket.close();
+            socket = null;
         }
     }
 
