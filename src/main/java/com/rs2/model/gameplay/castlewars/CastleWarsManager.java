@@ -69,8 +69,8 @@ public final class CastleWarsManager {
     private static final int CASTLE_WARS_MANUAL_LINE_COUNT = 22;
     private static final int CASTLE_WARS_MANUAL_LEFT_PAGE_TEXT_ID = 14165;
     private static final int CASTLE_WARS_MANUAL_RIGHT_PAGE_TEXT_ID = 14166;
-    private static final int CASTLE_WARS_MANUAL_PREVIOUS_BUTTON_ID = 840;
-    private static final int CASTLE_WARS_MANUAL_NEXT_BUTTON_ID = 842;
+    private static final int CASTLE_WARS_MANUAL_PREVIOUS_BUTTON_ID = 839;
+    private static final int CASTLE_WARS_MANUAL_NEXT_BUTTON_ID = 841;
     private static final int CASTLE_WARS_MANUAL_CLOSE_BUTTON_ID = 10162;
 
     /*
@@ -2356,7 +2356,7 @@ public final class CastleWarsManager {
             return true;
         }
 
-        // 840/842 are the native cache-377 book arrows. 3071/3073 are accepted
+        // 839/841 are the native cache-377 book arrows. 3071/3073 are accepted
         // too because some compatible clients remap the same book controls.
         if (buttonId == CASTLE_WARS_MANUAL_PREVIOUS_BUTTON_ID || buttonId == 3071) {
             if (player.activeBookPageIndex > 0) {
