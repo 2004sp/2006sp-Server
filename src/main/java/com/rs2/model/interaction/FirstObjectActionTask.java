@@ -104,6 +104,28 @@ extends TickTask {
             this.stop();
             return;
         }
+        Position castleWarsSideDoorApproach =
+                CastleWarsEngineeringManager.getSideDoorInteractionApproach(
+                        this.player, this.objectId, this.objectX, this.objectY);
+        if (castleWarsSideDoorApproach != null) {
+            if (this.player.getPosition().getX() == castleWarsSideDoorApproach.getX()
+                    && this.player.getPosition().getY() == castleWarsSideDoorApproach.getY()
+                    && CastleWarsManager.handleFirstObjectAction(
+                            this.player, this.objectId, this.objectX, this.objectY)) {
+                this.stop();
+                return;
+            }
+
+            PathFinder.getInstance();
+            boolean foundPath = PathFinder.findPath(this.player,
+                    castleWarsSideDoorApproach.getX(), castleWarsSideDoorApproach.getY(),
+                    false, 0, 0);
+            if (!foundPath) {
+                this.stop();
+            }
+            return;
+        }
+
         Position castleWarsMainDoorApproach =
                 CastleWarsEngineeringManager.getMainDoorInteractionApproach(
                         this.player, this.objectId, this.objectX, this.objectY);
