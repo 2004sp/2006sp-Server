@@ -687,6 +687,92 @@ public class ItemContainer {
         return (ItemContainerTab)this.tabs.get(value2);
     }
 
+    public final boolean moveTabItemBetweenTabs(int sourceSlot, int sourceTab, int targetTab) {
+        if (sourceSlot < 0 || sourceTab < 0 || targetTab < 0
+                || sourceTab >= this.tabs.size()
+                || targetTab >= this.tabLimit
+                || sourceTab == targetTab) {
+            return false;
+        }
+
+        ItemContainerTab sourceContainerTab = (ItemContainerTab)this.tabs.get(sourceTab);
+        if (sourceSlot >= sourceContainerTab.items.size()) {
+            return false;
+        }
+
+        ItemStack sourceItem = (ItemStack)sourceContainerTab.items.get(sourceSlot);
+        if (sourceItem == null || sourceItem.getId() == -1 || sourceItem.getAmount() <= 0) {
+            return false;
+        }
+
+        // Bank tabs are contiguous. A move may target an existing tab or exactly
+        // the next tab (the client's '+' slot), but never skip over tab indexes.
+        if (targetTab > this.tabs.size()) {
+            return false;
+        }
+
+        boolean createdTargetTab = false;
+        if (targetTab == this.tabs.size()) {
+            this.tabs.add(new ItemContainerTab('\u0000'));
+            createdTargetTab = true;
+        }
+
+        ItemContainerTab targetContainerTab = (ItemContainerTab)this.tabs.get(targetTab);
+        int targetSlot = -1;
+
+        if ((sourceItem.getDefinition().isStackable() || this.containerType.equals((Object)ItemContainerType.b))
+                && !this.containerType.equals((Object)ItemContainerType.c)
+                && sourceItem.getMetadata() == -1) {
+            int index = 0;
+            while (index < targetContainerTab.items.size()) {
+                ItemStack targetItem = (ItemStack)targetContainerTab.items.get(index);
+                if (targetItem != null && targetItem.getId() == sourceItem.getId()
+                        && targetItem.getMetadata() == -1) {
+                    long combinedAmount = (long)targetItem.getAmount() + (long)sourceItem.getAmount();
+                    if (combinedAmount > Integer.MAX_VALUE || combinedAmount <= 0L) {
+                        if (createdTargetTab && targetContainerTab.items.isEmpty()) {
+                            this.tabs.remove(targetTab);
+                        }
+                        return false;
+                    }
+                    targetContainerTab.items.set(index,
+                            new ItemStack(targetItem.getId(), (int)combinedAmount, targetItem.getMetadata()));
+                    sourceContainerTab.items.set(sourceSlot, null);
+                    if (this.updatesEnabled) {
+                        this.notifyFullRefresh();
+                    }
+                    return true;
+                }
+                ++index;
+            }
+        }
+
+        int index = 0;
+        while (index < targetContainerTab.items.size()) {
+            Object targetItem = targetContainerTab.items.get(index);
+            if (targetItem == null || ((ItemStack)targetItem).getId() == -1) {
+                targetSlot = index;
+                break;
+            }
+            ++index;
+        }
+
+        ItemStack movedItem = new ItemStack(sourceItem.getId(), sourceItem.getAmount(), sourceItem.getMetadata());
+        if (targetSlot == -1) {
+            targetContainerTab.items.add(movedItem);
+        } else {
+            targetContainerTab.items.set(targetSlot, movedItem);
+        }
+
+        // Clear the source only after the destination write is complete. A failed
+        // move can therefore never consume the bank stack.
+        sourceContainerTab.items.set(sourceSlot, null);
+        if (this.updatesEnabled) {
+            this.notifyFullRefresh();
+        }
+        return true;
+    }
+
     public final void moveTabItem(int itemId, int value2, int value32) {
         if (value32 > this.tabLimit - 1) {
             value32 = this.tabLimit - 1;
