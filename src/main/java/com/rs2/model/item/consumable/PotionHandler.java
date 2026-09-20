@@ -21,19 +21,33 @@ public final class PotionHandler {
 
     public final boolean selectPotionForItemId(int itemId) {
         int index = 0;
-        while (index < definitionCount) {
-            int index2 = 0;
-            while (index2 < definitions[index].getDoseItemIds().length) {
-                if (definitions[index].getDoseItemIds()[index2] == itemId) {
-                    this.selectedDefinitionIndex = index;
-                    this.selectedDoseIndex = index2;
-                    return true;
+        int definitionLimit = Math.min(definitionCount, definitions.length);
+        while (index < definitionLimit) {
+            PotionDefinition definition = definitions[index];
+            if (definition != null && definition.getDoseItemIds() != null) {
+                int index2 = 0;
+                int[] doseItemIds = definition.getDoseItemIds();
+                while (index2 < doseItemIds.length) {
+                    if (doseItemIds[index2] == itemId) {
+                        this.selectedDefinitionIndex = index;
+                        this.selectedDoseIndex = index2;
+                        return true;
+                    }
+                    ++index2;
                 }
-                ++index2;
             }
             ++index;
         }
         return false;
+    }
+
+    public static void resetDefinitions() {
+        int index = 0;
+        while (index < definitions.length) {
+            definitions[index] = null;
+            ++index;
+        }
+        definitionCount = 0;
     }
 
     public final void drinkPotion(int value10, int value22) {
