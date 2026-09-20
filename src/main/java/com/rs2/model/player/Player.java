@@ -1368,7 +1368,7 @@ extends Entity {
         this.gender = 0;
         this.appearanceParts = new int[7];
         this.appearanceColors = new int[5];
-        this.bankContainer = new ItemContainer(ItemContainerType.b, 288, 1);
+        this.bankContainer = new ItemContainer(ItemContainerType.b, 288, 10);
         this.tradeOfferContainer = new ItemContainer(ItemContainerType.a, 28);
         this.partyRoomContainer = new ItemContainer(ItemContainerType.a, 8);
         this.interactionSpellButtonId = -1;

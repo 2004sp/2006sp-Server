@@ -40,11 +40,11 @@ public class PlayerUpdateTask {
     }
 
     PlayerUpdateTask(int value5, int value22, int value32, byte value6) {
-        this(value5, 19509, 19508);
+        this(value5, value22, value32);
     }
 
     PlayerUpdateTask(int value5, int value22, int value32, int value42) {
-        this(value5, 19509, 19508);
+        this(value5, value22, value32);
     }
 
     public static void updatePlayer(Player player) {

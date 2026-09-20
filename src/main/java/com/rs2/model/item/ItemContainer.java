@@ -23,10 +23,10 @@ public class ItemContainer {
         this.items = new ItemStack[capacity];
     }
 
-    public ItemContainer(ItemContainerType itemContainerType, int value3, int value22) {
+    public ItemContainer(ItemContainerType itemContainerType, int capacity, int tabLimit) {
         this.containerType = itemContainerType;
-        this.capacity = 288;
-        this.tabLimit = 1;
+        this.capacity = capacity;
+        this.tabLimit = tabLimit;
         this.tabs.add(new ItemContainerTab(true));
     }
 

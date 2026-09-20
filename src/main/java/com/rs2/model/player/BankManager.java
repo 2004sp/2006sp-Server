@@ -18,7 +18,46 @@ public final class BankManager {
     public static int freeBankCapacity = 64;
     public static int memberBankCapacity = 64;
     private static int mainBankContainerInterfaceId = 5382;
-    public static PlayerUpdateTask[] bankTabUpdateTasks = new PlayerUpdateTask[]{new PlayerUpdateTask(mainBankContainerInterfaceId, 19509, 19508, 0)};
+    public static PlayerUpdateTask[] bankTabUpdateTasks = new PlayerUpdateTask[]{
+        new PlayerUpdateTask(mainBankContainerInterfaceId, 19509, 19508, 0),
+        new PlayerUpdateTask(19532, 19511, 19510, 0),
+        new PlayerUpdateTask(19533, 19513, 19512, 0),
+        new PlayerUpdateTask(19534, 19515, 19514, 0),
+        new PlayerUpdateTask(19535, 19517, 19516, 0),
+        new PlayerUpdateTask(19536, 19519, 19518, 0),
+        new PlayerUpdateTask(19537, 19521, 19520, 0),
+        new PlayerUpdateTask(19538, 19523, 19522, 0),
+        new PlayerUpdateTask(19539, 19525, 19524, 0),
+        new PlayerUpdateTask(19540, 19527, 19526, 0)
+    };
+
+    public static int getBankTabIndexForButtonId(int buttonId) {
+        int index = 0;
+        while (index < bankTabUpdateTasks.length) {
+            if (bankTabUpdateTasks[index].getBankTabButtonId() == buttonId) {
+                return index;
+            }
+            ++index;
+        }
+        return -1;
+    }
+
+    public static boolean isBankControlButton(int buttonId) {
+        return buttonId == 18885
+                || buttonId == 18886
+                || getBankTabIndexForButtonId(buttonId) != -1;
+    }
+
+    public static boolean isBankItemContainerInterfaceId(int interfaceId) {
+        int index = 0;
+        while (index < bankTabUpdateTasks.length) {
+            if (bankTabUpdateTasks[index].itemContainerInterfaceId == interfaceId) {
+                return true;
+            }
+            ++index;
+        }
+        return false;
+    }
 
     public static void openBank(Player player) {
         if (player.botEnabled) {
@@ -594,6 +633,12 @@ public final class BankManager {
         if (targetInterfaceId == 19531) {
             targetTab = targetSlot;
             moveBetweenTabs = true;
+        } else {
+            int targetButtonTab = BankManager.getBankTabIndexForButtonId(targetInterfaceId);
+            if (targetButtonTab != -1) {
+                targetTab = targetButtonTab;
+                moveBetweenTabs = true;
+            }
         }
         if (moveBetweenTabs) {
             ItemStack sourceItem = player.getBankContainer().getItemAtTabSlot(sourceSlot, sourceTab);

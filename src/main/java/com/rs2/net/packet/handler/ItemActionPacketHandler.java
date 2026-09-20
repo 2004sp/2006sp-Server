@@ -100,7 +100,13 @@ implements PacketHandler {
                 int targetSlot = packet.getReader().readSignedShort(ByteOrder.LITTLE);
                 int insertMode = packet.getReader().readSignedShort(ByteTransform.ADD, ByteOrder.LITTLE);
                 InterfaceDefinition interfaceDefinition = InterfaceDefinition.forId(player.getSelectedItemInterfaceId());
-                if (player.isInterfaceOpen(interfaceDefinition)) {
+                boolean sourceInterfaceOpen = player.isInterfaceOpen(interfaceDefinition);
+                if (!sourceInterfaceOpen
+                        && player.getOpenInterfaceId() == 5292
+                        && BankManager.isBankItemContainerInterfaceId(player.getSelectedItemInterfaceId())) {
+                    sourceInterfaceOpen = true;
+                }
+                if (sourceInterfaceOpen) {
                     switch (player.getSelectedItemInterfaceId()) {
                         case 5382:
                         case 19532:

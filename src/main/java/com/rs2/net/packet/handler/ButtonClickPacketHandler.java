@@ -41,6 +41,8 @@ implements PacketHandler {
         int buttonId = packet.getReader().readSignedShort();
         InterfaceDefinition interfaceDefinition = InterfaceDefinition.forId(buttonId);
         boolean interfaceOpen = player.isInterfaceIdOpen(buttonId);
+        boolean bankControl = player.getOpenInterfaceId() == 5292
+                && BankManager.isBankControlButton(buttonId);
         if (GameplayTrace.enabled()) {
             GameplayTrace.log("button decoded player=" + GameplayTrace.describe(player)
                 + " buttonId=" + buttonId
@@ -56,7 +58,7 @@ implements PacketHandler {
         if (CastleWarsEngineeringManager.handleCatapultButton(player, buttonId)) return;
         if (CastleWarsManager.handleCastleWarsManualButton(player, buttonId)) return;
 
-        if (!interfaceOpen) {
+        if (!interfaceOpen && !bankControl) {
             if (player.isInteractionDebugEnabled()) {
                 int parentInterfaceId = interfaceDefinition == null
                         ? -1 : interfaceDefinition.getParentInterfaceId();
