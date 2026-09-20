@@ -25,6 +25,9 @@ public final class ShopManager {
     private static List shopDefinitions = new ArrayList(40);
 
     private static final int CASTLE_WARS_TICKET_ID = 4067;
+    private static final int CASTLE_WARS_MANUAL_ID = 4055;
+    private static final int CASTLE_WARS_MANUAL_STOCK = 1000;
+    private static final int CASTLE_WARS_MANUAL_COIN_PRICE = 5;
     private static final int[] CASTLE_WARS_REWARD_ITEM_IDS = new int[]{
             // Novice decorative armour: helm, shield, legs, body, sword.
             4071, 4072, 4070, 4069, 4068,
@@ -141,7 +144,8 @@ public final class ShopManager {
         int traceStockItemId = itemStack != null ? itemStack.getId() : -1;
         int traceStockSlotAmountBefore = itemStack != null ? itemStack.getAmount() : -1;
         if (shopDefinition.getCurrency() == ShopCurrency.ITEM_CURRENCY) {
-            value5 = shopDefinition.getCurrencyItemId();
+            value5 = isCastleWarsManualPurchase(shopDefinition, value10)
+                    ? 995 : shopDefinition.getCurrencyItemId();
         } else {
             ShopDefinition shopDefinition2 = shopDefinition;
             value6 = player;
@@ -340,6 +344,9 @@ public final class ShopManager {
     }
 
     private static int calculateBuyPrice(ShopDefinition shopDefinition, int value3, int value22) {
+        if (isCastleWarsManualPurchase(shopDefinition, value3)) {
+            return CASTLE_WARS_MANUAL_COIN_PRICE;
+        }
         int castleWarsPrice = ShopManager.getCastleWarsRewardPrice(shopDefinition, value3);
         if (castleWarsPrice >= 0) {
             return castleWarsPrice;
@@ -538,6 +545,11 @@ public final class ShopManager {
         if (GameplayTrace.enabled()) {
             GameplayTrace.log("shop buy-price request player=" + GameplayTrace.describe(player) + " shopId=" + player.getCurrentShopId() + " itemId=" + value3 + " currency=" + shopDefinition.getCurrency() + " currencyItemId=" + shopDefinition.getCurrencyItemId());
         }
+        if (isCastleWarsManualPurchase(shopDefinition, value3)) {
+            player.packetSender.sendGameMessage("Castlewars manual: currently costs "
+                    + CASTLE_WARS_MANUAL_COIN_PRICE + " coins.");
+            return;
+        }
         if (shopDefinition.getCurrency() == ShopCurrency.ITEM_CURRENCY) {
             int value2 = value3;
             ItemService.getInstance();
@@ -636,6 +648,10 @@ public final class ShopManager {
                 && shopDefinition.getShopId() == castleWarsRewardShopId;
     }
 
+    private static boolean isCastleWarsManualPurchase(ShopDefinition shopDefinition, int itemId) {
+        return itemId == CASTLE_WARS_MANUAL_ID && isCastleWarsRewardShop(shopDefinition);
+    }
+
     private static int getCastleWarsRewardPrice(ShopDefinition shopDefinition, int itemId) {
         if (!ShopManager.isCastleWarsRewardShop(shopDefinition)) {
             return -1;
@@ -663,6 +679,12 @@ public final class ShopManager {
             if (!stock.containsItem(itemId)) {
                 stock.add(new ItemStack(itemId, 1), -1);
             }
+        }
+        if (!originalStock.containsItem(CASTLE_WARS_MANUAL_ID)) {
+            originalStock.add(new ItemStack(CASTLE_WARS_MANUAL_ID, CASTLE_WARS_MANUAL_STOCK), -1);
+        }
+        if (!stock.containsItem(CASTLE_WARS_MANUAL_ID)) {
+            stock.add(new ItemStack(CASTLE_WARS_MANUAL_ID, CASTLE_WARS_MANUAL_STOCK), -1);
         }
     }
 
