@@ -15,13 +15,18 @@ public final class InterfaceDefinition {
     private final int widgetType;
     private final int actionType;
     private final int parentInterfaceId;
+    private final int width;
+    private final int height;
 
     private InterfaceDefinition(int interfaceId, int widgetType, int actionType,
-                                int parentInterfaceId, boolean enabled2) {
+                                int parentInterfaceId, int width, int height,
+                                boolean enabled2) {
         this.interfaceId = interfaceId;
         this.widgetType = widgetType;
         this.actionType = actionType;
         this.parentInterfaceId = parentInterfaceId;
+        this.width = width;
+        this.height = height;
     }
 
     public final int getInterfaceId() {
@@ -38,6 +43,14 @@ public final class InterfaceDefinition {
 
     public final int getActionType() {
         return this.actionType;
+    }
+
+    public final int getWidth() {
+        return this.width;
+    }
+
+    public final int getHeight() {
+        return this.height;
     }
 
     public final int getParentChildX() {
@@ -81,6 +94,8 @@ public final class InterfaceDefinition {
                 ((PacketReader)instance).readSignedShort();
                 int value4 = ((PacketReader)instance).readSignedShort();
                 int value5 = ((PacketReader)instance).readSignedShort();
+                int widgetWidth = value4;
+                int widgetHeight = value5;
                 if (ServerSettings.cacheVersion > 237) {
                     ((PacketReader)instance).readSignedByte();
                 }
@@ -88,7 +103,8 @@ public final class InterfaceDefinition {
                 int value7 = value4 = value4 == 512 && value5 == 334 ? 1 : 0;
                 if (value < interfaceCount && value > 0) {
                     InterfaceDefinition.definitionsById[value] =
-                            new InterfaceDefinition(value, value2, value3, initialValue, value4 != 0);
+                            new InterfaceDefinition(value, value2, value3, initialValue,
+                                    widgetWidth, widgetHeight, value4 != 0);
                 }
                 if (value6 != 0) {
                     ((PacketReader)instance).readSignedByte();
