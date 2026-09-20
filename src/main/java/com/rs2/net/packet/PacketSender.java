@@ -41,7 +41,10 @@ public final class PacketSender {
     private Player player;
 
     private static boolean isClientInterfaceIdSupported(int interfaceId) {
-        return interfaceId >= 0 && (interfaceId < InterfaceDefinition.interfaceCount || interfaceId >= 18890 && interfaceId <= 19102);
+        return interfaceId >= 0
+                && (interfaceId < InterfaceDefinition.interfaceCount
+                || interfaceId >= 18890 && interfaceId <= 19102
+                || interfaceId >= 19508 && interfaceId <= 19540);
     }
 
     public PacketSender(Player player) {
