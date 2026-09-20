@@ -17,6 +17,11 @@ import java.util.Map;
 
 public final class CastleWarsBotAi {
     private static final Map<BotPlayer, BotState> states = new IdentityHashMap<BotPlayer, BotState>();
+    private static final Map<Player, Integer> saradominTargetCounts =
+            new IdentityHashMap<Player, Integer>();
+    private static final Map<Player, Integer> zamorakTargetCounts =
+            new IdentityHashMap<Player, Integer>();
+    private static int targetCountCacheTick = -1;
 
     private CastleWarsBotAi() {
     }
@@ -908,41 +913,52 @@ public final class CastleWarsBotAi {
     }
 
     private static Map<Player, Integer> getTeamBotTargetCounts(BotPlayer bot) {
-        Map<Player, Integer> counts = new IdentityHashMap<Player, Integer>();
+        refreshTeamBotTargetCounts();
         CastleWarsManager.Team team = CastleWarsManager.getGameTeam(bot);
-        if (team == null) {
-            return counts;
+        if (team == CastleWarsManager.Team.SARADOMIN) {
+            return saradominTargetCounts;
         }
+        if (team == CastleWarsManager.Team.ZAMORAK) {
+            return zamorakTargetCounts;
+        }
+        return new IdentityHashMap<Player, Integer>();
+    }
+
+    private static void refreshTeamBotTargetCounts() {
+        if (targetCountCacheTick == World.tickCount) {
+            return;
+        }
+        saradominTargetCounts.clear();
+        zamorakTargetCounts.clear();
+
         for (Player player : World.getPlayers()) {
-            if (!(player instanceof BotPlayer)
-                    || CastleWarsManager.getGameTeam(player) != team) {
+            if (!(player instanceof BotPlayer)) {
+                continue;
+            }
+            CastleWarsManager.Team team = CastleWarsManager.getGameTeam(player);
+            if (team == null) {
                 continue;
             }
             Entity target = player.getCombatTarget();
             if (!(target instanceof Player)) {
                 continue;
             }
+
+            Map<Player, Integer> counts = team == CastleWarsManager.Team.SARADOMIN
+                    ? saradominTargetCounts : zamorakTargetCounts;
             Player targetPlayer = (Player)target;
             Integer current = counts.get(targetPlayer);
             counts.put(targetPlayer, current == null ? 1 : current + 1);
         }
-        return counts;
+        targetCountCacheTick = World.tickCount;
     }
 
     private static int countTeamBotsTargeting(BotPlayer bot, Player target) {
-        CastleWarsManager.Team team = CastleWarsManager.getGameTeam(bot);
-        if (team == null || target == null) {
+        if (target == null) {
             return 0;
         }
-        int count = 0;
-        for (Player player : World.getPlayers()) {
-            if (player instanceof BotPlayer
-                    && CastleWarsManager.getGameTeam(player) == team
-                    && player.getCombatTarget() == target) {
-                ++count;
-            }
-        }
-        return count;
+        Integer count = getTeamBotTargetCounts(bot).get(target);
+        return count == null ? 0 : count;
     }
 
     private static boolean isTraversalPhase(Phase phase) {
