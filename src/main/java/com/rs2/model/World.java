@@ -94,20 +94,20 @@ public final class World {
         }
         profilerTimer = ProfilerRegistry.getTimer("processPlayerLogic");
         profilerTimer.start();
-        value3 = new ArrayList<String>();
+        value3 = new java.util.HashSet<String>();
         Entity[] entityArray = players;
         int length = players.length;
         int index = 0;
         while (index < length) {
             value2 = entityArray[index];
             if (value2 != null) {
-                if (((ArrayList)value3).contains(((Player)value2).getUsername())) {
+                if (((java.util.HashSet)value3).contains(((Player)value2).getUsername())) {
                     System.out.println("Disconnecting: " + ((Player)value2).getUsername() + " Reason: Multilog!");
                     value = value2;
                     ((Player)value).packetSender.sendLogout();
                     ((Player)value2).disconnect();
                 } else {
-                    ((ArrayList)value3).add(((Player)value2).getUsername());
+                    ((java.util.HashSet)value3).add(((Player)value2).getUsername());
                     try {
                         ((Player)value2).process();
                     }
