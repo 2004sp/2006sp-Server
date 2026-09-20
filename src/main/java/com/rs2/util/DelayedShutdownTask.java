@@ -22,9 +22,8 @@ implements Runnable {
         }
         ConnectionThrottleSettings.connectionsEnabled = false;
         if (Boolean.getBoolean("prs.traceGameplay")) {
-            new Exception("[exit-trace] DelayedShutdownTask calling System.exit").printStackTrace();
+            System.out.println("[server-trace] DelayedShutdownTask requesting game-server shutdown");
         }
-        System.exit(0);
         Server.shutdownRequested = true;
     }
 }
