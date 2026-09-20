@@ -59,8 +59,11 @@ public class PlayerUpdateTask {
         if (player.isBot) {
             return;
         }
-        PacketWriter packetWriter = PacketBuffer.allocateWriter(8192);
-        PacketWriter packetWriter2 = PacketBuffer.allocateWriter(4096);
+        // Dense minigames can have hundreds of local-player update blocks
+        // in one packet. Start larger to avoid repeated reallocations; PacketWriter
+        // can grow further if a particularly busy tick still exceeds these sizes.
+        PacketWriter packetWriter = PacketBuffer.allocateWriter(32768);
+        PacketWriter packetWriter2 = PacketBuffer.allocateWriter(16384);
         packetWriter.startVariableShortPacket(player.getOutboundCipher(), 81);
         packetWriter.setAccessMode(AccessMode.BIT_ACCESS);
         PacketWriter packetWriter3 = packetWriter;
