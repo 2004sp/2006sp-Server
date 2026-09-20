@@ -84,6 +84,14 @@ public final class CastleWarsBotRoleAi {
             return true;
         }
 
+        // Underground raiders should use the tunnel hazards against opponents,
+        // not simply run through each other. Give a safe rock-collapse attempt
+        // priority over normal combat when an enemy is standing in the crush zone.
+        if (state.role == Role.UNDERGROUND
+                && tryCollapseRockslideOnOpponent(bot, state)) {
+            return true;
+        }
+
         boolean prioritizeTraversal = isTraversalPhase(state.phase);
         if (prioritizeTraversal) {
             state.sightChaseTarget = null;
@@ -110,7 +118,8 @@ public final class CastleWarsBotRoleAi {
                 return true;
             }
             int engageRadius = state.role == Role.WALL_GUARD ? 15
-                    : state.role == Role.DEFENDER ? 12 : 8;
+                    : state.role == Role.DEFENDER ? 12
+                    : state.role == Role.UNDERGROUND && isUndergroundTunnel(bot) ? 12 : 8;
             if (tryEngageNearbyOpponent(bot, state, engageRadius)) {
                 return true;
             }
@@ -992,6 +1001,90 @@ public final class CastleWarsBotRoleAi {
         }
     }
 
+    private static boolean tryCollapseRockslideOnOpponent(BotPlayer bot, RoleState state) {
+        if (!isUndergroundTunnel(bot)
+                || bot.getInventoryManager().getItemAmount(
+                CastleWarsEngineeringManager.EXPLOSIVE_POTION_ID) <= 0) {
+            return false;
+        }
+
+        int bestRock = -1;
+        int bestEnemyDistance = Integer.MAX_VALUE;
+
+        for (int rockIndex = 0; rockIndex < 4; ++rockIndex) {
+            if (CastleWarsEngineeringManager.isRockslideCollapsed(rockIndex)) {
+                continue;
+            }
+
+            Position rock = CastleWarsEngineeringManager.getRockslidePosition(rockIndex);
+            if (rock == null) {
+                continue;
+            }
+
+            int botDistance = GameUtil.getDistance(bot.getPosition(), rock);
+            // crushPlayersAtRockslide() kills everyone within one tile, including
+            // the bot that caused it, so never collapse while standing in that zone.
+            if (botDistance < 2 || botDistance > 4) {
+                continue;
+            }
+
+            boolean enemyInCrushZone = false;
+            boolean friendlyInCrushZone = false;
+            int nearestEnemy = Integer.MAX_VALUE;
+
+            for (Player player : CastleWarsManager.getGamePlayersView()) {
+                if (player == null || player == bot || player.isDead()
+                        || !player.isRegistered()
+                        || player.getPosition().getPlane() != rock.getPlane()) {
+                    continue;
+                }
+
+                int rockDistance = GameUtil.getDistance(player.getPosition(), rock);
+                if (rockDistance > 1) {
+                    continue;
+                }
+
+                if (CastleWarsManager.areOpponents(bot, player)) {
+                    enemyInCrushZone = true;
+                    nearestEnemy = Math.min(nearestEnemy, rockDistance);
+                } else if (CastleWarsManager.getGameTeam(player) == state.team) {
+                    friendlyInCrushZone = true;
+                }
+            }
+
+            if (enemyInCrushZone && !friendlyInCrushZone
+                    && nearestEnemy < bestEnemyDistance) {
+                bestRock = rockIndex;
+                bestEnemyDistance = nearestEnemy;
+            }
+        }
+
+        if (bestRock < 0) {
+            return false;
+        }
+
+        if (bot.getCombatTarget() != null) {
+            CombatManager.stopCombat(bot);
+        }
+        state.sightChaseTarget = null;
+        state.sightChaseTicks = 0;
+
+        if (CastleWarsEngineeringManager.collapseRockslide(bot, bestRock)) {
+            state.pendingCollapseRock = -1;
+            state.delayTicks = 2;
+            state.repathDelay = 0;
+            CastleWarsBotChat.sayUnderground(bot);
+            return true;
+        }
+        return false;
+    }
+
+    private static boolean isUndergroundTunnel(BotPlayer bot) {
+        return bot != null
+                && bot.getPosition().getPlane() == 0
+                && bot.getPosition().getY() >= 9400;
+    }
+
     private static void processUndergroundCross(BotPlayer bot, RoleState state, boolean returningHome) {
         if (bot.getPosition().getY() < 9400) {
             if (returningHome) {
@@ -1243,11 +1336,9 @@ public final class CastleWarsBotRoleAi {
             case EXIT_HOME:
             case DEFENDER_CLIMB:
             case UNDERGROUND_DESCEND:
-            case UNDERGROUND_OUT:
             case ENEMY_CLIMB:
             case ENEMY_DESCEND:
             case UNDERGROUND_RETURN_DESCEND:
-            case UNDERGROUND_BACK:
             case HOME_CLIMB:
                 return true;
             default:
