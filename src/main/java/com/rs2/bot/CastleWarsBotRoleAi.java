@@ -500,7 +500,7 @@ public final class CastleWarsBotRoleAi {
                 }
 
                 int crowding = 0;
-                for (Player player : World.getPlayers()) {
+                for (Player player : CastleWarsManager.getGamePlayersView()) {
                     if (player == null || player == bot || player.isDead()
                             || CastleWarsManager.getGameTeam(player) != state.team
                             || player.getPosition().getPlane() != plane) {
@@ -537,7 +537,7 @@ public final class CastleWarsBotRoleAi {
         }
         int nearby = 0;
         CastleWarsManager.Team team = CastleWarsManager.getGameTeam(bot);
-        for (Player player : World.getPlayers()) {
+        for (Player player : CastleWarsManager.getGamePlayersView()) {
             if (player == null || player == bot || player.isDead()
                     || CastleWarsManager.getGameTeam(player) != team
                     || player.getPosition().getPlane() != post.getPlane()) {
@@ -758,7 +758,7 @@ public final class CastleWarsBotRoleAi {
                                            CastleWarsManager.Team team,
                                            Position candidate) {
         int crowding = 0;
-        for (Player player : World.getPlayers()) {
+        for (Player player : CastleWarsManager.getGamePlayersView()) {
             if (player == null || player == bot || player.isDead()
                     || CastleWarsManager.getGameTeam(player) != team
                     || player.getPosition().getPlane() != candidate.getPlane()) {
@@ -781,7 +781,7 @@ public final class CastleWarsBotRoleAi {
             return false;
         }
         CastleWarsManager.Team team = CastleWarsManager.getGameTeam(bot);
-        for (Player player : World.getPlayers()) {
+        for (Player player : CastleWarsManager.getGamePlayersView()) {
             if (player == null || player == bot || player.isDead()
                     || CastleWarsManager.getGameTeam(player) != team
                     || player.getPosition().getPlane() != post.getPlane()) {
@@ -1312,7 +1312,7 @@ public final class CastleWarsBotRoleAi {
     private static Player findFlagCarrierThreat(BotPlayer bot, Player carrier) {
         Player best = null;
         int bestScore = Integer.MAX_VALUE;
-        for (Player player : World.getPlayers()) {
+        for (Player player : CastleWarsManager.getGamePlayersView()) {
             if (player == null || player == bot || player.isDead()
                     || !player.isRegistered() || !CastleWarsManager.areOpponents(bot, player)) {
                 continue;
@@ -1440,7 +1440,7 @@ public final class CastleWarsBotRoleAi {
         Player bestHidden = null;
         int bestVisibleDistance = Integer.MAX_VALUE;
         int bestHiddenDistance = Integer.MAX_VALUE;
-        for (Player player : World.getPlayers()) {
+        for (Player player : CastleWarsManager.getGamePlayersView()) {
             if (player == null || player == bot || player.isDead()
                     || !CastleWarsManager.areOpponents(bot, player)) {
                 continue;
@@ -1571,7 +1571,7 @@ public final class CastleWarsBotRoleAi {
         BotPlayer firstAttacker = null;
         BotPlayer firstMeleeAttacker = null;
 
-        for (Player player : World.getPlayers()) {
+        for (Player player : CastleWarsManager.getGamePlayersView()) {
             if (!(player instanceof BotPlayer)
                     || CastleWarsManager.getGameTeam(player) != team) {
                 continue;
@@ -1600,7 +1600,7 @@ public final class CastleWarsBotRoleAi {
 
     private static long[] getWallGuardNameHashes(CastleWarsManager.Team team) {
         long[] hashes = createEmptyHashSelection(4);
-        for (Player player : World.getPlayers()) {
+        for (Player player : CastleWarsManager.getGamePlayersView()) {
             if (!(player instanceof BotPlayer)
                     || CastleWarsManager.getGameTeam(player) != team) {
                 continue;
@@ -1617,7 +1617,7 @@ public final class CastleWarsBotRoleAi {
     private static long[] getSpecialistNonWallNameHashes(
             CastleWarsManager.Team team, long[] wallGuardHashes) {
         long[] hashes = createEmptyHashSelection(9);
-        for (Player player : World.getPlayers()) {
+        for (Player player : CastleWarsManager.getGamePlayersView()) {
             if (!(player instanceof BotPlayer)
                     || CastleWarsManager.getGameTeam(player) != team) {
                 continue;
