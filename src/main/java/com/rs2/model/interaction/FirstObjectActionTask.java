@@ -13,6 +13,7 @@ import com.rs2.model.combat.AttackStyleDefinition;
 import com.rs2.model.dialogue.DialogueManager;
 import com.rs2.model.gameplay.abyss.AbyssManager;
 import com.rs2.model.gameplay.barrows.BarrowsManager;
+import com.rs2.model.gameplay.castlewars.CastleWarsEngineeringManager;
 import com.rs2.model.gameplay.castlewars.CastleWarsManager;
 import com.rs2.model.gameplay.duel.DuelHistory;
 import com.rs2.model.gameplay.godwars.GodWarsDungeonManager;
@@ -103,6 +104,28 @@ extends TickTask {
             this.stop();
             return;
         }
+        Position castleWarsMainDoorApproach =
+                CastleWarsEngineeringManager.getMainDoorInteractionApproach(
+                        this.player, this.objectId, this.objectX, this.objectY);
+        if (castleWarsMainDoorApproach != null) {
+            if (this.player.getPosition().getX() == castleWarsMainDoorApproach.getX()
+                    && this.player.getPosition().getY() == castleWarsMainDoorApproach.getY()
+                    && CastleWarsManager.handleFirstObjectAction(
+                            this.player, this.objectId, this.objectX, this.objectY)) {
+                this.stop();
+                return;
+            }
+
+            PathFinder.getInstance();
+            boolean foundPath = PathFinder.findPath(this.player,
+                    castleWarsMainDoorApproach.getX(), castleWarsMainDoorApproach.getY(),
+                    false, 0, 0);
+            if (!foundPath) {
+                this.stop();
+            }
+            return;
+        }
+
         Position castleWarsStairApproach = CastleWarsManager.getStairTraversalApproach(
                 this.player, this.objectId, this.objectX, this.objectY);
         if (castleWarsStairApproach != null) {
