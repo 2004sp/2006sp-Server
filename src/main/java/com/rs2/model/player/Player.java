@@ -2121,7 +2121,7 @@ extends Entity {
             this.resetQuestJournal();
         } else if (text4.equals("sitem")) {
             int value4 = Integer.parseInt(stringValues2[0]);
-            if ((value4 < 7956 || value4 > 8118) && value4 >= 0 && value4 <= 11790 && ItemDefinition.isDefined(value4)) {
+            if ((value4 < 7956 || value4 > 8118) && value4 >= 0 && ItemDefinition.isDefined(value4)) {
                 ItemDefinition itemDefinition;
                 int initialValue = 1;
                 if (((String[])stringValues2).length > 1) {
@@ -2344,7 +2344,7 @@ extends Entity {
             this.executeCheatCommand(password, stringValues2);
         } else if (password.equals("sitem")) {
             int value3 = Integer.parseInt(stringValues2[0]);
-            if ((value3 < 7956 || value3 > 8118) && value3 >= 0 && value3 <= 11790 && ItemDefinition.isDefined(value3)) {
+            if ((value3 < 7956 || value3 > 8118) && value3 >= 0 && ItemDefinition.isDefined(value3)) {
                 this.executeCheatCommand(password, stringValues2);
             }
         } else if (password.equals("char")) {
