@@ -13,6 +13,7 @@ import com.rs2.model.ground.GroundItem;
 import com.rs2.model.ground.GroundItemManager;
 import com.rs2.model.item.ItemStack;
 import com.rs2.model.objects.DynamicObject;
+import com.rs2.model.objects.ObjectDefinition;
 import com.rs2.model.objects.ObjectManager;
 import com.rs2.model.player.Player;
 import com.rs2.model.skill.GatheringToolDefinition;
@@ -252,7 +253,7 @@ public final class CastleWarsEngineeringManager {
         }
 
         if (itemId == CLIMBING_ROPE_ITEM_ID
-                && (objectId == BATTLEMENT_OBJECT_ID || objectId == BATTLEMENT_OBJECT_ID_ALT)) {
+                && isCastleWarsBattlementObject(objectId, objectX, objectY, objectPlane)) {
             return attachClimbingRope(player, objectId, objectX, objectY, objectPlane);
         }
 
@@ -1048,8 +1049,8 @@ public final class CastleWarsEngineeringManager {
 
     public static boolean handleClimbingRope(Player player, int objectId, int objectX, int objectY) {
         if (objectId != CLIMBING_ROPE_OBJECT_ID
-                && objectId != BATTLEMENT_OBJECT_ID
-                && objectId != BATTLEMENT_OBJECT_ID_ALT) {
+                && !isCastleWarsBattlementObject(objectId, objectX, objectY,
+                player == null ? CLIMBING_ROPE_PLANE : player.getPosition().getPlane())) {
             return false;
         }
         if (!CastleWarsManager.isInGame(player)) {
@@ -1077,6 +1078,55 @@ public final class CastleWarsEngineeringManager {
         }
         player.getPacketSender().sendGameMessage("You climb the rope onto the battlements.");
         return true;
+    }
+
+    private static boolean isCastleWarsBattlementObject(int objectId,
+                                                          int objectX,
+                                                          int objectY,
+                                                          int objectPlane) {
+        if (objectPlane != CLIMBING_ROPE_PLANE
+                || getBattlementTeam(objectX, objectY) == null) {
+            return false;
+        }
+        if (objectId == BATTLEMENT_OBJECT_ID || objectId == BATTLEMENT_OBJECT_ID_ALT) {
+            return true;
+        }
+
+        ObjectDefinition definition = ObjectDefinition.forId(objectId);
+        return definition != null
+                && definition.name != null
+                && "battlements".equalsIgnoreCase(definition.name.trim());
+    }
+
+    private static boolean isCastleWarsBattlementAt(int x, int y, int plane) {
+        return getCastleWarsBattlementObjectId(x, y, plane) >= 0;
+    }
+
+    private static int getCastleWarsBattlementObjectId(int x, int y, int plane) {
+        if (plane != CLIMBING_ROPE_PLANE || getBattlementTeam(x, y) == null) {
+            return -1;
+        }
+        if (SkillActionHelper.isObjectPresent(BATTLEMENT_OBJECT_ID, x, y, plane)) {
+            return BATTLEMENT_OBJECT_ID;
+        }
+        if (SkillActionHelper.isObjectPresent(BATTLEMENT_OBJECT_ID_ALT, x, y, plane)) {
+            return BATTLEMENT_OBJECT_ID_ALT;
+        }
+
+        // Castle Wars maps can contain cache variants of the same battlement
+        // model under different object IDs. Resolve the actual object at the
+        // tile and accept it when the cache definition names it Battlements.
+        for (int objectId = 0; objectId < 20000; ++objectId) {
+            ObjectDefinition definition = ObjectDefinition.forId(objectId);
+            if (definition == null || definition.name == null
+                    || !"battlements".equalsIgnoreCase(definition.name.trim())) {
+                continue;
+            }
+            if (SkillActionHelper.isObjectPresent(objectId, x, y, plane)) {
+                return objectId;
+            }
+        }
+        return -1;
     }
 
     private static boolean attachClimbingRope(Player player, int battlementId,
@@ -1261,10 +1311,7 @@ public final class CastleWarsEngineeringManager {
                         || getBattlementTeam(x, y) != team) {
                     continue;
                 }
-                if (SkillActionHelper.isObjectPresent(BATTLEMENT_OBJECT_ID,
-                        x, y, CLIMBING_ROPE_PLANE)
-                        || SkillActionHelper.isObjectPresent(BATTLEMENT_OBJECT_ID_ALT,
-                        x, y, CLIMBING_ROPE_PLANE)) {
+                if (isCastleWarsBattlementAt(x, y, CLIMBING_ROPE_PLANE)) {
                     return true;
                 }
             }
@@ -1292,10 +1339,8 @@ public final class CastleWarsEngineeringManager {
         for (int x = minX; x <= maxX; ++x) {
             for (int y = minY; y <= maxY; ++y) {
                 boolean activeRope = getActiveClimbingRope(x, y) != null;
-                boolean battlement = SkillActionHelper.isObjectPresent(
-                        BATTLEMENT_OBJECT_ID, x, y, CLIMBING_ROPE_PLANE)
-                        || SkillActionHelper.isObjectPresent(
-                        BATTLEMENT_OBJECT_ID_ALT, x, y, CLIMBING_ROPE_PLANE);
+                boolean battlement = isCastleWarsBattlementAt(
+                        x, y, CLIMBING_ROPE_PLANE);
                 if (!activeRope && !battlement) {
                     continue;
                 }
@@ -1332,14 +1377,8 @@ public final class CastleWarsEngineeringManager {
                     battlement.getX(), battlement.getY());
         }
 
-        int battlementId = -1;
-        if (SkillActionHelper.isObjectPresent(BATTLEMENT_OBJECT_ID,
-                battlement.getX(), battlement.getY(), CLIMBING_ROPE_PLANE)) {
-            battlementId = BATTLEMENT_OBJECT_ID;
-        } else if (SkillActionHelper.isObjectPresent(BATTLEMENT_OBJECT_ID_ALT,
-                battlement.getX(), battlement.getY(), CLIMBING_ROPE_PLANE)) {
-            battlementId = BATTLEMENT_OBJECT_ID_ALT;
-        }
+        int battlementId = getCastleWarsBattlementObjectId(
+                battlement.getX(), battlement.getY(), CLIMBING_ROPE_PLANE);
         if (battlementId < 0
                 || player.getInventoryManager().getItemAmount(CLIMBING_ROPE_ITEM_ID) <= 0) {
             return false;
