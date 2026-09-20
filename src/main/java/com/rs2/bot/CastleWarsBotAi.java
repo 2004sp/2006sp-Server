@@ -866,6 +866,7 @@ public final class CastleWarsBotAi {
         Player bestHidden = null;
         int bestVisibleDistance = Integer.MAX_VALUE;
         int bestHiddenDistance = Integer.MAX_VALUE;
+        Map<Player, Integer> teamTargetCounts = getTeamBotTargetCounts(bot);
         for (Player player : World.getPlayers()) {
             if (player == null || player == bot || player.isDead()
                     || !CastleWarsManager.areOpponents(bot, player)) {
@@ -875,8 +876,9 @@ public final class CastleWarsBotAi {
             if (distance > radius) {
                 continue;
             }
+            Integer targetingCount = teamTargetCounts.get(player);
             if (CastleWarsManager.getFlagHolder(state.team) != player
-                    && countTeamBotsTargeting(bot, player) >= 2) {
+                    && targetingCount != null && targetingCount >= 2) {
                 continue;
             }
             if (CastleWarsManager.hasBotCombatLineOfSight(bot, player)) {
@@ -905,21 +907,26 @@ public final class CastleWarsBotAi {
         return false;
     }
 
-    private static int countTeamBotsTargeting(BotPlayer bot, Player target) {
+    private static Map<Player, Integer> getTeamBotTargetCounts(BotPlayer bot) {
+        Map<Player, Integer> counts = new IdentityHashMap<Player, Integer>();
         CastleWarsManager.Team team = CastleWarsManager.getGameTeam(bot);
-        if (team == null || target == null) {
-            return 0;
+        if (team == null) {
+            return counts;
         }
-        int count = 0;
         for (Player player : World.getPlayers()) {
             if (!(player instanceof BotPlayer)
-                    || CastleWarsManager.getGameTeam(player) != team
-                    || player.getCombatTarget() != target) {
+                    || CastleWarsManager.getGameTeam(player) != team) {
                 continue;
             }
-            ++count;
+            Entity target = player.getCombatTarget();
+            if (!(target instanceof Player)) {
+                continue;
+            }
+            Player targetPlayer = (Player)target;
+            Integer current = counts.get(targetPlayer);
+            counts.put(targetPlayer, current == null ? 1 : current + 1);
         }
-        return count;
+        return counts;
     }
 
     private static boolean isTraversalPhase(Phase phase) {
