@@ -19,12 +19,20 @@ import java.util.Map;
 public final class CastleWarsBotRoleAi {
     private static final Map<BotPlayer, RoleState> states =
             new IdentityHashMap<BotPlayer, RoleState>();
+    private static BotPlayer saradominDedicatedFlagRunner;
+    private static BotPlayer zamorakDedicatedFlagRunner;
 
     private CastleWarsBotRoleAi() {
     }
 
     public static void clear(BotPlayer bot) {
         states.remove(bot);
+        if (saradominDedicatedFlagRunner == bot) {
+            saradominDedicatedFlagRunner = null;
+        }
+        if (zamorakDedicatedFlagRunner == bot) {
+            zamorakDedicatedFlagRunner = null;
+        }
     }
 
     /**
@@ -1529,25 +1537,9 @@ public final class CastleWarsBotRoleAi {
 
     private static boolean isWallGuardCandidate(BotPlayer bot,
                                                        CastleWarsManager.Team team) {
-        if (bot == null || bot.botPrimaryCombatStyle == 0) {
-            return false;
-        }
-        int rangedMageRank = 0;
-        long nameHash = bot.getNameHash();
-        for (Player player : World.getPlayers()) {
-            if (!(player instanceof BotPlayer)
-                    || CastleWarsManager.getGameTeam(player) != team) {
-                continue;
-            }
-            BotPlayer other = (BotPlayer)player;
-            if (other == bot || other.botPrimaryCombatStyle == 0) {
-                continue;
-            }
-            if (other.getNameHash() < nameHash) {
-                ++rangedMageRank;
-            }
-        }
-        return rangedMageRank < 4;
+        return bot != null
+                && bot.botPrimaryCombatStyle != 0
+                && containsNameHash(getWallGuardNameHashes(team), bot.getNameHash());
     }
 
     public static boolean isDedicatedFlagRunner(BotPlayer bot) {
@@ -1555,72 +1547,137 @@ public final class CastleWarsBotRoleAi {
             return false;
         }
         CastleWarsManager.Team team = CastleWarsManager.getGameTeam(bot);
-        if (team == null
-                || isWallGuardCandidate(bot, team)
-                || getNonWallRank(bot, team) < 9) {
+        if (team == null) {
             return false;
         }
 
+        BotPlayer dedicated = team == CastleWarsManager.Team.SARADOMIN
+                ? saradominDedicatedFlagRunner : zamorakDedicatedFlagRunner;
+        if (dedicated == null || dedicated.isDead() || !dedicated.isRegistered()
+                || CastleWarsManager.getGameTeam(dedicated) != team) {
+            dedicated = findDedicatedFlagRunner(team);
+            if (team == CastleWarsManager.Team.SARADOMIN) {
+                saradominDedicatedFlagRunner = dedicated;
+            } else {
+                zamorakDedicatedFlagRunner = dedicated;
+            }
+        }
+        return bot == dedicated;
+    }
+
+    private static BotPlayer findDedicatedFlagRunner(CastleWarsManager.Team team) {
+        long[] wallGuardHashes = getWallGuardNameHashes(team);
+        long[] specialistHashes = getSpecialistNonWallNameHashes(team, wallGuardHashes);
         BotPlayer firstAttacker = null;
         BotPlayer firstMeleeAttacker = null;
+
         for (Player player : World.getPlayers()) {
             if (!(player instanceof BotPlayer)
                     || CastleWarsManager.getGameTeam(player) != team) {
                 continue;
             }
             BotPlayer other = (BotPlayer)player;
-            if (isWallGuardCandidate(other, team)
-                    || getNonWallRank(other, team) < 9) {
+            long nameHash = other.getNameHash();
+            if (containsNameHash(wallGuardHashes, nameHash)
+                    || containsNameHash(specialistHashes, nameHash)) {
                 continue;
             }
             if (firstAttacker == null
-                    || other.getNameHash() < firstAttacker.getNameHash()) {
+                    || nameHash < firstAttacker.getNameHash()) {
                 firstAttacker = other;
             }
             if (other.botPrimaryCombatStyle == 0
                     && (firstMeleeAttacker == null
-                    || other.getNameHash() < firstMeleeAttacker.getNameHash())) {
+                    || nameHash < firstMeleeAttacker.getNameHash())) {
                 firstMeleeAttacker = other;
             }
         }
 
         // Prefer a melee runner so the dedicated objective bot can personally
         // break a closed enemy main door instead of waiting for somebody else.
-        return bot == (firstMeleeAttacker != null ? firstMeleeAttacker : firstAttacker);
+        return firstMeleeAttacker != null ? firstMeleeAttacker : firstAttacker;
     }
 
-    private static int getNonWallRank(BotPlayer bot, CastleWarsManager.Team team) {
-        int nonWallRank = 0;
-        long nameHash = bot.getNameHash();
+    private static long[] getWallGuardNameHashes(CastleWarsManager.Team team) {
+        long[] hashes = createEmptyHashSelection(4);
         for (Player player : World.getPlayers()) {
             if (!(player instanceof BotPlayer)
                     || CastleWarsManager.getGameTeam(player) != team) {
                 continue;
             }
-            BotPlayer other = (BotPlayer)player;
-            if (other == bot || isWallGuardCandidate(other, team)) {
+            BotPlayer bot = (BotPlayer)player;
+            if (bot.botPrimaryCombatStyle == 0) {
                 continue;
             }
-            if (other.getNameHash() < nameHash) {
-                ++nonWallRank;
+            insertLowestNameHash(hashes, bot.getNameHash());
+        }
+        return hashes;
+    }
+
+    private static long[] getSpecialistNonWallNameHashes(
+            CastleWarsManager.Team team, long[] wallGuardHashes) {
+        long[] hashes = createEmptyHashSelection(9);
+        for (Player player : World.getPlayers()) {
+            if (!(player instanceof BotPlayer)
+                    || CastleWarsManager.getGameTeam(player) != team) {
+                continue;
+            }
+            BotPlayer bot = (BotPlayer)player;
+            if (containsNameHash(wallGuardHashes, bot.getNameHash())) {
+                continue;
+            }
+            insertLowestNameHash(hashes, bot.getNameHash());
+        }
+        return hashes;
+    }
+
+    private static long[] createEmptyHashSelection(int size) {
+        long[] hashes = new long[size];
+        for (int i = 0; i < hashes.length; ++i) {
+            hashes[i] = Long.MAX_VALUE;
+        }
+        return hashes;
+    }
+
+    private static void insertLowestNameHash(long[] hashes, long nameHash) {
+        for (int i = 0; i < hashes.length; ++i) {
+            if (nameHash >= hashes[i]) {
+                continue;
+            }
+            for (int j = hashes.length - 1; j > i; --j) {
+                hashes[j] = hashes[j - 1];
+            }
+            hashes[i] = nameHash;
+            return;
+        }
+    }
+
+    private static boolean containsNameHash(long[] hashes, long nameHash) {
+        for (long hash : hashes) {
+            if (hash == nameHash) {
+                return true;
             }
         }
-        return nonWallRank;
+        return false;
     }
 
     private static Role assignRole(BotPlayer bot, CastleWarsManager.Team team) {
-        if (isWallGuardCandidate(bot, team)) {
+        long[] wallGuardHashes = getWallGuardNameHashes(team);
+        if (containsNameHash(wallGuardHashes, bot.getNameHash())) {
             return Role.WALL_GUARD;
         }
 
-        int nonWallRank = getNonWallRank(bot, team);
-        if (nonWallRank < 2) {
-            return Role.DEFENDER;
-        }
-        if (nonWallRank == 2) {
-            return Role.CATAPULT;
-        }
-        if (nonWallRank < 9) {
+        long[] specialistHashes = getSpecialistNonWallNameHashes(team, wallGuardHashes);
+        for (int nonWallRank = 0; nonWallRank < specialistHashes.length; ++nonWallRank) {
+            if (specialistHashes[nonWallRank] != bot.getNameHash()) {
+                continue;
+            }
+            if (nonWallRank < 2) {
+                return Role.DEFENDER;
+            }
+            if (nonWallRank == 2) {
+                return Role.CATAPULT;
+            }
             return Role.UNDERGROUND;
         }
         return Role.ATTACKER;
