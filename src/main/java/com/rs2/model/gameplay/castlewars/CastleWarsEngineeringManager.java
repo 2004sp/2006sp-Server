@@ -1683,6 +1683,28 @@ public final class CastleWarsEngineeringManager {
         return true;
     }
 
+    public static boolean clearRockslideWithPickaxe(Player player, int index) {
+        if (player == null || !isRockslideCollapsed(index)
+                || index < 0 || index >= ROCKSLIDE_POSITIONS.length) {
+            return false;
+        }
+
+        Position position = ROCKSLIDE_POSITIONS[index];
+        if (GameUtil.getDistance(player.getPosition(), position) > 3) {
+            return false;
+        }
+
+        GatheringToolDefinition pickaxe =
+                ItemCombinationHandler.findUsableGatheringTool(player, 14);
+        if (pickaxe == null) {
+            return false;
+        }
+
+        player.getUpdateState().setAnimation(pickaxe.getGatherAnimationId());
+        setRockslideState(index, false);
+        return true;
+    }
+
     public static boolean collapseRockslide(Player player, int index) {
         if (index < 0 || index >= ROCKSLIDE_POSITIONS.length || isRockslideCollapsed(index)) {
             return false;
