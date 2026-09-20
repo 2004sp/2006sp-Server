@@ -929,6 +929,22 @@ public final class CastleWarsBotAi {
         return counts;
     }
 
+    private static int countTeamBotsTargeting(BotPlayer bot, Player target) {
+        CastleWarsManager.Team team = CastleWarsManager.getGameTeam(bot);
+        if (team == null || target == null) {
+            return 0;
+        }
+        int count = 0;
+        for (Player player : World.getPlayers()) {
+            if (player instanceof BotPlayer
+                    && CastleWarsManager.getGameTeam(player) == team
+                    && player.getCombatTarget() == target) {
+                ++count;
+            }
+        }
+        return count;
+    }
+
     private static boolean isTraversalPhase(Phase phase) {
         switch (phase) {
             case EXIT_BARRIER:
