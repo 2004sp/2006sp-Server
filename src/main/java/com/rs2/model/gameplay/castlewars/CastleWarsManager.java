@@ -2735,6 +2735,12 @@ public final class CastleWarsManager {
         Team team = gamePlayers.get(player);
         updateEnemyFlagHint(player, team);
         if (team != null) {
+            Team enemyTeam = team == Team.SARADOMIN ? Team.ZAMORAK : Team.SARADOMIN;
+            int ownConfigId = team == Team.ZAMORAK ? 377 : 378;
+            int enemyConfigId = team == Team.ZAMORAK ? 378 : 377;
+            player.getPacketSender().sendConfig(ownConfigId, buildCastleWarsInterfaceConfig(team));
+            player.getPacketSender().sendConfig(enemyConfigId, buildCastleWarsInterfaceConfig(enemyTeam));
+
             player.getPacketSender().sendInterfaceText(
                     "Health " + CastleWarsEngineeringManager.getMainDoorHitpoints(team) + "%",
                     GAME_MAIN_GATE_TEXT_ID);
@@ -2751,6 +2757,34 @@ public final class CastleWarsManager {
                     CastleWarsEngineeringManager.isCatapultOperational(team) ? "Operational" : "Destroyed",
                     GAME_CATAPULT_TEXT_ID);
         }
+    }
+
+    private static int buildCastleWarsInterfaceConfig(Team team) {
+        int config = Math.max(0, Math.min(100,
+                CastleWarsEngineeringManager.getMainDoorHitpoints(team)));
+
+        // Original 377 Castle Wars interface bit layout:
+        // 0-6 main door health, 7 side door, 8/9 tunnels, 10 catapult,
+        // 21-22 flag state, 24+ score.
+        if (CastleWarsEngineeringManager.isSideDoorOpen(team)) {
+            config += 128;
+        }
+        if (!CastleWarsEngineeringManager.isHomeTunnelCollapsed(team, 0)) {
+            config += 256;
+        }
+        if (!CastleWarsEngineeringManager.isHomeTunnelCollapsed(team, 1)) {
+            config += 512;
+        }
+        if (!CastleWarsEngineeringManager.isCatapultOperational(team)) {
+            config += 1024;
+        }
+
+        int flagState = isFlagAtBase(team) ? 0 : (getDroppedFlag(team) != null ? 2 : 1);
+        config += 2097152 * flagState;
+
+        int score = team == Team.SARADOMIN ? saradominScore : zamorakScore;
+        config += 16777216 * Math.max(0, Math.min(127, score));
+        return config;
     }
 
     private static void updateEnemyFlagHint(Player player, Team team) {
