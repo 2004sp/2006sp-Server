@@ -68,7 +68,7 @@ public final class BankManager {
     }
 
     public static void selectTab(Player player, int tabIndex) {
-        if (player.getBankContainer().getTabCount() - 1 < tabIndex) {
+        if (tabIndex < 0 || player.getBankContainer().getTabCount() - 1 < tabIndex) {
             return;
         }
         player.currentBankTab = tabIndex;
@@ -77,6 +77,72 @@ public final class BankManager {
             player.getBankContainer().compactTab(index);
             BankManager.sendBankTab(player, index);
             ++index;
+        }
+    }
+
+    private static int getSelectedDepositTab(Player player, int bankItemId, int metadata) {
+        int tabCount = player.getBankContainer().getTabCount();
+        if (tabCount <= 0) {
+            player.currentBankTab = 0;
+            return 0;
+        }
+        if (player.currentBankTab < 0 || player.currentBankTab >= tabCount) {
+            player.currentBankTab = 0;
+        }
+
+        int targetTab = player.currentBankTab;
+        if (metadata != -1) {
+            return targetTab;
+        }
+
+        int existingTab = player.getBankContainer().findTabContainingItem(bankItemId);
+        if (existingTab == -1 || existingTab == targetTab) {
+            return targetTab;
+        }
+
+        int existingSlot = player.getBankContainer().indexOfItemInTab(bankItemId, existingTab);
+        if (existingSlot == -1
+                || !player.getBankContainer().moveTabItemBetweenTabs(existingSlot, existingTab, targetTab)) {
+            return existingTab;
+        }
+
+        boolean sourceTabEmpty = isBankTabEmpty(player, existingTab);
+        int oldTabCount = player.getBankContainer().getTabCount();
+        player.getBankContainer().removeEmptyTabs();
+        if (sourceTabEmpty && player.getBankContainer().getTabCount() < oldTabCount
+                && existingTab < targetTab) {
+            --targetTab;
+        }
+        player.currentBankTab = Math.max(0, Math.min(targetTab, player.getBankContainer().getTabCount() - 1));
+        return player.currentBankTab;
+    }
+
+    private static boolean isBankTabEmpty(Player player, int tabIndex) {
+        ItemStack[] tabItems = player.getBankContainer().getTabItems(tabIndex);
+        for (ItemStack tabItem : tabItems) {
+            if (tabItem != null && tabItem.getId() != -1 && tabItem.getAmount() > 0) {
+                return false;
+            }
+        }
+        return true;
+    }
+
+    private static void removeEmptyTabsAndAdjustSelection(Player player, int changedTab) {
+        int oldTabCount = player.getBankContainer().getTabCount();
+        boolean changedTabEmpty = changedTab > 0 && isBankTabEmpty(player, changedTab);
+        player.getBankContainer().removeEmptyTabs();
+        int newTabCount = player.getBankContainer().getTabCount();
+
+        if (changedTabEmpty && newTabCount < oldTabCount) {
+            if (player.currentBankTab == changedTab) {
+                player.currentBankTab = Math.max(0, changedTab - 1);
+            } else if (changedTab < player.currentBankTab) {
+                --player.currentBankTab;
+            }
+        }
+
+        if (player.currentBankTab < 0 || player.currentBankTab >= newTabCount) {
+            player.currentBankTab = 0;
         }
     }
 
@@ -351,19 +417,18 @@ public final class BankManager {
             return;
         }
         int amount = itemStack.getAmount();
-        int tab = player.currentBankTab;
         int bankItemId = itemStack.getDefinition().isNote() ? itemStack.getDefinition().getUnnotedId() : itemStack.getDefinition().getId();
-        int existingAmount = player.getBankContainer().getItemAmount(bankItemId);
         int metadata = itemStack.getMetadata();
+        int tab = BankManager.getSelectedDepositTab(player, bankItemId, metadata);
+        int existingSlotInSelectedTab = player.getBankContainer().indexOfItemInTab(bankItemId, tab);
+        int existingAmount = existingSlotInSelectedTab == -1
+                ? 0
+                : player.getBankContainer().getItemAtTabSlot(existingSlotInSelectedTab, tab).getAmount();
         if (!BankManager.canDepositItem(player, itemStack, player.getBankContainer().getUsedSlots())) {
             return;
         }
         int existingTab = player.getBankContainer().findTabContainingItem(bankItemId);
-        int existingSlot = -1;
-        if (existingTab != -1) {
-            existingSlot = player.getBankContainer().indexOfItemInTab(bankItemId, existingTab);
-            tab = existingTab;
-        }
+        int existingSlot = player.getBankContainer().indexOfItemInTab(bankItemId, tab);
         if (metadata != -1) {
             existingSlot = -1;
             existingTab = player.getBankContainer().findTabContainingPlaceholder(bankItemId, 0);
@@ -424,7 +489,6 @@ public final class BankManager {
             return;
         }
         int inventoryAmount = player.getInventoryManager().getContainer().getItemAmount(itemId);
-        int tab = player.currentBankTab;
         int metadata = itemStack.getMetadata();
         int bankItemId;
         if (itemStack.getDefinition().getId() > 11883) {
@@ -432,13 +496,12 @@ public final class BankManager {
             return;
         }
         bankItemId = itemStack.getDefinition().isNote() ? itemStack.getDefinition().getUnnotedId() : itemStack.getDefinition().getId();
-        int existingAmount = player.getBankContainer().getItemAmount(bankItemId);
+        int tab = BankManager.getSelectedDepositTab(player, bankItemId, metadata);
+        int existingSlot = player.getBankContainer().indexOfItemInTab(bankItemId, tab);
+        int existingAmount = existingSlot == -1
+                ? 0
+                : player.getBankContainer().getItemAtTabSlot(existingSlot, tab).getAmount();
         int existingTab = player.getBankContainer().findTabContainingItem(bankItemId);
-        int existingSlot = -1;
-        if (existingTab != -1) {
-            existingSlot = player.getBankContainer().indexOfItemInTab(bankItemId, existingTab);
-            tab = existingTab;
-        }
         if (metadata != -1) {
             existingSlot = -1;
             existingTab = player.getBankContainer().findTabContainingPlaceholder(bankItemId, 0);
@@ -564,7 +627,7 @@ public final class BankManager {
         int addedAmount = 0;
         if (slotAmount <= 0) {
             player.getBankContainer().removeFromTab(new ItemStack(itemId, 0, metadata), slot, tab);
-            player.getBankContainer().removeEmptyTabs();
+            BankManager.removeEmptyTabsAndAdjustSelection(player, tab);
             BankManager.refreshBankTabs(player);
             return;
         }
@@ -591,7 +654,7 @@ public final class BankManager {
             addedAmount = player.getInventoryManager().addItemPartial(new ItemStack(notedId, amount, metadata));
         }
         player.getBankContainer().removeFromTab(new ItemStack(itemId, addedAmount, metadata), slot, tab);
-        player.getBankContainer().removeEmptyTabs();
+        BankManager.removeEmptyTabsAndAdjustSelection(player, tab);
         player.getInventoryManager().sendToInterface(5064);
         BankManager.refreshBankTabs(player);
         if (GameplayTrace.enabled()) {
