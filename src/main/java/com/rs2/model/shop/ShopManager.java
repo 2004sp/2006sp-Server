@@ -44,6 +44,12 @@ public final class ShopManager {
             400, 600, 600, 800, 500,
             10, 10, 10, 10
     };
+    private static final int[] CASTLE_WARS_REWARD_STOCK = new int[]{
+            100, 100, 100, 100, 100,
+            50, 50, 50, 50, 50,
+            25, 25, 25, 25, 25,
+            200, 200, 200, 200
+    };
     private static int castleWarsRewardShopId = -1;
 
     public static void refreshShopForPlayers(int value2) {
@@ -676,12 +682,14 @@ public final class ShopManager {
         }
         ItemContainer originalStock = shopDefinition.getOriginalStock();
         ItemContainer stock = shopDefinition.getStock();
-        for (int itemId : CASTLE_WARS_REWARD_ITEM_IDS) {
+        for (int index = 0; index < CASTLE_WARS_REWARD_ITEM_IDS.length; ++index) {
+            int itemId = CASTLE_WARS_REWARD_ITEM_IDS[index];
+            int stockAmount = CASTLE_WARS_REWARD_STOCK[index];
             if (!originalStock.containsItem(itemId)) {
-                originalStock.add(new ItemStack(itemId, 1), -1);
+                originalStock.add(new ItemStack(itemId, stockAmount), -1);
             }
             if (!stock.containsItem(itemId)) {
-                stock.add(new ItemStack(itemId, 1), -1);
+                stock.add(new ItemStack(itemId, stockAmount), -1);
             }
         }
         if (!originalStock.containsItem(CASTLE_WARS_MANUAL_ID)) {
