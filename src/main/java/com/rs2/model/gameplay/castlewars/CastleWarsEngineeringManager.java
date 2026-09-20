@@ -1024,33 +1024,87 @@ public final class CastleWarsEngineeringManager {
             return true;
         }
 
+        Position battlementPosition = new Position(objectX, objectY, objectPlane);
+        Position ropeObjectPosition = findClimbingRopeObjectPosition(
+                player, battlementPosition, targetTeam);
+        if (ropeObjectPosition == null) {
+            player.getPacketSender().sendGameMessage("You cannot attach a rope to this part of the wall.");
+            return true;
+        }
+
         int orientation = SkillActionHelper.getObjectOrientation(
                 battlementId, objectX, objectY, objectPlane);
 
         player.getInventoryManager().removeItem(new ItemStack(CLIMBING_ROPE_ITEM_ID, 1));
-        new DynamicObject(CLIMBING_ROPE_OBJECT_ID, objectX, objectY, objectPlane,
+        new DynamicObject(CLIMBING_ROPE_OBJECT_ID,
+                ropeObjectPosition.getX(), ropeObjectPosition.getY(), ropeObjectPosition.getPlane(),
                 orientation, CLIMBING_ROPE_OBJECT_TYPE, ServerSettings.placeholderObjectId,
                 CLIMBING_ROPE_LIFETIME_TICKS, false);
-        climbingRopes.put(key(new Position(objectX, objectY, objectPlane)),
-                new ClimbingRopeState(new Position(objectX, objectY, objectPlane), destination));
+        climbingRopes.put(key(battlementPosition),
+                new ClimbingRopeState(battlementPosition, ropeObjectPosition, destination));
         player.getPacketSender().sendGameMessage("You attach the climbing rope to the battlements.");
         return true;
     }
 
     private static ClimbingRopeState getActiveClimbingRope(int objectX, int objectY) {
-        String key = key(new Position(objectX, objectY, CLIMBING_ROPE_PLANE));
-        ClimbingRopeState rope = climbingRopes.get(key);
+        String battlementKey = key(new Position(objectX, objectY, CLIMBING_ROPE_PLANE));
+        ClimbingRopeState rope = climbingRopes.get(battlementKey);
+        if (rope == null) {
+            for (ClimbingRopeState candidate : climbingRopes.values()) {
+                if (candidate.objectPosition.getX() == objectX
+                        && candidate.objectPosition.getY() == objectY
+                        && candidate.objectPosition.getPlane() == CLIMBING_ROPE_PLANE) {
+                    rope = candidate;
+                    battlementKey = key(candidate.position);
+                    break;
+                }
+            }
+        }
         if (rope == null) {
             return null;
         }
 
         DynamicObject dynamicObject = ObjectManager.findDynamicObjectByIdAt(
-                CLIMBING_ROPE_OBJECT_ID, objectX, objectY, CLIMBING_ROPE_PLANE);
+                CLIMBING_ROPE_OBJECT_ID,
+                rope.objectPosition.getX(), rope.objectPosition.getY(),
+                rope.objectPosition.getPlane());
         if (dynamicObject == null) {
-            climbingRopes.remove(key);
+            climbingRopes.remove(battlementKey);
             return null;
         }
         return rope;
+    }
+
+    private static Position findClimbingRopeObjectPosition(Player player,
+                                                            Position battlement,
+                                                            CastleWarsManager.Team targetTeam) {
+        int[][] offsets = new int[][]{
+                {-1, 0}, {1, 0}, {0, -1}, {0, 1}
+        };
+        Position best = null;
+        int bestDistance = Integer.MAX_VALUE;
+
+        for (int[] offset : offsets) {
+            Position candidate = new Position(
+                    battlement.getX() + offset[0],
+                    battlement.getY() + offset[1],
+                    battlement.getPlane());
+            if (getBattlementTeam(candidate.getX(), candidate.getY()) == targetTeam
+                    || ObjectManager.findDynamicObjectAt(
+                    candidate.getX(), candidate.getY(), candidate.getPlane()) != null) {
+                continue;
+            }
+            int distance = GameUtil.getDistance(player.getPosition(), candidate);
+            if (distance < bestDistance) {
+                bestDistance = distance;
+                best = candidate;
+            }
+        }
+
+        // Some corner battlements do not have a cardinal tile outside the broad
+        // castle footprint. In that case use the wall tile rather than failing
+        // the interaction entirely.
+        return best == null ? battlement.copy() : best;
     }
 
     private static Position findClimbingRopeDestination(int objectX, int objectY) {
@@ -1203,7 +1257,8 @@ public final class CastleWarsEngineeringManager {
         for (ClimbingRopeState rope : climbingRopes.values()) {
             DynamicObject dynamicObject = ObjectManager.findDynamicObjectByIdAt(
                     CLIMBING_ROPE_OBJECT_ID,
-                    rope.position.getX(), rope.position.getY(), rope.position.getPlane());
+                    rope.objectPosition.getX(), rope.objectPosition.getY(),
+                    rope.objectPosition.getPlane());
             if (dynamicObject != null) {
                 dynamicObject.remainingTicks = 0;
             }
@@ -1989,11 +2044,14 @@ public final class CastleWarsEngineeringManager {
 
     private static final class ClimbingRopeState {
         private final Position position;
+        private final Position objectPosition;
         private final Position destination;
 
-        private ClimbingRopeState(Position position, Position destination) {
-            this.position = position;
-            this.destination = destination;
+        private ClimbingRopeState(Position position, Position objectPosition,
+                                  Position destination) {
+            this.position = position.copy();
+            this.objectPosition = objectPosition.copy();
+            this.destination = destination.copy();
         }
     }
 
