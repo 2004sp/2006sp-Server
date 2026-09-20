@@ -1049,15 +1049,6 @@ public final class CastleWarsEngineeringManager {
             return true;
         }
 
-        DynamicObject existing = ObjectManager.findDynamicObjectAt(objectX, objectY, objectPlane);
-        if (existing != null) {
-            if (existing.getWorldObject().getObjectId() == CLIMBING_ROPE_OBJECT_ID) {
-                player.getPacketSender().sendGameMessage("A climbing rope is already attached here.");
-                return true;
-            }
-            return false;
-        }
-
         Position destination = findClimbingRopeDestination(objectX, objectY);
         if (destination == null) {
             player.getPacketSender().sendGameMessage("You cannot attach a rope to this part of the wall.");
@@ -1067,17 +1058,63 @@ public final class CastleWarsEngineeringManager {
         Position battlementPosition = new Position(objectX, objectY, objectPlane);
         int battlementOrientation = SkillActionHelper.getObjectOrientation(
                 battlementId, objectX, objectY, objectPlane);
+        Position ropeObjectPosition = getClimbingRopeExteriorPosition(
+                battlementPosition, battlementOrientation);
+        if (ropeObjectPosition == null) {
+            return false;
+        }
+
+        DynamicObject existing = ObjectManager.findDynamicObjectAt(
+                ropeObjectPosition.getX(), ropeObjectPosition.getY(),
+                ropeObjectPosition.getPlane());
+        if (existing != null) {
+            if (existing.getWorldObject().getObjectId() == CLIMBING_ROPE_OBJECT_ID) {
+                player.getPacketSender().sendGameMessage("A climbing rope is already attached here.");
+                return true;
+            }
+            player.getPacketSender().sendGameMessage("You cannot attach a rope here.");
+            return true;
+        }
+
         int orientation = (battlementOrientation + 2) & 3;
 
         player.getInventoryManager().removeItem(new ItemStack(CLIMBING_ROPE_ITEM_ID, 1));
         new DynamicObject(CLIMBING_ROPE_OBJECT_ID,
-                objectX, objectY, objectPlane,
+                ropeObjectPosition.getX(), ropeObjectPosition.getY(),
+                ropeObjectPosition.getPlane(),
                 orientation, CLIMBING_ROPE_OBJECT_TYPE, ServerSettings.placeholderObjectId,
                 CLIMBING_ROPE_LIFETIME_TICKS, false);
         climbingRopes.put(key(battlementPosition),
-                new ClimbingRopeState(battlementPosition, battlementPosition, destination));
+                new ClimbingRopeState(battlementPosition, ropeObjectPosition, destination));
         player.getPacketSender().sendGameMessage("You attach the climbing rope to the battlements.");
         return true;
+    }
+
+    private static Position getClimbingRopeExteriorPosition(
+            Position battlementPosition, int battlementOrientation) {
+        if (battlementPosition == null) {
+            return null;
+        }
+
+        int x = battlementPosition.getX();
+        int y = battlementPosition.getY();
+        switch (battlementOrientation & 3) {
+            case 0: // west wall
+                --x;
+                break;
+            case 1: // north wall
+                ++y;
+                break;
+            case 2: // east wall
+                ++x;
+                break;
+            case 3: // south wall
+                --y;
+                break;
+            default:
+                return null;
+        }
+        return new Position(x, y, battlementPosition.getPlane());
     }
 
     private static ClimbingRopeState getActiveClimbingRope(int objectX, int objectY) {
