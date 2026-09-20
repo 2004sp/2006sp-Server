@@ -1402,6 +1402,10 @@ implements PacketHandler {
             return;
         }
         switch (itemId) {
+            case CastleWarsManager.CASTLE_WARS_MANUAL_ID: {
+                CastleWarsManager.openCastleWarsManual(player);
+                return;
+            }
             case 4049: {
                 if (!player.isInCastleWars()) {
                     player.packetSender.sendGameMessage("You can only use these in Castle Wars.");
