@@ -1009,6 +1009,11 @@ public final class CastleWarsEngineeringManager {
             return false;
         }
 
+        if (getActiveClimbingRope(objectX, objectY) != null) {
+            player.getPacketSender().sendGameMessage("A climbing rope is already attached here.");
+            return true;
+        }
+
         DynamicObject existing = ObjectManager.findDynamicObjectAt(objectX, objectY, objectPlane);
         if (existing != null) {
             if (existing.getWorldObject().getObjectId() == CLIMBING_ROPE_OBJECT_ID) {
