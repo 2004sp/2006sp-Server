@@ -2,10 +2,12 @@ package com.rs2.bot;
 
 import com.rs2.bot.combat.BotCombatHelper;
 import com.rs2.bot.combat.BotCombatLoadoutManager;
+import com.rs2.bot.combat.BotPvpCombatHandler;
 import com.rs2.model.EntityTargetMovement;
 import com.rs2.model.Position;
 import com.rs2.model.World;
 import com.rs2.model.gameplay.castlewars.CastleWarsManager;
+import com.rs2.model.item.ItemDefinition;
 import com.rs2.model.item.ItemStack;
 import com.rs2.model.player.Player;
 import com.rs2.util.GameUtil;
@@ -121,10 +123,48 @@ public final class MinigameBotManager {
         BotCombatLoadoutManager.selectCombatStyleFromStats(botPlayer, false);
         BotCombatLoadoutManager.prepareMinigameCombatLoadout(botPlayer);
         prepareCastleWarsEquipment(botPlayer);
+        prepareCastleWarsCombatStacks(botPlayer);
         botPlayer.getInventoryManager().refresh();
         botPlayer.getEquipmentManager().refresh();
         botPlayer.getUpdateState().setUpdateRequired(true);
         botPlayer.setAppearanceUpdateRequired(true);
+    }
+
+    private static void prepareCastleWarsCombatStacks(BotPlayer botPlayer) {
+        if (botPlayer.botPrimaryCombatStyle == BotPvpCombatHandler.RANGED_COMBAT_STYLE) {
+            // Rune arrows. Castle Wars ranged bots should never exhaust their ammo.
+            botPlayer.getEquipmentManager().getContainer().setItem(
+                    13, new ItemStack(892, Integer.MAX_VALUE));
+            return;
+        }
+        if (botPlayer.botPrimaryCombatStyle != BotPvpCombatHandler.MAGIC_COMBAT_STYLE) {
+            return;
+        }
+
+        // Core rune set used by standard and Ancient combat magic.
+        int[] runeIds = new int[]{
+                554, 555, 556, 557, 558, 559, 560,
+                561, 562, 563, 564, 565, 566
+        };
+        for (int runeId : runeIds) {
+            setInventoryStackToMax(botPlayer, runeId);
+        }
+
+        // Astral runes exist only in later compatible caches.
+        if (ItemDefinition.isDefined(9075)) {
+            setInventoryStackToMax(botPlayer, 9075);
+        }
+    }
+
+    private static void setInventoryStackToMax(BotPlayer botPlayer, int itemId) {
+        int slot = botPlayer.getInventoryManager().getContainer().indexOfItem(itemId);
+        if (slot < 0) {
+            slot = botPlayer.getInventoryManager().getContainer().getFirstFreeSlot();
+        }
+        if (slot >= 0) {
+            botPlayer.getInventoryManager().getContainer().setItem(
+                    slot, new ItemStack(itemId, Integer.MAX_VALUE));
+        }
     }
 
     private static void prepareCastleWarsEquipment(BotPlayer botPlayer) {
