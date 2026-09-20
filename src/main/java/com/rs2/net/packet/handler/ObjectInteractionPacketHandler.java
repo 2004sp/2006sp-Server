@@ -189,6 +189,17 @@ implements PacketHandler {
             }
             return;
         }
+        Position castleWarsSideDoorApproach =
+                CastleWarsEngineeringManager.getSideDoorInteractionApproach(
+                        player, objectId, objectX, objectY);
+        if (castleWarsSideDoorApproach != null) {
+            PathFinder.getInstance();
+            PathFinder.findPath(player,
+                    castleWarsSideDoorApproach.getX(), castleWarsSideDoorApproach.getY(),
+                    false, 0, 0);
+            return;
+        }
+
         Position castleWarsMainDoorApproach =
                 CastleWarsEngineeringManager.getMainDoorInteractionApproach(
                         player, objectId, objectX, objectY);
