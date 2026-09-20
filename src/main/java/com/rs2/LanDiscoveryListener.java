@@ -36,7 +36,9 @@ extends Thread {
             return;
         }
         catch (Exception exception) {
-            exception.printStackTrace();
+            if (LanDiscoveryService.running) {
+                exception.printStackTrace();
+            }
             return;
         }
     }
