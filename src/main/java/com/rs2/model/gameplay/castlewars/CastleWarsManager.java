@@ -439,7 +439,14 @@ public final class CastleWarsManager {
         replacementOfferCooldowns.remove(player);
         waitingPlayers.put(player, team);
         clearWaitingRoomGodTransformation(player);
-        applyWaitingRoomGodTransformation(player, objectId);
+        int morphPortalId = objectId;
+        if (objectId == GUTHIX_PORTAL_ID) {
+            // Guthix is only the team-balancing entrance. Once a team has been
+            // selected, use that team's normal god-equipment morph rules.
+            morphPortalId = team == Team.SARADOMIN
+                    ? SARADOMIN_PORTAL_ID : ZAMORAK_PORTAL_ID;
+        }
+        applyWaitingRoomGodTransformation(player, morphPortalId);
         equipTeamColours(player, team);
         Position destination = team == Team.SARADOMIN ? SARADOMIN_WAITING_ROOM : ZAMORAK_WAITING_ROOM;
         player.moveTo(new Position(destination.getX(), destination.getY(), destination.getPlane()));
