@@ -4,6 +4,7 @@ import com.rs2.Server;
 import com.rs2.model.player.Player;
 import com.rs2.net.packet.PacketDispatcher;
 import java.io.IOException;
+import java.nio.channels.ClosedSelectorException;
 import java.nio.channels.SelectionKey;
 import java.nio.channels.Selector;
 import java.util.Iterator;
@@ -27,34 +28,42 @@ extends Thread {
     @Override
     public final void run() {
         Thread.currentThread().setName("DedicatedReactor");
-        runControlLoop1: while (!Thread.interrupted()) {
-            DedicatedReactor dedicatedReactor = instance;
-            synchronized (dedicatedReactor) {
-            }
+        while (!Thread.currentThread().isInterrupted() && this.selector.isOpen()) {
             try {
                 this.selector.select();
+                if (Thread.currentThread().isInterrupted() || !this.selector.isOpen()) {
+                    break;
+                }
+
                 Iterator<SelectionKey> iterator = this.selector.selectedKeys().iterator();
-                while (true) {
-                    if (!iterator.hasNext()) {
-                        this.selector.selectedKeys().clear();
-                        continue runControlLoop1;
-                    }
+                while (iterator.hasNext()) {
                     SelectionKey selectionKey = iterator.next();
-                    if (selectionKey.isValid() && selectionKey.isAcceptable()) {
+                    iterator.remove();
+                    if (!selectionKey.isValid()) {
+                        continue;
+                    }
+                    if (selectionKey.isAcceptable()) {
                         Server.acceptConnection(selectionKey);
                         continue;
                     }
+
                     Player player = (Player)selectionKey.attachment();
-                    if (selectionKey.isValid() && selectionKey.isReadable()) {
+                    if (selectionKey.isReadable()) {
                         PacketDispatcher.processIncoming(player);
                     }
-                    if (!selectionKey.isValid() || !selectionKey.isWritable()) continue;
-                    PacketDispatcher.flushOutgoing(player);
+                    if (selectionKey.isValid() && selectionKey.isWritable()) {
+                        PacketDispatcher.flushOutgoing(player);
+                    }
                 }
             }
+            catch (ClosedSelectorException closedSelectorException) {
+                break;
+            }
             catch (IOException iOException) {
-                IOException iOException2 = iOException;
-                iOException.printStackTrace();
+                if (this.selector.isOpen() && !Thread.currentThread().isInterrupted()) {
+                    iOException.printStackTrace();
+                }
+                break;
             }
         }
     }
@@ -67,7 +76,33 @@ extends Thread {
         return instance;
     }
 
-    public static void setInstance(DedicatedReactor dedicatedReactor) {
+    public static synchronized void shutdown() {
+        DedicatedReactor dedicatedReactor = instance;
+        if (dedicatedReactor == null) {
+            return;
+        }
+
+        dedicatedReactor.interrupt();
+        try {
+            dedicatedReactor.selector.wakeup();
+            for (SelectionKey selectionKey : dedicatedReactor.selector.keys()) {
+                try {
+                    selectionKey.channel().close();
+                }
+                catch (IOException ignored) {
+                }
+            }
+            dedicatedReactor.selector.close();
+        }
+        catch (Exception exception) {
+            if (dedicatedReactor.selector.isOpen()) {
+                exception.printStackTrace();
+            }
+        }
+        instance = null;
+    }
+
+    public static synchronized void setInstance(DedicatedReactor dedicatedReactor) {
         if (instance != null) {
             throw new IllegalStateException("Instance already set");
         }
