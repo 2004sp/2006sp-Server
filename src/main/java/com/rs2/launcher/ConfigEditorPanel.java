@@ -120,7 +120,14 @@ public final class ConfigEditorPanel extends JPanel {
             }
         }
 
+        File workingDirectory = new File(System.getProperty("user.dir", ".")).getAbsoluteFile();
+        File parentDirectory = workingDirectory.getParentFile();
+        File siblingRuntimeConfig = parentDirectory == null
+            ? new File("../2006sp-Client/runtime/userConfig.cfg")
+            : new File(parentDirectory, "2006sp-Client/runtime/userConfig.cfg");
+
         File[] candidates = new File[]{
+            siblingRuntimeConfig,
             new File("../2006sp-Client/runtime/userConfig.cfg"),
             new File("../2006sp-Client/userConfig.cfg"),
             new File("runtime/userConfig.cfg"),
@@ -258,6 +265,13 @@ public final class ConfigEditorPanel extends JPanel {
             JPanel valuePanel = new JPanel(new BorderLayout(6, 0));
             valuePanel.add(keyLabel, BorderLayout.WEST);
             valuePanel.add(valueField, BorderLayout.CENTER);
+            if ("UI_SCALE_PERCENT".equals(entry.key)) {
+                JLabel percentLabel = new JLabel("%");
+                percentLabel.setFont(ConfigEditorPanel.this.controlFont);
+                percentLabel.setBorder(BorderFactory.createEmptyBorder(0, 4, 0, 0));
+                valuePanel.add(percentLabel, BorderLayout.EAST);
+                valueField.setToolTipText("Resizable/fullscreen UI size, from 50% to 200%.");
+            }
             row.add(valuePanel, BorderLayout.NORTH);
 
             if (entry.description.length() > 0) {
@@ -353,6 +367,29 @@ public final class ConfigEditorPanel extends JPanel {
                         JOptionPane.WARNING_MESSAGE
                     );
                     return false;
+                }
+                if (!this.serverConfig && "UI_SCALE_PERCENT".equals(fieldEntry.getKey())) {
+                    try {
+                        int uiScalePercent = Integer.parseInt(value);
+                        if (uiScalePercent < 50 || uiScalePercent > 200) {
+                            JOptionPane.showMessageDialog(
+                                ConfigEditorPanel.this,
+                                "UI SCALE PERCENT must be between 50 and 200.",
+                                "Config",
+                                JOptionPane.WARNING_MESSAGE
+                            );
+                            return false;
+                        }
+                    }
+                    catch (NumberFormatException numberFormatException) {
+                        JOptionPane.showMessageDialog(
+                            ConfigEditorPanel.this,
+                            "UI SCALE PERCENT must be a whole-number percentage between 50 and 200.",
+                            "Config",
+                            JOptionPane.WARNING_MESSAGE
+                        );
+                        return false;
+                    }
                 }
             }
 
