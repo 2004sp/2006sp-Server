@@ -372,6 +372,11 @@ public final class CastleWarsBotRoleAi {
             state.phase = Phase.WALL_GUARD_PATROL;
             state.wallPatrolTarget = null;
             state.wallPatrolTicks = 0;
+        } else if (state.role == Role.CATAPULT) {
+            // Catapults sit on the battlement. Do not send the specialist out
+            // through the main gate; route it to the internal wall-access stairs.
+            state.phase = Phase.CATAPULT_MOVE;
+            state.wallAccessed = false;
         } else {
             state.phase = Phase.EXIT_HOME;
         }
@@ -942,11 +947,55 @@ public final class CastleWarsBotRoleAi {
     }
 
     private static void processCatapult(BotPlayer bot, RoleState state) {
-        Position catapult = state.team == CastleWarsManager.Team.SARADOMIN
-                ? CastleWarsEngineeringManager.SARADOMIN_CATAPULT
-                : CastleWarsEngineeringManager.ZAMORAK_CATAPULT;
-        if (!near(bot, catapult, 3)) {
-            walk(bot, state, catapult);
+        if (bot.getPosition().getPlane() != 0) {
+            state.phase = Phase.DESCEND_HOME;
+            state.wallAccessed = false;
+            state.repathDelay = 0;
+            return;
+        }
+
+        // The catapult is on the castle battlement. Reach it through the same
+        // wall-access stairs used by wall guards instead of pathing at the
+        // catapult from ground level or exiting through the main gate.
+        if (!state.wallAccessed) {
+            if (CastleWarsEngineeringManager.isBattlementWalkwayTile(
+                    bot.getPosition(), state.team)) {
+                state.wallAccessed = true;
+                state.repathDelay = 0;
+            } else {
+                Position stairApproach = state.team == CastleWarsManager.Team.SARADOMIN
+                        ? new Position(2416, 3074, 0)
+                        : new Position(2383, 3133, 0);
+                Position wallLanding = state.team == CastleWarsManager.Team.SARADOMIN
+                        ? new Position(2417, 3077, 0)
+                        : new Position(2382, 3130, 0);
+
+                if (near(bot, wallLanding, 0)) {
+                    state.wallAccessed = true;
+                    state.repathDelay = 0;
+                } else if (reachInteractionApproach(bot, state, stairApproach)) {
+                    if (CastleWarsManager.moveBotThroughGroundCastleStairs(
+                            bot, state.team, true)) {
+                        state.wallAccessed = true;
+                        state.repathDelay = 0;
+                    }
+                }
+                return;
+            }
+        }
+
+        if (!CastleWarsEngineeringManager.isBattlementWalkwayTile(
+                bot.getPosition(), state.team)) {
+            state.wallAccessed = false;
+            state.repathDelay = 0;
+            return;
+        }
+
+        Position operatingPosition = state.team == CastleWarsManager.Team.SARADOMIN
+                ? new Position(2415, 3087, 0)
+                : new Position(2382, 3118, 0);
+        if (!near(bot, operatingPosition, 0)) {
+            walk(bot, state, operatingPosition);
             return;
         }
 
