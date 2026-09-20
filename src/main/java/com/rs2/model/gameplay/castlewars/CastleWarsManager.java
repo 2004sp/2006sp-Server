@@ -66,8 +66,47 @@ public final class CastleWarsManager {
     private static final int GUTHIX_SHEEP_TRANSFORMATION_ID = 1529;
     private static final int SARADOMIN_RABBIT_TRANSFORMATION_ID = 1530;
     private static final int ZAMORAK_IMP_TRANSFORMATION_ID = 1531;
-    private static final int HOLY_SYMBOL_ID = 1718;
-    private static final int UNHOLY_SYMBOL_ID = 1724;
+    /*
+     * Cache 377 wearable god items which trigger the Castle Wars waiting-room
+     * transformations. God helmets and capes are intentionally omitted because
+     * the lobby portal rejects anything worn in the head/cape slots before this
+     * check is reached. God book pages and consumables are not wearable and do
+     * not trigger the transformation.
+     */
+    private static final int[] SARADOMIN_TRANSFORMATION_ITEMS = new int[]{
+        1718, // Holy symbol
+        2415, // Saradomin staff
+        2661, // Saradomin platebody
+        2663, // Saradomin platelegs
+        2667, // Saradomin kiteshield
+        3479, // Saradomin plateskirt
+        3839, // Damaged book (Saradomin)
+        3840, // Holy book
+        6762  // Saradomin mjolnir
+    };
+    private static final int[] GUTHIX_TRANSFORMATION_ITEMS = new int[]{
+        2416, // Guthix staff
+        2669, // Guthix platebody
+        2671, // Guthix platelegs
+        2675, // Guthix kiteshield
+        3480, // Guthix plateskirt
+        3843, // Damaged book (Guthix)
+        3844, // Book of balance
+        6760  // Guthix mjolnir
+    };
+    private static final int[] ZAMORAK_TRANSFORMATION_ITEMS = new int[]{
+        1033, // Zamorak robe bottom
+        1035, // Zamorak robe top
+        1724, // Unholy symbol
+        2417, // Zamorak staff
+        2653, // Zamorak platebody
+        2655, // Zamorak platelegs
+        2659, // Zamorak kiteshield
+        3478, // Zamorak plateskirt
+        3841, // Damaged book (Zamorak)
+        3842, // Unholy book
+        6764  // Zamorak mjolnir
+    };
 
     public static final int MINIMUM_PLAYERS_PER_TEAM = 1;
     public static final int WAITING_DURATION_SECONDS = 60; // Temporary test countdown.
@@ -443,14 +482,10 @@ public final class CastleWarsManager {
         replacementOfferCooldowns.remove(player);
         waitingPlayers.put(player, team);
         clearWaitingRoomGodTransformation(player);
-        int morphPortalId = objectId;
-        if (objectId == GUTHIX_PORTAL_ID) {
-            // Guthix is only the team-balancing entrance. Once a team has been
-            // selected, use that team's normal god-equipment morph rules.
-            morphPortalId = team == Team.SARADOMIN
-                    ? SARADOMIN_PORTAL_ID : ZAMORAK_PORTAL_ID;
-        }
-        applyWaitingRoomGodTransformation(player, morphPortalId);
+        // The transformation is determined by the portal the player actually
+        // entered. The Guthix portal still turns opposing-god wearers into a
+        // sheep even though it subsequently assigns them to Sara or Zamorak.
+        applyWaitingRoomGodTransformation(player, objectId);
         equipTeamColours(player, team);
         Position destination = team == Team.SARADOMIN ? SARADOMIN_WAITING_ROOM : ZAMORAK_WAITING_ROOM;
         player.moveTo(new Position(destination.getX(), destination.getY(), destination.getPlane()));
@@ -2293,13 +2328,8 @@ public final class CastleWarsManager {
 
     private static void applyWaitingRoomGodTransformation(Player player, int portalId) {
         int transformationId = -1;
+
         if (portalId == SARADOMIN_PORTAL_ID) {
-            // A Holy symbol explicitly declares Saradomin allegiance and must
-            // prevent the Saradomin waiting-room disguise even if other god
-            // equipment is also present.
-            if (hasItemAnywhere(player, HOLY_SYMBOL_ID)) {
-                return;
-            }
             if (hasGodEquipment(player, God.GUTHIX) || hasGodEquipment(player, God.ZAMORAK)) {
                 transformationId = SARADOMIN_RABBIT_TRANSFORMATION_ID;
             }
@@ -2308,11 +2338,6 @@ public final class CastleWarsManager {
                 transformationId = GUTHIX_SHEEP_TRANSFORMATION_ID;
             }
         } else if (portalId == ZAMORAK_PORTAL_ID) {
-            // Likewise, an Unholy symbol explicitly exempts a Zamorak entrant
-            // from the Zamorak waiting-room disguise.
-            if (hasItemAnywhere(player, UNHOLY_SYMBOL_ID)) {
-                return;
-            }
             if (hasGodEquipment(player, God.SARADOMIN) || hasGodEquipment(player, God.GUTHIX)) {
                 transformationId = ZAMORAK_IMP_TRANSFORMATION_ID;
             }
@@ -2326,63 +2351,38 @@ public final class CastleWarsManager {
         }
     }
 
-    private static boolean hasItemAnywhere(Player player, int itemId) {
+    private static boolean hasGodEquipment(Player player, God god) {
         if (player == null) {
             return false;
         }
-        ItemStack[] equipment = player.getEquipmentManager().getContainer().getItems();
-        for (ItemStack item : equipment) {
-            if (item != null && item.getId() == itemId) {
-                return true;
-            }
-        }
-        ItemStack[] inventory = player.getInventoryManager().getContainer().getItems();
-        for (ItemStack item : inventory) {
-            if (item != null && item.getId() == itemId) {
-                return true;
-            }
-        }
-        return false;
-    }
-
-    private static boolean hasGodEquipment(Player player, God god) {
-        return containsGodItem(player.getEquipmentManager().getContainer().getItems(), god)
-                || containsGodItem(player.getInventoryManager().getContainer().getItems(), god);
+        // Castle Wars checks what the player is wearing when they enter the
+        // portal. Merely carrying a god item in the inventory does not count.
+        return containsGodItem(player.getEquipmentManager().getContainer().getItems(), god);
     }
 
     private static boolean containsGodItem(ItemStack[] items, God god) {
+        if (items == null) {
+            return false;
+        }
+
+        int[] godItems;
+        if (god == God.SARADOMIN) {
+            godItems = SARADOMIN_TRANSFORMATION_ITEMS;
+        } else if (god == God.GUTHIX) {
+            godItems = GUTHIX_TRANSFORMATION_ITEMS;
+        } else {
+            godItems = ZAMORAK_TRANSFORMATION_ITEMS;
+        }
+
         for (ItemStack item : items) {
             if (item == null) {
                 continue;
             }
-
-            if (god == God.SARADOMIN && item.getId() == HOLY_SYMBOL_ID) {
-                return true;
-            }
-            if (god == God.ZAMORAK && item.getId() == UNHOLY_SYMBOL_ID) {
-                return true;
-            }
-            if (item.getDefinition() == null || item.getDefinition().getName() == null) {
-                continue;
-            }
-
-            String itemName = item.getDefinition().getName().toLowerCase();
-            if (god == God.SARADOMIN) {
-                if (itemName.contains("saradomin")
-                        || itemName.startsWith("holy symbol")
-                        || itemName.startsWith("holy book")) {
+            int itemId = item.getId();
+            for (int godItemId : godItems) {
+                if (itemId == godItemId) {
                     return true;
                 }
-            } else if (god == God.GUTHIX) {
-                if (itemName.contains("guthix")
-                        || itemName.startsWith("book of balance")
-                        || itemName.startsWith("void knight")) {
-                    return true;
-                }
-            } else if (itemName.contains("zamorak")
-                    || itemName.startsWith("unholy symbol")
-                    || itemName.startsWith("unholy book")) {
-                return true;
             }
         }
         return false;
