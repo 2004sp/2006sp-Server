@@ -491,6 +491,26 @@ public final class CastleWarsEngineeringManager {
         catapultAimRightButtonId = right.getInterfaceId();
     }
 
+    public static Position getSideDoorInteractionApproach(Player player,
+                                                          int objectId,
+                                                          int objectX,
+                                                          int objectY) {
+        if (player == null || player.getPosition().getPlane() != MAIN_DOOR_PLANE) {
+            return null;
+        }
+        SideDoorState door = findSideDoor(objectId, objectX, objectY);
+        if (door == null) {
+            return null;
+        }
+
+        // Each side door is a vertical wall edge between exactly two floor
+        // tiles. Keep the player on whichever side of that edge they started.
+        int leftX = Math.min(door.closedX, door.openX);
+        int rightX = Math.max(door.closedX, door.openX);
+        int approachX = player.getPosition().getX() <= leftX ? leftX : rightX;
+        return new Position(approachX, door.closedY, MAIN_DOOR_PLANE);
+    }
+
     public static boolean handleSideDoor(Player player, int objectId, int objectX, int objectY) {
         SideDoorState door = findSideDoor(objectId, objectX, objectY);
         if (door == null) {
@@ -505,6 +525,8 @@ public final class CastleWarsEngineeringManager {
 
         if (team == door.team) {
             boolean opening = !door.open;
+            player.getMovementQueue().clear();
+            player.getMovementQueue().clearMovementActions();
             setSideDoorOpen(door, opening);
             if (!player.isBot) {
                 door.playerLocked = !opening;
@@ -540,6 +562,8 @@ public final class CastleWarsEngineeringManager {
         }
 
         door.playerLocked = false;
+        player.getMovementQueue().clear();
+        player.getMovementQueue().clearMovementActions();
         setSideDoorOpen(door, true);
         player.getPacketSender().sendSoundEffect(1502, 1, 0);
         player.getPacketSender().sendGameMessage("You manage to pick the lock.");
@@ -859,7 +883,7 @@ public final class CastleWarsEngineeringManager {
         if (open) {
             new DynamicObject(ServerSettings.placeholderObjectId,
                     door.closedX, door.closedY, MAIN_DOOR_PLANE,
-                    door.closedOrientation, 0, ServerSettings.placeholderObjectId, 999999999);
+                    door.closedOrientation, 0, door.closedId, 999999999);
             new DynamicObject(door.openId, door.openX, door.openY, MAIN_DOOR_PLANE,
                     door.openOrientation, 0, door.openId, 999999999);
         } else {
@@ -867,7 +891,7 @@ public final class CastleWarsEngineeringManager {
                     door.closedOrientation, 0, door.closedId, 999999999);
             new DynamicObject(ServerSettings.placeholderObjectId,
                     door.openX, door.openY, MAIN_DOOR_PLANE,
-                    door.openOrientation, 0, ServerSettings.placeholderObjectId, 999999999);
+                    door.openOrientation, 0, door.openId, 999999999);
         }
         door.open = open;
     }
