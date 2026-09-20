@@ -233,7 +233,7 @@ public final class CastleWarsManager {
     };
 
     public static final int MINIMUM_PLAYERS_PER_TEAM = 1;
-    public static final int WAITING_DURATION_SECONDS = 60; // Temporary test countdown.
+    public static final int WAITING_DURATION_SECONDS = 5 * 60;
     public static final int GAME_DURATION_SECONDS = 20 * 60;
 
     private static final long DROPPED_FLAG_AUTO_RETURN_MILLIS = 45_000L;
