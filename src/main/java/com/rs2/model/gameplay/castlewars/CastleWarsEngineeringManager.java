@@ -128,8 +128,10 @@ public final class CastleWarsEngineeringManager {
     private static boolean zamorakCatapultBurning;
     private static long saradominCatapultBurnExpiresAt;
     private static long zamorakCatapultBurnExpiresAt;
-    private static long saradominCatapultReadyAt;
-    private static long zamorakCatapultReadyAt;
+    // Catapult reload time is per operator. A team-wide cooldown lets the
+    // dedicated catapult bot permanently starve human teammates of the weapon.
+    private static final Map<Player, Long> catapultReadyAt =
+            new IdentityHashMap<Player, Long>();
     private static final Map<Player, CatapultAim> catapultAims =
             new IdentityHashMap<Player, CatapultAim>();
     private static int catapultAimUpButtonId = -1;
@@ -187,8 +189,8 @@ public final class CastleWarsEngineeringManager {
         setCatapultOperational(CastleWarsManager.Team.ZAMORAK, true);
         resetMainDoors();
         resetSideDoors();
-        saradominCatapultReadyAt = 0L;
-        zamorakCatapultReadyAt = 0L;
+        catapultReadyAt.clear();
+        catapultReadyAt.clear();
         catapultAims.clear();
         mainDoorAttackReadyAt.clear();
     }
@@ -365,10 +367,27 @@ public final class CastleWarsEngineeringManager {
     }
 
     public static boolean handleCatapultButton(Player player, int buttonId) {
-        InterfaceDefinition definition = InterfaceDefinition.forId(buttonId);
-        if (definition == null
-                || !isInterfaceDescendantOf(buttonId, CATAPULT_INTERFACE_ID)) {
+        // This must be safe to call before the generic button-interface guard:
+        // several controls in the native 377 catapult panel are nested below
+        // child containers rather than being direct children of interface 11169.
+        if (player == null || player.getOpenInterfaceId() != CATAPULT_INTERFACE_ID) {
             return false;
+        }
+
+        resolveCatapultAimButtons();
+
+        boolean knownControl = buttonId == CATAPULT_CLOSE_BUTTON_ID
+                || buttonId == CATAPULT_FIRE_BUTTON_ID
+                || buttonId == catapultAimUpButtonId
+                || buttonId == catapultAimDownButtonId
+                || buttonId == catapultAimLeftButtonId
+                || buttonId == catapultAimRightButtonId;
+        if (!knownControl) {
+            InterfaceDefinition definition = InterfaceDefinition.forId(buttonId);
+            if (definition == null
+                    || !isInterfaceDescendantOf(buttonId, CATAPULT_INTERFACE_ID)) {
+                return false;
+            }
         }
 
         if (buttonId == CATAPULT_CLOSE_BUTTON_ID) {
@@ -407,7 +426,6 @@ public final class CastleWarsEngineeringManager {
             return true;
         }
 
-        resolveCatapultAimButtons();
         boolean changed = false;
         if (buttonId == catapultAimUpButtonId && aim.x < CATAPULT_MAX_AIM) {
             ++aim.x;
@@ -1875,20 +1893,15 @@ public final class CastleWarsEngineeringManager {
         }
 
         long now = System.currentTimeMillis();
-        long readyAt = team == CastleWarsManager.Team.SARADOMIN
-                ? saradominCatapultReadyAt : zamorakCatapultReadyAt;
-        if (now < readyAt) {
+        Long readyAt = catapultReadyAt.get(player);
+        if (readyAt != null && now < readyAt.longValue()) {
             return false;
         }
 
         if (!player.getInventoryManager().removeItem(new ItemStack(ROCK_ITEM_ID, 1))) {
             return false;
         }
-        if (team == CastleWarsManager.Team.SARADOMIN) {
-            saradominCatapultReadyAt = now + 12000L;
-        } else {
-            zamorakCatapultReadyAt = now + 12000L;
-        }
+        catapultReadyAt.put(player, Long.valueOf(now + 12000L));
         player.getPacketSender().sendStillGraphicToNearbyPlayers(287,
                 target.getX(), target.getY(), 0, 0);
         damageCatapultArea(target);
