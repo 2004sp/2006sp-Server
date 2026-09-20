@@ -546,6 +546,32 @@ public final class CastleWarsEngineeringManager {
         return true;
     }
 
+    public static Position getMainDoorInteractionApproach(Player player,
+                                                          int objectId,
+                                                          int objectX,
+                                                          int objectY) {
+        if (player == null || !isClosedMainDoorObject(objectId)) {
+            return null;
+        }
+        MainDoorState door = findMainDoor(objectId, objectX, objectY);
+        if (door == null || door.mode != MainDoorMode.CLOSED
+                || player.getPosition().getPlane() != MAIN_DOOR_PLANE) {
+            return null;
+        }
+
+        // Keep the interaction on the side the player is already standing on.
+        // The main doors sit east-west, so crossing them is a Y-axis change.
+        int approachY;
+        if (door.team == CastleWarsManager.Team.SARADOMIN) {
+            approachY = player.getPosition().getY() <= objectY
+                    ? objectY - 1 : objectY + 1;
+        } else {
+            approachY = player.getPosition().getY() >= objectY
+                    ? objectY + 1 : objectY - 1;
+        }
+        return new Position(objectX, approachY, MAIN_DOOR_PLANE);
+    }
+
     public static boolean handleMainDoor(Player player, int objectId, int objectX, int objectY) {
         MainDoorState door = findMainDoor(objectId, objectX, objectY);
         if (door == null) {
@@ -572,6 +598,10 @@ public final class CastleWarsEngineeringManager {
             return true;
         }
 
+        // Do not let an object-interaction path continue through the doorway
+        // on the same tick that its clipping is removed.
+        player.getMovementQueue().clear();
+        player.getMovementQueue().clearMovementActions();
         setMainDoorMode(door, door.mode == MainDoorMode.CLOSED
                 ? MainDoorMode.OPEN : MainDoorMode.CLOSED);
         player.getPacketSender().sendSoundEffect(318, 1, 0);
