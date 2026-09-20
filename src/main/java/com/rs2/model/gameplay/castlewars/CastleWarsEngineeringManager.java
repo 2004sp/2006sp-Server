@@ -624,6 +624,11 @@ public final class CastleWarsEngineeringManager {
             return true;
         }
 
+        // Never carry an object-interaction path through the closed doorway
+        // while attacking it.
+        player.getMovementQueue().clear();
+        player.getMovementQueue().clearMovementActions();
+
         long now = System.currentTimeMillis();
         Long readyAt = mainDoorAttackReadyAt.get(player);
         if (readyAt != null && now < readyAt.longValue()) {
