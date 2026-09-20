@@ -3251,6 +3251,22 @@ public class GameplayHelper {
                 int value6 = byteArrayReader.readUnsignedShort();
                 int value7 = byteArrayReader.readUnsignedShort();
                 int value8 = byteArrayReader.readUnsignedByte();
+
+                // Castle Wars supply placement adjustments.
+                if (value3 == 590 && value8 == 0) {
+                    if (value6 == 2431 && value7 == 3072) {
+                        value7 = 3078;
+                    } else if (value6 == 2368 && value7 == 3135) {
+                        value7 = 3129;
+                    }
+                }
+
+                boolean removedCastleWarsBucket = value3 == 1925 && value8 == 0
+                        && ((value6 == 2424 && value7 == 3074)
+                        || (value6 == 2425 && (value7 == 3074 || value7 == 3075))
+                        || (value6 == 2375 && value7 == 3132)
+                        || (value6 == 2376 && value7 == 3132));
+
                 int value9 = 100;
                 if (value3 == 245) {
                     value9 = 20;
@@ -3263,7 +3279,9 @@ public class GameplayHelper {
                     value6 = 3084;
                     value7 = 3261;
                 }
-                if (ItemDefinition.isDefined(value3) && (!ServerSettings.freeToPlayWorld || value5 != 1)) {
+                if (!removedCastleWarsBucket
+                        && ItemDefinition.isDefined(value3)
+                        && (!ServerSettings.freeToPlayWorld || value5 != 1)) {
                     Object value10 = new ItemStack(value3, value4);
                     if (!ServerSettings.freeToPlayWorld || !((ItemStack)value10).getDefinition().isMembersOnly()) {
                         value9 = (int)((double)value9 * ServerSettings.itemRespawnDelayMultiplier);

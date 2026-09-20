@@ -119,6 +119,7 @@ public final class PacketDispatcher {
         PacketDispatcher.packetHandlers[86] = new CameraPacketHandler();
         PacketDispatcher.packetHandlers[155] = npcInteractionHandler;
         PacketDispatcher.packetHandlers[17] = npcInteractionHandler;
+        PacketDispatcher.packetHandlers[18] = npcInteractionHandler;
         PacketDispatcher.packetHandlers[21] = npcInteractionHandler;
         PacketDispatcher.packetHandlers[230] = npcInteractionHandler;
         PacketDispatcher.packetHandlers[72] = npcInteractionHandler;
@@ -266,6 +267,7 @@ public final class PacketDispatcher {
         switch (opcode) {
             case 16:
             case 17:
+            case 18:
             case 21:
             case 25:
             case 35:

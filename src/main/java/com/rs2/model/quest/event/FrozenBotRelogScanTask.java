@@ -4,6 +4,7 @@ import com.rs2.ServerSettings;
 import com.rs2.model.Entity;
 import com.rs2.model.Position;
 import com.rs2.model.World;
+import com.rs2.model.gameplay.castlewars.CastleWarsManager;
 import com.rs2.model.player.Player;
 import com.rs2.model.task.TickTask;
 
@@ -24,6 +25,7 @@ extends TickTask {
             if (player != null
                 && player.isBot
                 && (player.botMode == 4 || player.botMode == 0)
+                && !CastleWarsManager.isInGame(player)
                 && player.hasBotStalled()) {
                 System.out.println(
                     "Detected possibly frozen bot: "

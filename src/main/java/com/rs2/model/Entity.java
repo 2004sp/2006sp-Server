@@ -582,7 +582,8 @@ public abstract class Entity {
             } else if (this.isMoving() && this.isRunningMovement() && entity.isMoving() && entity.isRunningMovement()) {
                 attackRange += 2;
             }
-            if (!EntityTargetMovement.canReachTarget(this, entity, attackRange)) {
+            if (!EntityTargetMovement.canReachTarget(
+                    this, entity, attackRange, combatAttack.getCombatType())) {
                 combatAttackState = CombatAttackState.b;
             }
             list.add(new SmithingHandler(combatAttack, combatAttackState));

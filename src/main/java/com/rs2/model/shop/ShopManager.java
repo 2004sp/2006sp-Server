@@ -24,6 +24,34 @@ import java.util.List;
 public final class ShopManager {
     private static List shopDefinitions = new ArrayList(40);
 
+    private static final int CASTLE_WARS_TICKET_ID = 4067;
+    private static final int CASTLE_WARS_MANUAL_ID = 4055;
+    private static final int CASTLE_WARS_MANUAL_STOCK = 1000;
+    private static final int CASTLE_WARS_MANUAL_COIN_PRICE = 5;
+    private static final int[] CASTLE_WARS_REWARD_ITEM_IDS = new int[]{
+            // Novice decorative armour: helm, shield, legs, body, sword.
+            4071, 4072, 4070, 4069, 4068,
+            // Intermediate decorative armour.
+            4506, 4507, 4505, 4504, 4503,
+            // Advanced decorative armour.
+            4511, 4512, 4510, 4509, 4508,
+            // Team rewards: red (Zamorak) cloak/hood, blue (Saradomin) cloak/hood.
+            4516, 4515, 4514, 4513
+    };
+    private static final int[] CASTLE_WARS_REWARD_PRICES = new int[]{
+            4, 6, 6, 8, 5,
+            40, 60, 60, 80, 50,
+            400, 600, 600, 800, 500,
+            10, 10, 10, 10
+    };
+    private static final int[] CASTLE_WARS_REWARD_STOCK = new int[]{
+            100, 100, 100, 100, 100,
+            50, 50, 50, 50, 50,
+            25, 25, 25, 25, 25,
+            200, 200, 200, 200
+    };
+    private static int castleWarsRewardShopId = -1;
+
     public static void refreshShopForPlayers(int value2) {
         ShopDefinition shopDefinition = (ShopDefinition)shopDefinitions.get(value2);
         Player[] playerArray = World.getPlayers();
@@ -122,7 +150,8 @@ public final class ShopManager {
         int traceStockItemId = itemStack != null ? itemStack.getId() : -1;
         int traceStockSlotAmountBefore = itemStack != null ? itemStack.getAmount() : -1;
         if (shopDefinition.getCurrency() == ShopCurrency.ITEM_CURRENCY) {
-            value5 = shopDefinition.getCurrencyItemId();
+            value5 = isCastleWarsManualPurchase(shopDefinition, value10)
+                    ? 995 : shopDefinition.getCurrencyItemId();
         } else {
             ShopDefinition shopDefinition2 = shopDefinition;
             value6 = player;
@@ -164,8 +193,12 @@ public final class ShopManager {
             enabled = true;
         }
         if (shopDefinition.getCurrency() == ShopCurrency.ITEM_CURRENCY) {
-            ItemService.getInstance();
-            value4 = ItemService.getPrice(value10, "buyfromshop", value5);
+            if (isCastleWarsManualPurchase(shopDefinition, value10)) {
+                value4 = CASTLE_WARS_MANUAL_COIN_PRICE;
+            } else {
+                ItemService.getInstance();
+                value4 = ItemService.getPrice(value10, "buyfromshop", value5);
+            }
         } else {
             ItemService.getInstance();
             value4 = ItemService.getPrice(value10, "donator", value5);
@@ -321,6 +354,13 @@ public final class ShopManager {
     }
 
     private static int calculateBuyPrice(ShopDefinition shopDefinition, int value3, int value22) {
+        if (isCastleWarsManualPurchase(shopDefinition, value3)) {
+            return CASTLE_WARS_MANUAL_COIN_PRICE;
+        }
+        int castleWarsPrice = ShopManager.getCastleWarsRewardPrice(shopDefinition, value3);
+        if (castleWarsPrice >= 0) {
+            return castleWarsPrice;
+        }
         int definition = new ItemStack(value3).getDefinition().getShopValue();
         int index = 0;
         if (shopDefinition.getOriginalStock().findFlatItem(value3) != null) {
@@ -339,6 +379,10 @@ public final class ShopManager {
     }
 
     private static int calculateSellPrice(ShopDefinition shopDefinition, int value3, int value22) {
+        int castleWarsPrice = ShopManager.getCastleWarsRewardPrice(shopDefinition, value3);
+        if (castleWarsPrice >= 0) {
+            return castleWarsPrice;
+        }
         int definition = new ItemStack(value3).getDefinition().getShopValue();
         int index = 0;
         if (shopDefinition.getOriginalStock().findFlatItem(value3) != null) {
@@ -416,7 +460,9 @@ public final class ShopManager {
             player5.packetSender.sendGameMessage("You cannot sell coins to the shop.");
             return;
         }
-        if (!shopDefinition.isGeneralStore() && !shopDefinition.getStock().containsItem(value2) || itemStack.getDefinition().isUntradeable()) {
+        boolean castleWarsRefund = ShopManager.getCastleWarsRewardPrice(shopDefinition, value2) >= 0;
+        if (!shopDefinition.isGeneralStore() && !shopDefinition.getStock().containsItem(value2)
+                || itemStack.getDefinition().isUntradeable() && !castleWarsRefund) {
             if (GameplayTrace.enabled()) {
                 GameplayTrace.log("shop sell rejected-unsellable player=" + GameplayTrace.describe(player) + " shopId=" + player.getCurrentShopId() + " itemId=" + value5 + " stockItemId=" + value2 + " generalStore=" + shopDefinition.isGeneralStore() + " untradeable=" + itemStack.getDefinition().isUntradeable());
             }
@@ -452,7 +498,7 @@ public final class ShopManager {
         if (shopDefinition.getOriginalStock().findFlatItem(value2) != null) {
             itemAmount = shopDefinition.getOriginalStock().findFlatItem(value2).getAmount();
         }
-        if (player.gameMode != 0 && stock < itemAmount) {
+        if (!ShopManager.isCastleWarsRewardShop(shopDefinition) && player.gameMode != 0 && stock < itemAmount) {
             if (GameplayTrace.enabled()) {
                 GameplayTrace.log("shop sell rejected-understock-gamemode player=" + GameplayTrace.describe(player) + " shopId=" + player.getCurrentShopId() + " itemId=" + value5 + " stockItemId=" + value2 + " stockAmount=" + stock + " originalAmount=" + itemAmount + " gameMode=" + player.gameMode);
             }
@@ -509,6 +555,11 @@ public final class ShopManager {
         if (GameplayTrace.enabled()) {
             GameplayTrace.log("shop buy-price request player=" + GameplayTrace.describe(player) + " shopId=" + player.getCurrentShopId() + " itemId=" + value3 + " currency=" + shopDefinition.getCurrency() + " currencyItemId=" + shopDefinition.getCurrencyItemId());
         }
+        if (isCastleWarsManualPurchase(shopDefinition, value3)) {
+            player.packetSender.sendGameMessage("Castlewars manual: currently costs "
+                    + CASTLE_WARS_MANUAL_COIN_PRICE + " coins.");
+            return;
+        }
         if (shopDefinition.getCurrency() == ShopCurrency.ITEM_CURRENCY) {
             int value2 = value3;
             ItemService.getInstance();
@@ -560,7 +611,9 @@ public final class ShopManager {
             player.packetSender.sendGameMessage("You cannot sell coins to the shop.");
             return;
         }
-        if (!shopDefinition.isGeneralStore() && !shopDefinition.getStock().containsItem(value3) || ((ItemDefinition)value2).isUntradeable()) {
+        boolean castleWarsRefund = ShopManager.getCastleWarsRewardPrice(shopDefinition, value3) >= 0;
+        if (!shopDefinition.isGeneralStore() && !shopDefinition.getStock().containsItem(value3)
+                || ((ItemDefinition)value2).isUntradeable() && !castleWarsRefund) {
             player.packetSender.sendGameMessage("You cannot sell this item in this shop.");
             return;
         }
@@ -586,8 +639,70 @@ public final class ShopManager {
         return ItemService.getItemName(shopDefinition.getCurrencyItemId());
     }
 
+    public static void openCastleWarsRewardShop(Player player) {
+        if (player == null) {
+            return;
+        }
+        if (castleWarsRewardShopId < 0) {
+            player.packetSender.sendGameMessage("The Castle Wars Ticket Exchange is currently unavailable.");
+            return;
+        }
+        int ticketCount = player.getInventoryManager().getItemAmount(CASTLE_WARS_TICKET_ID);
+        player.packetSender.sendGameMessage("You have " + ticketCount + " Castle Wars ticket" + (ticketCount == 1 ? "." : "s."));
+        ShopManager.openShop(player, castleWarsRewardShopId);
+    }
+
+    private static boolean isCastleWarsRewardShop(ShopDefinition shopDefinition) {
+        return shopDefinition != null
+                && castleWarsRewardShopId >= 0
+                && shopDefinition.getShopId() == castleWarsRewardShopId;
+    }
+
+    private static boolean isCastleWarsManualPurchase(ShopDefinition shopDefinition, int itemId) {
+        return itemId == CASTLE_WARS_MANUAL_ID && isCastleWarsRewardShop(shopDefinition);
+    }
+
+    private static int getCastleWarsRewardPrice(ShopDefinition shopDefinition, int itemId) {
+        if (!ShopManager.isCastleWarsRewardShop(shopDefinition)) {
+            return -1;
+        }
+        int index = 0;
+        while (index < CASTLE_WARS_REWARD_ITEM_IDS.length) {
+            if (CASTLE_WARS_REWARD_ITEM_IDS[index] == itemId) {
+                return CASTLE_WARS_REWARD_PRICES[index];
+            }
+            ++index;
+        }
+        return -1;
+    }
+
+    private static void ensureCastleWarsRewardStock(ShopDefinition shopDefinition) {
+        if (shopDefinition == null) {
+            return;
+        }
+        ItemContainer originalStock = shopDefinition.getOriginalStock();
+        ItemContainer stock = shopDefinition.getStock();
+        for (int index = 0; index < CASTLE_WARS_REWARD_ITEM_IDS.length; ++index) {
+            int itemId = CASTLE_WARS_REWARD_ITEM_IDS[index];
+            int stockAmount = CASTLE_WARS_REWARD_STOCK[index];
+            if (!originalStock.containsItem(itemId)) {
+                originalStock.add(new ItemStack(itemId, stockAmount), -1);
+            }
+            if (!stock.containsItem(itemId)) {
+                stock.add(new ItemStack(itemId, stockAmount), -1);
+            }
+        }
+        if (!originalStock.containsItem(CASTLE_WARS_MANUAL_ID)) {
+            originalStock.add(new ItemStack(CASTLE_WARS_MANUAL_ID, CASTLE_WARS_MANUAL_STOCK), -1);
+        }
+        if (!stock.containsItem(CASTLE_WARS_MANUAL_ID)) {
+            stock.add(new ItemStack(CASTLE_WARS_MANUAL_ID, CASTLE_WARS_MANUAL_STOCK), -1);
+        }
+    }
+
     public static void loadShops() {
         try {
+            castleWarsRewardShopId = -1;
             byte[] byteValues = FileUtil.readBytes("./data/content/Shops.dat");
             ByteArrayReader byteArrayReader = new ByteArrayReader(byteValues);
             int value = byteArrayReader.readUnsignedShort();
@@ -639,6 +754,10 @@ public final class ShopManager {
                 shopDefinition.setSellPricePercent(value4);
                 shopDefinition.setPriceChangeRateTenths(value5);
                 ShopDefinition.setShopId(shopDefinition, index);
+                if ("Castle Wars Ticket Exchange".equals(text) && index2 == CASTLE_WARS_TICKET_ID) {
+                    castleWarsRewardShopId = index;
+                    ShopManager.ensureCastleWarsRewardStock(shopDefinition);
+                }
                 shopDefinitions.add(shopDefinition);
                 ++index;
             }

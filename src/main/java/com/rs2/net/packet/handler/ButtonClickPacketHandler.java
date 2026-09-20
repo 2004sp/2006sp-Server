@@ -6,6 +6,8 @@ import com.rs2.cache.InterfaceDefinition;
 import com.rs2.model.EntityUpdateState;
 import com.rs2.model.GameplayHelper;
 import com.rs2.model.gameplay.barrows.BarrowsManager;
+import com.rs2.model.gameplay.castlewars.CastleWarsEngineeringManager;
+import com.rs2.model.gameplay.castlewars.CastleWarsManager;
 import com.rs2.model.gameplay.partyroom.PartyRoomManager;
 import com.rs2.model.ground.GroundItem;
 import com.rs2.model.ground.GroundItemManager;
@@ -46,12 +48,30 @@ implements PacketHandler {
                 + " interfaceOpen=" + interfaceOpen
                 + " spellbook=" + player.getSpellbook());
         }
+
+        // The native 377 catapult interface contains nested controls whose
+        // immediate parent is not always the root open interface. Let the
+        // catapult handler validate those controls against its own open state
+        // before the generic direct-parent interface guard discards the click.
+        if (CastleWarsEngineeringManager.handleCatapultButton(player, buttonId)) return;
+        if (CastleWarsManager.handleCastleWarsManualButton(player, buttonId)) return;
+
         if (!interfaceOpen) {
+            if (player.isInteractionDebugEnabled()) {
+                int parentInterfaceId = interfaceDefinition == null
+                        ? -1 : interfaceDefinition.getParentInterfaceId();
+                String debugMessage = "Unhandled button: " + buttonId
+                        + " (parent=" + parentInterfaceId + ", open=false)";
+                player.packetSender.sendGameMessage(debugMessage);
+                System.out.println("[button-debug] " + player.getUsername()
+                        + " " + debugMessage);
+            }
             return;
         }
         if (ServerSettings.debugModeEnabled) {
             System.out.println("button id: " + buttonId);
         }
+        if (CastleWarsManager.handleReplacementOfferButton(player, buttonId)) return;
         if (player.getDuelSession().handleButtonClick(buttonId) != false) return;
         if (player.getQuestManager().handleButtonClick(buttonId) != false) return;
         if (buttonId >= 18792 && buttonId <= 18812) {
@@ -874,6 +894,18 @@ implements PacketHandler {
         if (GameplayHelper.handleFlourDoughButton(player, buttonId) != false) return;
         if (SmeltingHandler.handleSmeltingButton(player, buttonId, 0) != false) return;
         if (player.getDialogueManager().handleOptionButton(buttonId) != false) return;
+
+        if (player.isInteractionDebugEnabled()) {
+            int parentInterfaceId = interfaceDefinition == null
+                    ? -1 : interfaceDefinition.getParentInterfaceId();
+            String debugMessage = "Unhandled button: " + buttonId
+                    + " (parent=" + parentInterfaceId + ", open=true)";
+            player.packetSender.sendGameMessage(debugMessage);
+            System.out.println("[button-debug] " + player.getUsername()
+                    + " " + debugMessage);
+        }
+
+        // Preserve the old global staff/server debug logging as well.
         if (player.getPlayerRights() <= 1) return;
         if (ServerSettings.debugModeEnabled == false) return;
         System.out.println("button " + buttonId + " doesn't do anything");

@@ -9,6 +9,7 @@ import com.rs2.cache.InterfaceDefinition;
 import com.rs2.model.World;
 import com.rs2.model.combat.CombatManager;
 import com.rs2.model.combat.special.SpecialAttackDefinition;
+import com.rs2.model.gameplay.castlewars.CastleWarsManager;
 import com.rs2.model.ground.GroundItem;
 import com.rs2.model.ground.GroundItemManager;
 import com.rs2.model.item.ItemDefinition;
@@ -47,6 +48,25 @@ public final class BotPvpCombatHandler {
 
     static void processBotPvpCombatTick(Player player, Player player2) {
         int value;
+        boolean castleWarsCombat = CastleWarsManager.isInGame(player);
+        boolean castleWarsCrossLevelCombat = castleWarsCombat
+                && CastleWarsManager.isCastleWallCrossLevelPair(player, player2);
+        if (castleWarsCombat) {
+            player.botCombatState = null;
+            player.botCombatEscapeActive = false;
+        }
+        if (castleWarsCrossLevelCombat
+                && player.botPrimaryCombatStyle != MELEE_COMBAT_STYLE
+                && player.botActiveCombatStyle == MELEE_COMBAT_STYLE) {
+            if (player.getEquipmentManager().getItemIdAtSlot(3) != player.botWeaponItemId) {
+                BotCombatHelper.restorePrimaryCombatGear(player);
+            }
+            player.botActiveCombatStyle = player.botPrimaryCombatStyle;
+            if (player.isSpecialAttackEnabled()) {
+                player.setSpecialAttackEnabled(false);
+                player.refreshSpecialAttackWidgets();
+            }
+        }
         if (player.botCombatState != null && player.botEnabled && player.botCombatState.equals("escape")) {
             BotCombatEscapeHandler.tryStartBotCombatEscape(player);
             return;
@@ -97,7 +117,7 @@ public final class BotPvpCombatHandler {
             CombatManager.startCombat(player, player2);
         }
         int escapeCombatLevelMargin = BotCombatHelper.getEscapeCombatLevelMargin(player);
-        if (WildernessBotSettings.escapeHighLevelAttackersEnabled && !player.clanWarsBot && player2.getCombatLevel() > player.getCombatLevel() + escapeCombatLevelMargin && player.getCombatTarget() == player2) {
+        if (!castleWarsCombat && WildernessBotSettings.escapeHighLevelAttackersEnabled && !player.clanWarsBot && player2.getCombatLevel() > player.getCombatLevel() + escapeCombatLevelMargin && player.getCombatTarget() == player2) {
             if (player.botThreatEscapeDelayTicks < 3) {
                 ++player.botThreatEscapeDelayTicks;
             } else {
@@ -132,7 +152,7 @@ public final class BotPvpCombatHandler {
         player2.getSkillManager();
         levelForExperience = SkillManager.getLevelForExperience(player2.getSkillManager().getExperience()[3]);
         if (escapeCombatLevelMargin == 0) {
-            if ((double)skillManager2 <= (double)levelForExperience * 0.4) {
+            if (!castleWarsCrossLevelCombat && (double)skillManager2 <= (double)levelForExperience * 0.4) {
                 if (player.botSpecialWeaponItemId == 0) {
                     SpecialAttackDefinition specialAttackDefinition = SpecialAttackDefinition.forItem(player.getEquipmentManager().getContainer().getItemAt(3));
                     if (specialAttackDefinition != null) {
@@ -183,6 +203,11 @@ public final class BotPvpCombatHandler {
             }
         }
         if (escapeCombatLevelMargin != 0) {
+            if (castleWarsCombat) {
+                BotCombatHelper.eatBotFood(player);
+                CombatManager.startCombat(player, player2);
+                return;
+            }
             int value2;
             int value3 = value2 = player.isTeleblocked() ? 6 : 4;
             if (!player.isInWilderness()) {
@@ -207,7 +232,7 @@ public final class BotPvpCombatHandler {
             BotCombatEscapeHandler.tryStartBotCombatEscape(player);
             return;
         }
-        if (player.getEquipmentManager().getItemIdAtSlot(13) != 0 || escapeCombatLevelMargin != 0) {
+        if (!castleWarsCombat && (player.getEquipmentManager().getItemIdAtSlot(13) != 0 || escapeCombatLevelMargin != 0)) {
             escapeCombatLevelMargin = escapeCombatLevelMargin != 0 ? 3 : 13;
             GroundItemManager.getInstance();
             Object visibleItem = GroundItemManager.findVisibleItem(player, player.getEquipmentManager().getItemIdAtSlot(escapeCombatLevelMargin), player2.getPosition());

@@ -4,6 +4,8 @@ import com.rs2.ServerSettings;
 import com.rs2.model.Entity;
 import com.rs2.model.Position;
 import com.rs2.model.combat.CombatManager;
+import com.rs2.model.combat.CombatType;
+import com.rs2.model.gameplay.castlewars.CastleWarsManager;
 import com.rs2.model.npc.Npc;
 import com.rs2.model.player.PetManager;
 import com.rs2.model.player.Player;
@@ -302,6 +304,11 @@ public class EntityTargetMovement {
     }
 
     public static boolean canReachTarget(Entity entity, Entity entity2, int value2) {
+        if (entity.isPlayer() && entity2.isPlayer()
+                && CastleWarsManager.canBotAttackAcrossCastleLevels(
+                        (Player)entity, (Player)entity2)) {
+            return entity.isWithinReach(entity2, value2);
+        }
         if (entity.isOverlapping(entity2)) {
             return false;
         }
@@ -324,6 +331,18 @@ public class EntityTargetMovement {
             }
         }
         return GameUtil.hasClearPath(entity.getPosition(), entity2.getPosition(), value2 < 2);
+    }
+
+    public static boolean canReachTarget(Entity entity, Entity entity2, int value2,
+                                         CombatType combatType) {
+        if (entity.isPlayer() && entity2.isPlayer()
+                && CastleWarsManager.isCastleWallCrossLevelPair(
+                        (Player)entity, (Player)entity2)) {
+            return CastleWarsManager.canAttackAcrossCastleLevels(
+                    (Player)entity, (Player)entity2, combatType)
+                    && entity.isWithinReach(entity2, value2);
+        }
+        return canReachTarget(entity, entity2, value2);
     }
 
     public void moveAwayFromOverlap() {

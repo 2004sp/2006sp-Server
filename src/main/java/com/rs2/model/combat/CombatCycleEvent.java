@@ -6,6 +6,7 @@ import com.rs2.model.combat.AttackValidationResult;
 import com.rs2.model.combat.CombatManager;
 import com.rs2.model.combat.attack.CombatAttack;
 import com.rs2.model.combat.attack.CombatAttackState;
+import com.rs2.model.gameplay.castlewars.CastleWarsManager;
 import com.rs2.model.npc.Npc;
 import com.rs2.model.player.Player;
 import com.rs2.model.skill.smithing.SmithingHandler;
@@ -227,7 +228,8 @@ extends CycleEvent {
         if (entity2 == null || entity2.isDead()) {
             return AttackValidationResult.INVALID_TARGET;
         }
-        if (entity2.isPlayer() && !((Player)entity2).isRegistered() || !entity2.getPosition().isWithinViewport(entity.getPosition())) {
+        if (entity2.isPlayer() && !((Player)entity2).isRegistered()
+                || !entity2.getPosition().isWithinViewport(entity.getPosition())) {
             return AttackValidationResult.INVALID_TARGET;
         }
         if (entity2.getMaxHitpoints() <= 0) {
@@ -239,11 +241,24 @@ extends CycleEvent {
         if (entity2.isNpc() && (((Npc)entity2).getNpcId() == 2440 ? entity.getPosition().getY() < 10141 : (((Npc)entity2).getNpcId() == 2443 ? entity.getPosition().getX() < 2543 : ((Npc)entity2).getNpcId() == 2446 && entity.getPosition().getY() > 10145))) {
             return AttackValidationResult.INVALID_TARGET_LOCATION;
         }
-        if (!(entity.isInMultiCombatArea() && entity2.isInMultiCombatArea() || entity.getSingleCombatTimer().getTarget() == null || entity.getSingleCombatTimer().hasElapsed() || entity.getSingleCombatTimer().getTarget() == entity2)) {
+        boolean castleWarsCombat = entity.isPlayer() && entity2.isPlayer()
+                && CastleWarsManager.isInGame((Player)entity)
+                && CastleWarsManager.isInGame((Player)entity2);
+        if (!castleWarsCombat
+                && !(entity.isInMultiCombatArea() && entity2.isInMultiCombatArea()
+                || entity.getSingleCombatTimer().getTarget() == null
+                || entity.getSingleCombatTimer().hasElapsed()
+                || entity.getSingleCombatTimer().getTarget() == entity2)) {
             return AttackValidationResult.ALREADY_IN_COMBAT;
         }
         int value = entity.isPlayer() && entity2.isPlayer() ? 1 : 0;
         if (value != 0) {
+            if (castleWarsCombat) {
+                if (!CastleWarsManager.areOpponents((Player)entity, (Player)entity2)) {
+                    return AttackValidationResult.NOT_DUEL_OPPONENT;
+                }
+                return AttackValidationResult.VALID;
+            }
             if (entity.isInDuelArena() && ((Player)entity).getDuelSession().getOpponent() != entity2) {
                 return AttackValidationResult.NOT_DUEL_OPPONENT;
             }

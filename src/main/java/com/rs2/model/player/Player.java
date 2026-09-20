@@ -37,6 +37,7 @@ import com.rs2.model.combat.hit.HitType;
 import com.rs2.model.combat.special.SpecialAttackDefinition;
 import com.rs2.model.dialogue.DialogueManager;
 import com.rs2.model.gameplay.barrows.BarrowsManager;
+import com.rs2.model.gameplay.castlewars.CastleWarsManager;
 import com.rs2.model.gameplay.duel.DuelArenaLocationManager;
 import com.rs2.model.gameplay.duel.DuelController;
 import com.rs2.model.gameplay.duel.DuelInterfaceManager;
@@ -281,6 +282,7 @@ extends Entity {
     private int interactionTargetY;
     private int interactionTargetPlane;
     private int interactionTargetId;
+    private boolean interactionDebugEnabled;
     private int selectedItemId;
     private int selectedItemInterfaceId;
     private int selectedItemSlot;
@@ -2119,7 +2121,7 @@ extends Entity {
             this.resetQuestJournal();
         } else if (text4.equals("sitem")) {
             int value4 = Integer.parseInt(stringValues2[0]);
-            if ((value4 < 7956 || value4 > 8118) && value4 >= 0 && value4 <= 11790 && ItemDefinition.isDefined(value4)) {
+            if ((value4 < 7956 || value4 > 8118) && value4 >= 0 && ItemDefinition.isDefined(value4)) {
                 ItemDefinition itemDefinition;
                 int initialValue = 1;
                 if (((String[])stringValues2).length > 1) {
@@ -2164,6 +2166,8 @@ extends Entity {
                     botPlayer.startProgressiveBot();
                 } else if (this.botMode == 5 || this.botMode == 6) {
                     botPlayer.startClanWarsBot(this.botMode);
+                } else if (this.botMode == 7) {
+                    botPlayer.startMinigameBot();
                 }
             }
         } else if (text4.equals("modern")) {
@@ -2245,7 +2249,18 @@ extends Entity {
     public final void handleCommand(String password, String[] stringValues2, String text22) {
         Object value;
         int value2;
-        if ((password = password.toLowerCase()).equals("pk")) {
+        if ((password = password.toLowerCase()).equals("pos")) {
+            this.packetSender.sendGameMessage(
+                    this.getPosition().getX() + ", "
+                    + this.getPosition().getY() + ", "
+                    + this.getPosition().getPlane());
+            return;
+        } else if (password.equals("debug")) {
+            this.interactionDebugEnabled = !this.interactionDebugEnabled;
+            this.packetSender.sendGameMessage(
+                    "Debug is " + (this.interactionDebugEnabled ? "on" : "off") + ".");
+            return;
+        } else if (password.equals("pk")) {
             if (this.currentGroup == null) {
                 this.packetSender.sendGameMessage("You have to be in group in order to use this command.");
                 return;
@@ -2329,7 +2344,7 @@ extends Entity {
             this.executeCheatCommand(password, stringValues2);
         } else if (password.equals("sitem")) {
             int value3 = Integer.parseInt(stringValues2[0]);
-            if ((value3 < 7956 || value3 > 8118) && value3 >= 0 && value3 <= 11790 && ItemDefinition.isDefined(value3)) {
+            if ((value3 < 7956 || value3 > 8118) && value3 >= 0 && ItemDefinition.isDefined(value3)) {
                 this.executeCheatCommand(password, stringValues2);
             }
         } else if (password.equals("char")) {
@@ -3289,6 +3304,7 @@ extends Entity {
             this.membershipExpiresMillis = 0L;
             player2.applyTeleportPosition(TeleportManager.RESPAWN_TELEPORT_POSITION);
         }
+        boolean relocatedFromCastleWars = CastleWarsManager.relocatePlayerOnLogin(this);
         Player player3 = this;
         int index = 0;
         while (index < player3.configStates.length) {
@@ -3303,6 +3319,9 @@ extends Entity {
         player = this;
         this.actionLocked = true;
         World.registerPlayer(this);
+        if (relocatedFromCastleWars) {
+            this.packetSender.sendGameMessage("You logged out during Castle Wars and have been returned to the lobby.");
+        }
         this.packetSender.sendPostLoginState().syncPlayerConfigs();
         this.getPoisonDamage();
         this.getMovementQueue().isRunning();
@@ -3806,6 +3825,10 @@ extends Entity {
 
     public final int getInteractionTargetId() {
         return this.interactionTargetId;
+    }
+
+    public final boolean isInteractionDebugEnabled() {
+        return this.interactionDebugEnabled;
     }
 
     public final void setSelectedItemId(int itemId) {
@@ -4713,7 +4736,9 @@ extends Entity {
         if (!player.isPlayer()) {
             return;
         }
-        if (this.isInDuelArena()) {
+        if (this.isInDuelArena()
+                || CastleWarsManager.isInGame(this)
+                || CastleWarsManager.isInGame(player)) {
             return;
         }
         for (Object referenceObject : player.pvpCombatReferences) {

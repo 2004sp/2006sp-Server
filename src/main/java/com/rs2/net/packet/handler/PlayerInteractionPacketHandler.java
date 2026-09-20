@@ -4,6 +4,7 @@ import com.rs2.ServerSettings;
 import com.rs2.model.GameplayHelper;
 import com.rs2.model.World;
 import com.rs2.model.combat.CombatManager;
+import com.rs2.model.gameplay.castlewars.CastleWarsManager;
 import com.rs2.model.item.ItemStack;
 import com.rs2.model.player.Player;
 import com.rs2.model.skill.magic.MagicSpellAction;
@@ -69,12 +70,25 @@ implements PacketHandler {
                     return;
                 }
                 Player targetPlayer = World.getPlayers()[targetIndex];
-                if (targetPlayer == null || !GameUtil.isWithinDistance(player.getPosition(), targetPlayer.getPosition(), 15)) {
+                if (targetPlayer == null || !isWithinCombatInteractionRange(player, targetPlayer)) {
                     return;
                 }
                 int actionSequence = player.nextActionSequence();
                 player.setQueuedCombatSpell(null);
                 player.getUpdateState().setFaceEntity(targetPlayer.getEncodedIndex());
+
+                boolean playerInCastleWars = CastleWarsManager.isInGame(player);
+                boolean targetInCastleWars = CastleWarsManager.isInGame(targetPlayer);
+                if (playerInCastleWars || targetInCastleWars) {
+                    if (!playerInCastleWars || !targetInCastleWars
+                            || !CastleWarsManager.areOpponents(player, targetPlayer)) {
+                        player.packetSender.sendGameMessage("That player is not your Castle Wars opponent.");
+                        return;
+                    }
+                    CombatManager.startCombat(player, targetPlayer);
+                    return;
+                }
+
                 if (!player.isInDuelArena() && !player.isInWilderness()) {
                     if (ServerSettings.duelingDisabled) {
                         player.packetSender.sendGameMessage("This feature is currently disabled.");
@@ -99,7 +113,7 @@ implements PacketHandler {
                     return;
                 }
                 Player targetPlayer = World.getPlayers()[targetIndex];
-                if (targetPlayer == null || !GameUtil.isWithinDistance(player.getPosition(), targetPlayer.getPosition(), 15)) {
+                if (targetPlayer == null || !isWithinCombatInteractionRange(player, targetPlayer)) {
                     return;
                 }
                 int spellButtonId = incomingPacket.getReader().readSignedShort(true, ByteOrder.LITTLE);
@@ -195,5 +209,12 @@ implements PacketHandler {
         player.setAttackRange(1);
         player.setMovementTarget(player2);
         World.scheduleTickTask(new DeferredTradeRequestTask(1, player2, player, value));
+    }
+
+    private static boolean isWithinCombatInteractionRange(Player player, Player targetPlayer) {
+        if (player == null || targetPlayer == null) {
+            return false;
+        }
+        return GameUtil.isWithinDistance(player.getPosition(), targetPlayer.getPosition(), 15);
     }
 }

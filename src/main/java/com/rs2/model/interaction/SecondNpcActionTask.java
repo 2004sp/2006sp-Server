@@ -5,10 +5,12 @@ import com.rs2.model.EntityTargetMovement;
 import com.rs2.model.GameplayHelper;
 import com.rs2.model.combat.CombatAction;
 import com.rs2.model.dialogue.DialogueManager;
+import com.rs2.model.gameplay.castlewars.CastleWarsManager;
 import com.rs2.model.npc.Npc;
 import com.rs2.model.player.BankManager;
 import com.rs2.model.player.GrandExchangeManager;
 import com.rs2.model.player.Player;
+import com.rs2.model.shop.ShopManager;
 import com.rs2.model.skill.runecrafting.RunecraftingHandler;
 import com.rs2.model.task.TickTask;
 import com.rs2.util.GameUtil;
@@ -44,6 +46,19 @@ extends TickTask {
             return;
         }
         if (!this.player.isWithinReach(this.npc, 1) || this.player.isOverlapping(this.npc)) {
+            return;
+        }
+        // NPC cache action slot 2 is sent by this client's second-NPC packet.
+        // Lanthus is handled here only if the loaded 377 cache actually places
+        // Trade/Trade-with in this slot.
+        if (this.npc.getNpcId() == CastleWarsManager.LANTHUS_NPC_ID
+                && this.npc.getDefinition().actionStartsWith(2, "trade")) {
+            this.npc.getUpdateState().setFaceEntity(this.player.getEncodedIndex());
+            this.player.setInteractionTarget(this.npc);
+            this.player.getUpdateState().setFaceEntity(this.npc.getEncodedIndex());
+            ShopManager.openCastleWarsRewardShop(this.player);
+            EntityTargetMovement.clearMovementTarget(this.player);
+            this.stop();
             return;
         }
         if (this.player.getFishingHandler().handleFishingSpot(this.npc, 2)) {

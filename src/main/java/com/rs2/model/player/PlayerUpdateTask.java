@@ -7,6 +7,7 @@ import com.rs2.model.EntityUpdateState;
 import com.rs2.model.Position;
 import com.rs2.model.World;
 import com.rs2.model.combat.WeaponProfile;
+import com.rs2.model.gameplay.castlewars.CastleWarsManager;
 import com.rs2.model.ground.GroundItemManager;
 import com.rs2.model.item.ItemDefinition;
 import com.rs2.model.item.ItemStack;
@@ -59,8 +60,11 @@ public class PlayerUpdateTask {
         if (player.isBot) {
             return;
         }
-        PacketWriter packetWriter = PacketBuffer.allocateWriter(8192);
-        PacketWriter packetWriter2 = PacketBuffer.allocateWriter(4096);
+        // Dense minigames can have hundreds of local-player update blocks
+        // in one packet. Start larger to avoid repeated reallocations; PacketWriter
+        // can grow further if a particularly busy tick still exceeds these sizes.
+        PacketWriter packetWriter = PacketBuffer.allocateWriter(32768);
+        PacketWriter packetWriter2 = PacketBuffer.allocateWriter(16384);
         packetWriter.startVariableShortPacket(player.getOutboundCipher(), 81);
         packetWriter.setAccessMode(AccessMode.BIT_ACCESS);
         PacketWriter packetWriter3 = packetWriter;
@@ -114,7 +118,7 @@ public class PlayerUpdateTask {
                     Object value5;
                     updatePlayerControlExit3: {
                         player3 = (Player)iterator.next();
-                        if (!player3.getPosition().isWithinViewport(player.getPosition()) || !player3.isVisibleToOtherPlayers() || player3.getConnectionState() == PlayerConnectionState.DISCONNECTED || player3.isTeleporting()) break updatePlayerControlExit1;
+                        if (!isWithinLocalPlayerViewport(player, player3) || !player3.isVisibleToOtherPlayers() || player3.getConnectionState() == PlayerConnectionState.DISCONNECTED || player3.isTeleporting()) break updatePlayerControlExit1;
                         Object value6 = packetWriter;
                         value3 = player3;
                         boolean localUpdateRequired = ((Entity)value3).getUpdateState().isUpdateRequired();
@@ -219,7 +223,7 @@ public class PlayerUpdateTask {
         while (index3 < World.getPlayers().length) {
             if (index2 > 15 || player.getLocalPlayers().size() >= 255) break;
             Player player4 = World.getPlayers()[index3];
-            if (player4 != null && player4 != player && player4.getConnectionState() != PlayerConnectionState.DISCONNECTED && !player.getLocalPlayers().contains(player4) && player4.getPosition().isWithinViewport(player.getPosition()) && player4.isVisibleToOtherPlayers()) {
+            if (player4 != null && player4 != player && player4.getConnectionState() != PlayerConnectionState.DISCONNECTED && !player.getLocalPlayers().contains(player4) && isWithinLocalPlayerViewport(player, player4) && player4.isVisibleToOtherPlayers()) {
                 ++index2;
                 player.getLocalPlayers().add(player4);
                 Player player5 = player4;
@@ -249,6 +253,13 @@ public class PlayerUpdateTask {
             GroundItemManager.getInstance().refreshForPlayer(player);
             player.planeChangeRefreshPending = false;
         }
+    }
+
+    private static boolean isWithinLocalPlayerViewport(Player viewer, Player other) {
+        if (viewer == null || other == null) {
+            return false;
+        }
+        return other.getPosition().isWithinViewport(viewer.getPosition());
     }
 
     public static void writeUpdateBlock(Player player, PacketWriter packetWriter, boolean enabled3, boolean enabled22, Player player22) {
@@ -320,8 +331,14 @@ public class PlayerUpdateTask {
             packetWriter.writeInt(player.getUpdateState().getGraphicDelay());
         }
         if (player.getUpdateState().isAnimationUpdateRequired()) {
-            packetWriter.writeShort(player.getUpdateState().getAnimationId(), ByteOrder.LITTLE);
-            packetWriter.writeByte(player.getUpdateState().getAnimationDelay(), ByteTransform.NEGATE);
+            boolean suppressMorphAnimation =
+                    CastleWarsManager.isWaitingRoomGodTransformation(player);
+            packetWriter.writeShort(
+                    suppressMorphAnimation ? -1 : player.getUpdateState().getAnimationId(),
+                    ByteOrder.LITTLE);
+            packetWriter.writeByte(
+                    suppressMorphAnimation ? 0 : player.getUpdateState().getAnimationDelay(),
+                    ByteTransform.NEGATE);
         }
         if (player.getUpdateState().isForcedTextUpdateRequired()) {
             packetWriter.writeString(player.getUpdateState().getForcedText());
@@ -428,21 +445,34 @@ public class PlayerUpdateTask {
             packetWriter2.writeByte(player3.getAppearanceColors()[2]);
             packetWriter2.writeByte(player3.getAppearanceColors()[3]);
             packetWriter2.writeByte(player3.getAppearanceColors()[4]);
-            packetWriter2.writeShort(player3.getStandAnimation());
-            Player player4 = player3;
-            int walkAnimation = player4.getWalkAnimation();
-            packetWriter2.writeShort(walkAnimation != WeaponProfile.FISTS.getMovementAnimations()[1] ? walkAnimation : 823);
-            packetWriter2.writeShort(player3.getWalkAnimation());
-            Player player5 = player3;
-            int walkAnimation2 = player5.getWalkAnimation();
-            packetWriter2.writeShort(walkAnimation2 != WeaponProfile.FISTS.getMovementAnimations()[1] ? walkAnimation2 : 820);
-            Player player6 = player3;
-            int walkAnimation3 = player6.getWalkAnimation();
-            packetWriter2.writeShort(walkAnimation3 != WeaponProfile.FISTS.getMovementAnimations()[1] ? walkAnimation3 : 821);
-            Player player7 = player3;
-            int walkAnimation4 = player7.getWalkAnimation();
-            packetWriter2.writeShort(walkAnimation4 != WeaponProfile.FISTS.getMovementAnimations()[1] ? walkAnimation4 : 822);
-            packetWriter2.writeShort(player3.getRunAnimation());
+            if (CastleWarsManager.isWaitingRoomGodTransformation(player3)) {
+                // Waiting-room god disguises should be static. Sending player
+                // movement/emote sequences to these NPC models produces the
+                // wrong-looking morph animations on the 377 client.
+                packetWriter2.writeShort(-1);
+                packetWriter2.writeShort(-1);
+                packetWriter2.writeShort(-1);
+                packetWriter2.writeShort(-1);
+                packetWriter2.writeShort(-1);
+                packetWriter2.writeShort(-1);
+                packetWriter2.writeShort(-1);
+            } else {
+                packetWriter2.writeShort(player3.getStandAnimation());
+                Player player4 = player3;
+                int walkAnimation = player4.getWalkAnimation();
+                packetWriter2.writeShort(walkAnimation != WeaponProfile.FISTS.getMovementAnimations()[1] ? walkAnimation : 823);
+                packetWriter2.writeShort(player3.getWalkAnimation());
+                Player player5 = player3;
+                int walkAnimation2 = player5.getWalkAnimation();
+                packetWriter2.writeShort(walkAnimation2 != WeaponProfile.FISTS.getMovementAnimations()[1] ? walkAnimation2 : 820);
+                Player player6 = player3;
+                int walkAnimation3 = player6.getWalkAnimation();
+                packetWriter2.writeShort(walkAnimation3 != WeaponProfile.FISTS.getMovementAnimations()[1] ? walkAnimation3 : 821);
+                Player player7 = player3;
+                int walkAnimation4 = player7.getWalkAnimation();
+                packetWriter2.writeShort(walkAnimation4 != WeaponProfile.FISTS.getMovementAnimations()[1] ? walkAnimation4 : 822);
+                packetWriter2.writeShort(player3.getRunAnimation());
+            }
             packetWriter2.writeLong(player3.getNameHash());
             packetWriter2.writeByte(player3.getCombatLevel());
             packetWriter2.writeByte(player3.getPlayerRights());

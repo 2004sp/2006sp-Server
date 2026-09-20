@@ -6,6 +6,7 @@ import com.rs2.model.EntityTargetMovement;
 import com.rs2.model.GameplayHelper;
 import com.rs2.model.World;
 import com.rs2.model.gameplay.abyss.AbyssManager;
+import com.rs2.model.gameplay.castlewars.CastleWarsManager;
 import com.rs2.model.gameplay.magetrainingarena.MageTrainingArenaRewardShop;
 import com.rs2.model.npc.Npc;
 import com.rs2.model.player.Player;
@@ -35,6 +36,19 @@ extends TickTask {
             return;
         }
         if (!this.player.isWithinReach(this.npc, 1) || this.player.isOverlapping(this.npc)) {
+            return;
+        }
+        // NPC cache action slot 3 is sent by this client's third-NPC packet.
+        // The historical 2006Scape lineage places Lanthus's Trade action here,
+        // but use the cache action itself rather than hard-coding that assumption.
+        if (this.npc.getNpcId() == CastleWarsManager.LANTHUS_NPC_ID
+                && this.npc.getDefinition().actionStartsWith(3, "trade")) {
+            this.npc.getUpdateState().setFaceEntity(this.player.getEncodedIndex());
+            this.player.setInteractionTarget(this.npc);
+            this.player.getUpdateState().setFaceEntity(this.npc.getEncodedIndex());
+            ShopManager.openCastleWarsRewardShop(this.player);
+            EntityTargetMovement.clearMovementTarget(this.player);
+            this.stop();
             return;
         }
         if (this.npc.getNpcId() == 3103) {

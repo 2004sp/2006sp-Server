@@ -3,6 +3,7 @@ package com.rs2.model.item;
 import com.rs2.bot.combat.BotCombatHelper;
 import com.rs2.model.GameplayHelper;
 import com.rs2.model.Position;
+import com.rs2.model.gameplay.castlewars.CastleWarsManager;
 import com.rs2.model.ground.GroundItem;
 import com.rs2.model.ground.GroundItemManager;
 import com.rs2.model.item.ItemService;
@@ -131,6 +132,10 @@ extends TickTask {
             return;
         }
         if (this.player.getWalkDirection() >= 0 || this.player.getRunDirection() >= 0) {
+            return;
+        }
+        if (CastleWarsManager.handleDroppedFlagPickup(this.player, groundItem)) {
+            this.stop();
             return;
         }
         this.stop();

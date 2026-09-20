@@ -154,7 +154,11 @@ public final class NpcDropManager {
                         if (itemStackArray4 != null) {
                             int index3 = 0;
                             while (index3 < itemStackArray4.length) {
-                                arrayList.add(NpcDropManager.createItemStack(itemStackArray4[index3].getId(), itemStackArray4[index3].getAmount()));
+                                ItemStack nestedDrop = itemStackArray4[index3];
+                                if (nestedDrop != null) {
+                                    arrayList.add(NpcDropManager.createItemStack(
+                                            nestedDrop.getId(), nestedDrop.getAmount()));
+                                }
                                 ++index3;
                             }
                         }
@@ -286,7 +290,10 @@ public final class NpcDropManager {
             }
         }
         int noDrop = 0;
-        ItemStack[] itemStackArray = new ItemStack[1];
+        // An empty array represents a legitimate "no drop" result. Previously this
+        // started as a one-element array containing null, which caused parent virtual
+        // drop tables to dereference a null ItemStack.
+        ItemStack[] itemStackArray = new ItemStack[0];
         int selectedIndex;
         if (enabled5) {
             if (enabled22) {
@@ -319,12 +326,18 @@ public final class NpcDropManager {
             if (NpcDropManager.isVirtualDropTableId(itemId)) {
                 ItemStack[] nestedDrops = NpcDropManager.resolveVirtualDropTable(entity, itemId, index2 * value22, value32);
                 if (nestedDrops != null) {
-                    itemStackArray = new ItemStack[nestedDrops.length];
+                    ArrayList<ItemStack> validNestedDrops = new ArrayList<ItemStack>();
                     int index3 = 0;
                     while (index3 < nestedDrops.length) {
-                        itemStackArray[index3] = NpcDropManager.createItemStack(nestedDrops[index3].getId(), nestedDrops[index3].getAmount());
+                        ItemStack nestedDrop = nestedDrops[index3];
+                        if (nestedDrop != null) {
+                            validNestedDrops.add(NpcDropManager.createItemStack(
+                                    nestedDrop.getId(), nestedDrop.getAmount()));
+                        }
                         ++index3;
                     }
+                    itemStackArray = validNestedDrops.toArray(
+                            new ItemStack[validNestedDrops.size()]);
                 }
             } else {
                 itemId = NpcDropManager.resolveVirtualDropItemId(entity, itemId);
@@ -345,7 +358,9 @@ public final class NpcDropManager {
                         ItemStack[] nestedDrops = NpcDropManager.resolveVirtualDropTable(entity, itemId, amount * value22, value32);
                         int index5 = 0;
                         while (nestedDrops != null && index5 < nestedDrops.length) {
-                            arrayList.add(nestedDrops[index5]);
+                            if (nestedDrops[index5] != null) {
+                                arrayList.add(nestedDrops[index5]);
+                            }
                             ++index5;
                         }
                     } else {
@@ -362,7 +377,9 @@ public final class NpcDropManager {
             }
             itemStackArray = arrayList.toArray(new ItemStack[arrayList.size()]);
         } else if (ItemDefinition.isDefined(itemId)) {
-            itemStackArray[0] = NpcDropManager.createItemStack(itemId, amount * value22);
+            itemStackArray = new ItemStack[]{
+                    NpcDropManager.createItemStack(itemId, amount * value22)
+            };
         }
         return itemStackArray;
     }

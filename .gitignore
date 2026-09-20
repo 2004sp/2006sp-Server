@@ -7,3 +7,4 @@ dist/
 data/minutes.log
 config/server.cfg
 config/server.cfg.bak
+/data/castle_wars_scoreboard.dat

@@ -26,6 +26,7 @@ import com.rs2.model.area.MultiwayAreaDefinition;
 import com.rs2.model.c.ProjectileDefinition;
 import com.rs2.model.clue.TreasureTrailManager;
 import com.rs2.model.combat.CombatManager;
+import com.rs2.model.gameplay.castlewars.CastleWarsManager;
 import com.rs2.model.gameplay.duel.DuelSession;
 import com.rs2.model.gameplay.godwars.GodWarsDungeonManager;
 import com.rs2.model.gameplay.magetrainingarena.AlchemistPlaygroundController;
@@ -125,6 +126,7 @@ implements Runnable {
     private static int progressiveBotLoginCount;
     private static int tradeBotLoginCount;
     private static int clanWarsBotLoginCount;
+    private static int minigameBotLoginCount;
     private static int otherBotLoginCount;
     public static int onlinePlayerCount;
     public static int adminPlayerCount;
@@ -151,6 +153,7 @@ implements Runnable {
         progressiveBotLoginCount = 0;
         tradeBotLoginCount = 0;
         clanWarsBotLoginCount = 0;
+        minigameBotLoginCount = 0;
         otherBotLoginCount = 0;
         onlinePlayerCount = 0;
         adminPlayerCount = 0;
@@ -363,6 +366,7 @@ implements Runnable {
             BotTaskDefinition.initializeProgressiveTaskPool();
             BotTaskDefinition.initializeTradeAdvertTaskPool();
             BotTaskDefinition.initializeDropPartyTaskPool();
+            CastleWarsManager.initialize();
             QuestEventRegistry.initializeEventHooks();
             BotPlayer.removeConfiguredBotNames();
             if (ServerSettings.progressiveBotsPrioritizeExisting && ServerSettings.progressiveBotsEnabled && ServerSettings.progressiveBotCount > 0) {
@@ -374,6 +378,7 @@ implements Runnable {
             progressiveBotLoginCount = 0;
             tradeBotLoginCount = 0;
             clanWarsBotLoginCount = 0;
+            minigameBotLoginCount = 0;
             otherBotLoginCount = 0;
             if (ServerSettings.progressiveBotsEnabled) {
                 ServerSettings.walkingBotsEnabled = true;
@@ -393,6 +398,9 @@ implements Runnable {
             if (ServerSettings.clanWarsTeamSize <= 0 && ServerSettings.clanWarsBotsEnabled) {
                 ServerSettings.clanWarsBotsEnabled = false;
             }
+            if (ServerSettings.minigameBotCount <= 0 && ServerSettings.minigameBotsEnabled) {
+                ServerSettings.minigameBotsEnabled = false;
+            }
             configuredBotCount = 0;
             if (ServerSettings.wildyBotsEnabled) {
                 configuredBotCount += WildernessBotSettings.wildyBotCount;
@@ -408,6 +416,9 @@ implements Runnable {
             }
             if (ServerSettings.clanWarsBotsEnabled) {
                 configuredBotCount += ServerSettings.clanWarsTeamSize << 1;
+            }
+            if (ServerSettings.minigameBotsEnabled) {
+                configuredBotCount += ServerSettings.minigameBotCount;
             }
             if (ServerSettings.otherBotsEnabled) {
                 configuredBotCount += ServerSettings.otherBotCount;
@@ -528,6 +539,10 @@ implements Runnable {
             int value = ClanWarsBotManager.clanWarsTeamOneBots.size() == ServerSettings.clanWarsTeamSize ? 6 : 5;
             ++clanWarsBotLoginCount;
             return value;
+        }
+        if (ServerSettings.minigameBotsEnabled && minigameBotLoginCount < ServerSettings.minigameBotCount) {
+            ++minigameBotLoginCount;
+            return 7;
         }
         if (ServerSettings.otherBotsEnabled && otherBotLoginCount < ServerSettings.otherBotCount) {
             ++otherBotLoginCount;

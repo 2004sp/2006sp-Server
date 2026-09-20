@@ -205,6 +205,9 @@ public final class WeaponProfile {
         if (itemStack == null) {
             return FISTS;
         }
+        if (itemStack.getId() == 4037 || itemStack.getId() == 4039) {
+            return MACE;
+        }
         String id = ItemDefinition.forId(itemStack.getId()).getName().toLowerCase();
         if (id.contains("dragon dagger") || id.contains("drag dagger")) {
             return DRAGON_DAGGER;

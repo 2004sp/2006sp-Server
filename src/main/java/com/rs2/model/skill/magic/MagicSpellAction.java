@@ -11,6 +11,7 @@ import com.rs2.model.c.ProjectileDefinition;
 import com.rs2.model.combat.hit.HitDefinition;
 import com.rs2.model.combat.requirement.CombatCostRequirement;
 import com.rs2.model.combat.requirement.CombatRequirement;
+import com.rs2.model.gameplay.castlewars.CastleWarsManager;
 import com.rs2.model.gameplay.magetrainingarena.AlchemistPlaygroundController;
 import com.rs2.model.gameplay.magetrainingarena.EnchantmentChamberController;
 import com.rs2.model.ground.GroundItem;
@@ -627,6 +628,10 @@ extends CycleEvent {
     }
 
     public static boolean castAlchemyItem(Player player, int itemId, int value6, int value32, int value42, SpellDefinition spellDefinition) {
+        if (CastleWarsManager.isCastleWarsMinigamePosition(player.getPosition())) {
+            player.packetSender.sendGameMessage("Alchemy spells are disabled during Castle Wars.");
+            return false;
+        }
         castAlchemyItemControlExit1: {
             castAlchemyItemControlExit2: {
                 castAlchemyItemControlExit3: {

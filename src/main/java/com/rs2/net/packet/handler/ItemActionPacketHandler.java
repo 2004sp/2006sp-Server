@@ -25,6 +25,8 @@ import com.rs2.model.combat.hit.HitDefinition;
 import com.rs2.model.combat.hit.HitType;
 import com.rs2.model.dialogue.DialogueManager;
 import com.rs2.model.gameplay.barrows.BarrowsManager;
+import com.rs2.model.gameplay.castlewars.CastleWarsEngineeringManager;
+import com.rs2.model.gameplay.castlewars.CastleWarsManager;
 import com.rs2.model.gameplay.godwars.GodWarsDungeonManager;
 import com.rs2.model.gameplay.magetrainingarena.MageTrainingArenaRewardShop;
 import com.rs2.model.gameplay.partyroom.PartyRoomManager;
@@ -160,7 +162,8 @@ implements PacketHandler {
                 }
                 Position itemPosition = new Position(player.getInteractionTargetX(), player.getInteractionTargetY(), player.getPosition().getPlane());
                 GroundItem groundItem = GroundItemManager.findVisibleItem(player, player.getInteractionTargetId(), itemPosition);
-                if (groundItem != null && player.getInventoryManager().canAddItem(groundItem.getItem())) {
+                if (groundItem != null && (CastleWarsManager.isDroppedFlagGroundItem(groundItem)
+                        || player.getInventoryManager().canAddItem(groundItem.getItem()))) {
                     if (player.ownsClueScroll() && new ItemStack(player.getInteractionTargetId()).getDefinition().getName().toLowerCase().contains("clue scroll")) {
                         player.getPacketSender().sendGameMessage("You can only have one scroll at a time.");
                         return;
@@ -872,6 +875,10 @@ implements PacketHandler {
         if (itemStack == null || itemStack.getId() != itemId || !itemStack.isValid()) {
             return;
         }
+        if (CastleWarsManager.isInGame(player) && CastleWarsManager.isFlagItemId(itemStack.getId())) {
+            player.getPacketSender().sendGameMessage("You cannot drop a Castle Wars flag.");
+            return;
+        }
         if (itemStack.getDefinition().isStackable()) {
             itemStack.setAmount(player.getInventoryManager().getContainer().getItemAmount(itemStack.getId()));
         } else {
@@ -892,6 +899,15 @@ implements PacketHandler {
                 return;
             }
             ++pairIndex;
+        }
+        if (itemStack.getId() == CastleWarsEngineeringManager.EXPLOSIVE_POTION_ID) {
+            ItemStack explosivePotion = new ItemStack(itemStack.getId(), 1, itemStack.getMetadata());
+            if (!player.getInventoryManager().removeItemFromSlot(explosivePotion, player.getSelectedItemSlot())) {
+                player.getInventoryManager().removeItem(explosivePotion);
+            }
+            player.applyDirectHit(15, HitType.NORMAL);
+            player.getEquipmentManager().refreshCarriedValue();
+            return;
         }
         BarrowsRepairHandler barrowsRepairHandler = BarrowsRepairHandler.forItem(itemStack);
         if (itemStack.getDefinition().hasDestroyOption() || barrowsRepairHandler != null && itemStack.getDefinition().isUntradeable()) {
@@ -1386,6 +1402,30 @@ implements PacketHandler {
             return;
         }
         switch (itemId) {
+            case CastleWarsManager.CASTLE_WARS_MANUAL_ID: {
+                CastleWarsManager.openCastleWarsManual(player);
+                return;
+            }
+            case 4049: {
+                if (!player.isInCastleWars()) {
+                    player.packetSender.sendGameMessage("You can only use these in Castle Wars.");
+                    return;
+                }
+                if (!player.getSkillManager().tryStartActionDelay(1800) || player.getCurrentHitpoints() <= 0) {
+                    return;
+                }
+                if (!player.getInventoryManager().removeItemFromSlot(selectedItem, player.getSelectedItemSlot())) {
+                    return;
+                }
+                player.getUpdateState().setAnimation(829);
+                player.heal(player.getMaxHitpoints() / 10);
+                player.addRunEnergyPercent(30);
+                player.packetSender.sendRunEnergy();
+                player.setPoisonDamage(0.0);
+                player.nextActionSequence();
+                player.getAttackDelayTimer().setDelayTicks(player.getAttackDelayTimer().getDelayTicks() + 2);
+                return;
+            }
             case 2329: {
                 if (player.getInventoryManager().removeItemFromSlot(selectedItem, player.getSelectedItemSlot())) {
                     player.packetSender.sendGameMessage("You empty the pie dish.");
@@ -1792,11 +1832,17 @@ implements PacketHandler {
         int x = packetReader.readSignedShort(ByteOrder.LITTLE);
         int spellButtonId = packetReader.readSignedShort(ByteTransform.ADD);
         SpellDefinition spellDefinition = (SpellDefinition)((Object)player.getSpellbook().getSpellByButtonId().get(spellButtonId));
+        Position itemPosition = new Position(x, y, player.getPosition().getPlane());
+        GroundItem groundItem = GroundItemManager.findVisibleItem(player, itemId, itemPosition);
+        if (CastleWarsManager.isDroppedFlagGroundItem(groundItem)) {
+            player.getPacketSender().sendGameMessage("You cannot use Telekinetic Grab on a Castle Wars flag.");
+            return;
+        }
         if (player.getQuestManager().handleGroundItemInteraction(itemId)) {
             return;
         }
         if (spellDefinition != null) {
-            MagicSpellAction.scheduleTelekineticGrab(player, spellDefinition, itemId, new Position(x, y, player.getPosition().getPlane()));
+            MagicSpellAction.scheduleTelekineticGrab(player, spellDefinition, itemId, itemPosition);
             return;
         }
         if (player.getPlayerRights() > 1 && ServerSettings.debugModeEnabled) {

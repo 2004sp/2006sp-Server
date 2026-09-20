@@ -22,6 +22,7 @@ import com.rs2.model.combat.attack.CombatAttackState;
 import com.rs2.model.combat.attack.WeaponCombatAttack;
 import com.rs2.model.combat.hit.HitDefinition;
 import com.rs2.model.gameplay.barrows.BarrowsManager;
+import com.rs2.model.gameplay.castlewars.CastleWarsManager;
 import com.rs2.model.gameplay.godwars.GodWarsDungeonManager;
 import com.rs2.model.npc.Npc;
 import com.rs2.model.npc.NpcDefinition;
@@ -342,6 +343,14 @@ extends TickTask {
     }
 
     public static void finishDeath(Entity entity, Entity killer, boolean dropItems) {
+        boolean castleWarsDeath = entity.isPlayer() && CastleWarsManager.isInGame((Player)entity);
+        if (castleWarsDeath) {
+            dropItems = false;
+            if (entity.getPoisonDamage() > 0.0) {
+                entity.setPoisonDamage(0.0);
+            }
+            entity.setDeathPosition(null);
+        }
         if (dropItems) {
             entity.dropDeathItems(killer);
             if (entity.getPoisonDamage() > 0.0) {
@@ -523,6 +532,14 @@ extends TickTask {
         }
         if (entity.isPlayer()) {
             Player player = (Player)entity;
+            if (CastleWarsManager.isInGame(player)) {
+                CastleWarsManager.respawnPlayer(player);
+                player.getRecentCombatTimer().setDelayTicks(0);
+                player.getRecentCombatTimer().reset();
+                player.getSingleCombatTimer().setDelayTicks(0);
+                player.getSingleCombatTimer().reset();
+                return;
+            }
             if (player.isInTenthSquadSigilInstance()) {
                 player.clearTemporaryCutsceneNpcs();
             }

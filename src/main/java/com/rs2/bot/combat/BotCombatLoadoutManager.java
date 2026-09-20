@@ -817,6 +817,110 @@ public final class BotCombatLoadoutManager {
         player.getEquipmentManager().getContainer().setItem(10, new ItemStack(bootsId));
     }
 
+    public static void prepareMinigameCombatLoadout(Player player) {
+        BotCombatLoadoutManager.prepareCombatLoadout(player, false);
+        if (BotCombatHelper.isFreeToPlayWorld()) {
+            return;
+        }
+
+        if (player.botPrimaryCombatStyle == BotPvpCombatHandler.MAGIC_COMBAT_STYLE) {
+            BotCombatLoadoutManager.upgradeMinigameMagicLoadout(player);
+        } else if (player.botPrimaryCombatStyle == 0) {
+            BotCombatLoadoutManager.upgradeMinigameMeleeLoadout(player);
+        }
+
+        player.getInventoryManager().refresh();
+        player.getEquipmentManager().refresh();
+    }
+
+    private static void upgradeMinigameMeleeLoadout(Player player) {
+        if (GameUtil.randomInt(2) == 0) {
+            if (ItemDefinition.isDefined(3140) && player.getEquipmentManager().canEquipItem(3140)) {
+                player.getEquipmentManager().getContainer().setItem(4, new ItemStack(3140));
+            }
+
+            int[] dragonLegIds = new int[]{4087, 4585};
+            int dragonLegId = dragonLegIds[GameUtil.randomInt(dragonLegIds.length)];
+            if (ItemDefinition.isDefined(dragonLegId)
+                    && player.getEquipmentManager().canEquipItem(dragonLegId)) {
+                player.getEquipmentManager().getContainer().setItem(7, new ItemStack(dragonLegId));
+            }
+        }
+
+        if (GameUtil.randomInt(2) == 0) {
+            ArrayList<Integer> highTierPrimaryWeapons = new ArrayList<Integer>();
+            if (ItemDefinition.isDefined(4151)
+                    && player.getEquipmentManager().canEquipItem(4151)) {
+                highTierPrimaryWeapons.add(4151);
+            }
+
+            int dragonClawsId = ItemDefinition.findIdByName("Dragon claws");
+            if (dragonClawsId > 0
+                    && ItemDefinition.isDefined(dragonClawsId)
+                    && player.getEquipmentManager().canEquipItem(dragonClawsId)) {
+                highTierPrimaryWeapons.add(dragonClawsId);
+            }
+
+            if (!highTierPrimaryWeapons.isEmpty()) {
+                player.botWeaponItemId =
+                        highTierPrimaryWeapons.get(GameUtil.randomInt(highTierPrimaryWeapons.size()));
+                player.getEquipmentManager().getContainer().setItem(
+                        3, new ItemStack(player.botWeaponItemId));
+            }
+        }
+
+        int[] highTierSpecials = new int[]{5698, 4153};
+        ArrayList<Integer> equippableSpecials = new ArrayList<Integer>();
+        for (int specialWeaponId : highTierSpecials) {
+            if (ItemDefinition.isDefined(specialWeaponId)
+                    && player.getEquipmentManager().canEquipItem(specialWeaponId)) {
+                equippableSpecials.add(specialWeaponId);
+            }
+        }
+        if (equippableSpecials.isEmpty()) {
+            return;
+        }
+
+        int specialWeaponId = equippableSpecials.get(GameUtil.randomInt(equippableSpecials.size()));
+        player.botSpecialWeaponItemId = specialWeaponId;
+        player.botSpecialCombatStyle = 0;
+        SpecialAttackDefinition specialAttackDefinition =
+                SpecialAttackDefinition.forItem(new ItemStack(specialWeaponId));
+        player.botSpecialAttackEnergyCost =
+                specialAttackDefinition == null ? 0 : specialAttackDefinition.getEnergyCost();
+        if (player.getInventoryManager().getItemAmount(specialWeaponId) == 0) {
+            player.getInventoryManager().addItem(new ItemStack(specialWeaponId, 1));
+        }
+    }
+
+    private static void upgradeMinigameMagicLoadout(Player player) {
+        if (player.getSpellbook() == Spellbook.ANCIENT
+                || player.getSkillManager().getCurrentLevels()[6] < 50
+                || !ItemDefinition.isDefined(4675)
+                || GameUtil.randomInt(2) != 0) {
+            return;
+        }
+
+        SpellDefinition selectedSpell = null;
+        for (SpellDefinition spell : BotCombatLoadoutTables.ancientCombatSpellProgression) {
+            if (spell.getRequiredLevel() > player.getSkillManager().getCurrentLevels()[6]) {
+                break;
+            }
+            selectedSpell = spell;
+        }
+        if (selectedSpell == null) {
+            return;
+        }
+
+        player.packetSender.setSidebarInterface(6, 12855);
+        player.setSpellbook(Spellbook.ANCIENT);
+        player.botCombatSpell = null;
+        player.botWeaponItemId = 4675;
+        player.getEquipmentManager().getContainer().setItem(3, new ItemStack(player.botWeaponItemId));
+        BotCombatHelper.grantBotSpellRunes(player, selectedSpell, 100 + GameUtil.randomInt(100));
+        player.setAutocastSpell(selectedSpell);
+    }
+
     public static void prepareCombatLoadout(Player player, boolean enabled3) {
         int value = player.botCombatStyle;
         player.getInventoryManager().getContainer().clear();

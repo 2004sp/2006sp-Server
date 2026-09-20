@@ -174,7 +174,11 @@ public final class ObjectManager {
     public final void removeDynamicObjectAt(int objectId, int value2, int value32, int value42) {
         DynamicObject dynamicObject = ObjectManager.findDynamicObjectAt(objectId, value2, value32);
         if (dynamicObject != null) {
-            ObjectManager.removeObjectCollision(dynamicObject.getWorldObject().getObjectId(), objectId, value2, value32, value42, dynamicObject.getWorldObject().getOrientation());
+            ObjectManager.removeObjectCollision(
+                    dynamicObject.getWorldObject().getObjectId(),
+                    objectId, value2, value32,
+                    dynamicObject.getWorldObject().getOrientation(),
+                    dynamicObject.getWorldObject().getType());
             if (dynamicObject.getWorldObject().getObjectId() >= 115 && dynamicObject.getWorldObject().getObjectId() <= 122) {
                 PartyRoomManager.activeBalloonObjects.remove(dynamicObject);
             }

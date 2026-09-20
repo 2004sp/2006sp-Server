@@ -6,6 +6,8 @@ import com.rs2.model.GameplayHelper;
 import com.rs2.model.Position;
 import com.rs2.model.combat.AttackStyleDefinition;
 import com.rs2.model.dialogue.DialogueManager;
+import com.rs2.model.gameplay.castlewars.CastleWarsEngineeringManager;
+import com.rs2.model.gameplay.castlewars.CastleWarsManager;
 import com.rs2.model.gameplay.godwars.GodWarsDungeonManager;
 import com.rs2.model.gameplay.partyroom.PartyRoomManager;
 import com.rs2.model.interaction.InteractionDispatcher;
@@ -25,6 +27,7 @@ import com.rs2.model.skill.thieving.ThievingObjectHandler;
 import com.rs2.model.task.CycleEventHandler;
 import com.rs2.model.task.TickTask;
 import com.rs2.util.GameUtil;
+import com.rs2.util.path.PathFinder;
 
 public final class SecondObjectActionTask
 extends TickTask {
@@ -59,6 +62,31 @@ extends TickTask {
             return;
         }
         Object interactionTargetId = ObjectDefinition.forId(this.player.getInteractionTargetId());
+        Position castleWarsMainDoorApproach =
+                CastleWarsEngineeringManager.getMainDoorInteractionApproach(
+                        this.player, this.objectId, this.objectX, this.objectY);
+        if (castleWarsMainDoorApproach != null) {
+            if (this.player.getPosition().getX() == castleWarsMainDoorApproach.getX()
+                    && this.player.getPosition().getY() == castleWarsMainDoorApproach.getY()) {
+                this.player.getMovementQueue().clear();
+                this.player.getMovementQueue().clearMovementActions();
+                if (CastleWarsManager.handleSecondObjectAction(
+                        this.player, this.objectId, this.objectX, this.objectY)) {
+                    this.stop();
+                    return;
+                }
+            }
+
+            PathFinder.getInstance();
+            boolean foundPath = PathFinder.findPath(this.player,
+                    castleWarsMainDoorApproach.getX(), castleWarsMainDoorApproach.getY(),
+                    false, 0, 0);
+            if (!foundPath) {
+                this.stop();
+            }
+            return;
+        }
+
         Position position = GameUtil.findReachableInteractionPosition(worldObject.getPosition().getX(), worldObject.getPosition().getY(), this.player.getPosition().getX(), this.player.getPosition().getY(), ((ObjectDefinition)interactionTargetId).getWidthForOrientation(worldObject.getOrientation()), ((ObjectDefinition)interactionTargetId).getLengthForOrientation(worldObject.getOrientation()), this.objectPlane);
         if (position == null) {
             return;
@@ -72,6 +100,10 @@ extends TickTask {
             this.player.getUpdateState().setFacePosition(position.centerForSize(((ObjectDefinition)interactionTargetId).getMaxDimension()));
         }
         if (this.player.getQuestManager().handleSecondObjectAction(this.objectId, this.objectX, this.objectY)) {
+            this.stop();
+            return;
+        }
+        if (CastleWarsManager.handleSecondObjectAction(this.player, this.objectId, this.objectX, this.objectY)) {
             this.stop();
             return;
         }

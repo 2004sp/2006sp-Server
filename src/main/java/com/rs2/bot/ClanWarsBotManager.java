@@ -12,6 +12,10 @@ import com.rs2.model.Position;
 import com.rs2.model.World;
 import com.rs2.model.item.ItemDefinition;
 import com.rs2.model.item.ItemStack;
+import com.rs2.model.objects.LoadedWorldObject;
+import com.rs2.model.objects.WorldObjectLookup;
+import com.rs2.model.objects.functions.DoorHandler;
+import com.rs2.model.objects.functions.DoubleDoorHandler;
 import com.rs2.model.path.PathReachability;
 import com.rs2.model.player.Player;
 import com.rs2.model.skill.SkillManager;
@@ -144,6 +148,41 @@ public final class ClanWarsBotManager {
         player.moveTo(new Position(index, value2, 0));
         Player player3 = player;
         World.getTaskScheduler().schedule(new ClanWarsBotCombatTickTask(3, player3));
+    }
+
+    public static boolean tryOpenNearbyDoor(Player player) {
+        Position playerPosition = player.getPosition();
+        int plane = playerPosition.getPlane();
+
+        for (int radius = 1; radius <= 2; ++radius) {
+            for (int offsetX = -radius; offsetX <= radius; ++offsetX) {
+                for (int offsetY = -radius; offsetY <= radius; ++offsetY) {
+                    if (Math.max(Math.abs(offsetX), Math.abs(offsetY)) != radius) {
+                        continue;
+                    }
+
+                    int objectX = playerPosition.getX() + offsetX;
+                    int objectY = playerPosition.getY() + offsetY;
+                    LoadedWorldObject door = WorldObjectLookup.findObjectByNameAt("door", objectX, objectY, plane);
+                    if (door == null) {
+                        door = WorldObjectLookup.findObjectByNameAt("gate", objectX, objectY, plane);
+                    }
+                    if (door == null) {
+                        continue;
+                    }
+
+                    int objectId = door.getWorldObject().getObjectId();
+                    if (DoubleDoorHandler.handleDoubleDoor(objectId, objectX, objectY, plane)) {
+                        player.packetSender.sendSoundEffect(318, 1, 0);
+                        return true;
+                    }
+                    if (DoorHandler.handleDoor(player, objectId, objectX, objectY, plane)) {
+                        return true;
+                    }
+                }
+            }
+        }
+        return false;
     }
 
     public static void processClanWarsBotEvent() {

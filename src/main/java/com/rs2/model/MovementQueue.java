@@ -46,7 +46,7 @@ public final class MovementQueue {
         yDeltas[6] = -1;
         yDeltas[7] = -1;
         directionDeltaY = yDeltas;
-        collisionBypassTiles = new int[][]{{2491, 10146}, {2491, 10147}, {2491, 10148}, {2491, 10162}, {2491, 10163}, {2491, 10164}, {2491, 10130}, {2491, 10131}, {2491, 10132}, {2809, 3437}, {2543, 10143}, {2545, 10141}, {2545, 10145}, {3225, 3238}};
+        collisionBypassTiles = new int[][]{{2491, 10146}, {2491, 10147}, {2491, 10148}, {2491, 10162}, {2491, 10163}, {2491, 10164}, {2491, 10130}, {2491, 10131}, {2491, 10132}, {2809, 3437}, {2543, 10143}, {2545, 10141}, {2545, 10145}, {3225, 3238}, {2377, 3089}, {2378, 3083}, {2420, 3122}, {2418, 3126}};
     }
 
     public final Deque getSteps() {
@@ -284,7 +284,7 @@ public final class MovementQueue {
         boolean enabled = false;
         int[][] integerValues = collisionBypassTiles;
         int index = 0;
-        while (index < 14) {
+        while (index < integerValues.length) {
             int[] bypassTile = integerValues[index];
             if (this.entity.getPosition().getX() + value8 == bypassTile[0] && this.entity.getPosition().getY() + value23 == bypassTile[1]) {
                 enabled = true;

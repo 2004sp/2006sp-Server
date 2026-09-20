@@ -1915,6 +1915,16 @@ public class DialogueManager {
                 }
                 break;
             }
+            case 1526: {
+                switch (player.getDialogueManager().getDialogueStep()) {
+                    case 1: {
+                        player.getDialogueManager().showNpcOneLineDialogue("Welcome To Castle Wars!", 588);
+                        player.getDialogueManager().finishDialogue();
+                        return true;
+                    }
+                }
+                break;
+            }
             case 1334: {
                 switch (player.getDialogueManager().getDialogueStep()) {
                     case 1: {

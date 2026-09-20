@@ -97,7 +97,9 @@ public final class BotCombatLoadoutTables {
         legacyHighTierBowIds = new int[]{849, 853, 857, 861};
         legacyHighTierArrowIds = new int[]{888, 890, 892};
         daggerIds = new int[]{1205, 1203, 1207, 1217, 1209, 1211, 1213};
-        specialMeleeWeaponIds = new int[]{1215, 1231, 1434, 4153, 6528};
+        // Dragon claws (14484) are included when that optional item definition
+        // is present; BotCombatHelper filters undefined items safely.
+        specialMeleeWeaponIds = new int[]{1215, 1231, 1434, 4153, 6528, 14484};
         swordIds = new int[]{1277, 1279, 1281, 1283, 1285, 1287, 1289};
         longswordIds = new int[]{1291, 1293, 1295, 1297, 1299, 1301, 1303};
         dragonLongswordIds = new int[]{1305};

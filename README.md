@@ -14,9 +14,9 @@ database server is not needed.
 
 - Windows (the included build and run scripts are batch files)
 - JDK 1.8.0\_101 (Java SE Development Kit 8u101) - [Oracle Java SE 8 Archive Downloads](https://www.oracle.com/java/technologies/javase/javase8-archive-downloads.html)
-- `java`, `javac`, and `jar` available on `PATH`
-- The matching `2006sp client` project to connect and play
-- About 1 GB of free memory for the default server JVM settings
+- Make sure to set `java`, `javac`on `PATH` in Enviroment Variables
+- The Client is `2006sp client`
+- About 1 GB of free RAM
 
 No dependency download or package manager is required. All Java libraries are
 included in `lib/`:

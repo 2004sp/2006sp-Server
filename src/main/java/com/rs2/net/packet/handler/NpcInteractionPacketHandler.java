@@ -92,6 +92,29 @@ public final class NpcInteractionPacketHandler implements PacketHandler {
                 InteractionDispatcher.dispatchCurrentInteraction(player);
                 return;
             }
+            case 18: {
+                int index = packet.getReader().readSignedShort(ByteOrder.LITTLE) & 0xFFFF;
+                Npc npc = getInteractableNpc(index);
+                if (npc == null) {
+                    if (GameplayTrace.enabled()) {
+                        GameplayTrace.log("npc fourth-option decoded missing-npc player=" + GameplayTrace.describe(player) + " index=" + index);
+                        traceMissingNpcSlot("npc fourth-option", index);
+                    }
+                    break;
+                }
+                if (GameplayTrace.enabled()) {
+                    GameplayTrace.log("npc fourth-option decoded player=" + GameplayTrace.describe(player)
+                            + " npc=" + GameplayTrace.describe(npc) + " index=" + index
+                            + " cacheActionSlot=4 action=" + npc.getDefinition().getAction(4));
+                }
+                setNpcInteractionTarget(player, npc, index);
+                if (ServerSettings.debugModeEnabled) {
+                    player.packetSender.sendGameMessage("Fourth click npc: " + player.getInteractionTargetId());
+                }
+                InteractionDispatcher.setCurrentInteractionType(InteractionType.FOURTH_NPC);
+                InteractionDispatcher.dispatchCurrentInteraction(player);
+                return;
+            }
             case 230: {
                 return;
             }

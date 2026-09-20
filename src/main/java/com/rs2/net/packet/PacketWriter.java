@@ -16,6 +16,28 @@ extends PacketBuffer {
         this.buffer = ByteBuffer.allocate(value2);
     }
 
+    private void ensureCapacity(int additionalBytes) {
+        if (additionalBytes <= this.buffer.remaining()) {
+            return;
+        }
+
+        int requiredCapacity = this.buffer.position() + additionalBytes;
+        int newCapacity = Math.max(1, this.buffer.capacity());
+        while (newCapacity < requiredCapacity) {
+            int doubled = newCapacity << 1;
+            if (doubled <= newCapacity) {
+                newCapacity = requiredCapacity;
+                break;
+            }
+            newCapacity = doubled;
+        }
+
+        ByteBuffer oldBuffer = this.buffer;
+        this.buffer = ByteBuffer.allocate(newCapacity);
+        oldBuffer.flip();
+        this.buffer.put(oldBuffer);
+    }
+
     @Override
     final void onAccessModeChanged(AccessMode accessMode) {
         switch (accessMode) {
@@ -62,6 +84,7 @@ extends PacketBuffer {
     }
 
     public final void writeBytes(byte[] byteValues2, int value2) {
+        this.ensureCapacity(value2);
         this.buffer.put(byteValues2, 0, value2);
     }
 
@@ -124,6 +147,7 @@ extends PacketBuffer {
                 value2 = 128 - value2;
             }
         }
+        this.ensureCapacity(1);
         this.buffer.put((byte)value2);
     }
 

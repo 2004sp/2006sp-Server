@@ -13,6 +13,8 @@ import com.rs2.model.combat.AttackStyleDefinition;
 import com.rs2.model.dialogue.DialogueManager;
 import com.rs2.model.gameplay.abyss.AbyssManager;
 import com.rs2.model.gameplay.barrows.BarrowsManager;
+import com.rs2.model.gameplay.castlewars.CastleWarsEngineeringManager;
+import com.rs2.model.gameplay.castlewars.CastleWarsManager;
 import com.rs2.model.gameplay.duel.DuelHistory;
 import com.rs2.model.gameplay.godwars.GodWarsDungeonManager;
 import com.rs2.model.gameplay.partyroom.PartyRoomManager;
@@ -50,6 +52,7 @@ import com.rs2.model.travel.canoe.CanoeTravelManager;
 import com.rs2.model.travel.canoe.CanoeTreeDefinition;
 import com.rs2.util.GameUtil;
 import com.rs2.util.GameplayTrace;
+import com.rs2.util.path.PathFinder;
 
 public final class FirstObjectActionTask
 extends TickTask {
@@ -89,6 +92,86 @@ extends TickTask {
             if (GameplayTrace.enabled() && !this.loggedWaitingForMovement) {
                 this.loggedWaitingForMovement = true;
                 GameplayTrace.log("first-object wait moving-or-stunned seq=" + this.actionSequence + " moving=" + this.player.isMoving() + " stunned=" + this.player.isStunned() + " player=" + GameplayTrace.describe(this.player) + " objectId=" + this.objectId + " x=" + this.objectX + " y=" + this.objectY + " plane=" + this.objectPlane);
+            }
+            return;
+        }
+        if (this.objectId == CastleWarsManager.STEPPING_STONE_ID
+                && this.objectPlane == 0
+                && GameUtil.isWithinDistance(this.player.getPosition().getX(),
+                        this.player.getPosition().getY(), this.objectX, this.objectY, 1)
+                && CastleWarsManager.handleFirstObjectAction(
+                        this.player, this.objectId, this.objectX, this.objectY)) {
+            this.stop();
+            return;
+        }
+        Position castleWarsSideDoorApproach =
+                CastleWarsEngineeringManager.getSideDoorInteractionApproach(
+                        this.player, this.objectId, this.objectX, this.objectY);
+        if (castleWarsSideDoorApproach != null) {
+            if (this.player.getPosition().getX() == castleWarsSideDoorApproach.getX()
+                    && this.player.getPosition().getY() == castleWarsSideDoorApproach.getY()
+                    && CastleWarsManager.handleFirstObjectAction(
+                            this.player, this.objectId, this.objectX, this.objectY)) {
+                this.stop();
+                return;
+            }
+
+            PathFinder.getInstance();
+            boolean foundPath = PathFinder.findPath(this.player,
+                    castleWarsSideDoorApproach.getX(), castleWarsSideDoorApproach.getY(),
+                    false, 0, 0);
+            if (!foundPath) {
+                this.stop();
+            }
+            return;
+        }
+
+        Position castleWarsMainDoorApproach =
+                CastleWarsEngineeringManager.getMainDoorInteractionApproach(
+                        this.player, this.objectId, this.objectX, this.objectY);
+        if (castleWarsMainDoorApproach != null) {
+            if (this.player.getPosition().getX() == castleWarsMainDoorApproach.getX()
+                    && this.player.getPosition().getY() == castleWarsMainDoorApproach.getY()
+                    && CastleWarsManager.handleFirstObjectAction(
+                            this.player, this.objectId, this.objectX, this.objectY)) {
+                this.stop();
+                return;
+            }
+
+            PathFinder.getInstance();
+            boolean foundPath = PathFinder.findPath(this.player,
+                    castleWarsMainDoorApproach.getX(), castleWarsMainDoorApproach.getY(),
+                    false, 0, 0);
+            if (!foundPath) {
+                this.stop();
+            }
+            return;
+        }
+
+        Position castleWarsStairApproach = CastleWarsManager.getStairTraversalApproach(
+                this.player, this.objectId, this.objectX, this.objectY);
+        if (castleWarsStairApproach != null) {
+            if (CastleWarsManager.isAtStairTraversalApproach(
+                    this.player, this.objectId, this.objectX, this.objectY)
+                    && CastleWarsManager.handleFirstObjectAction(
+                            this.player, this.objectId, this.objectX, this.objectY)) {
+                this.stop();
+                return;
+            }
+
+            PathFinder.getInstance();
+            boolean foundPath = PathFinder.findPath(this.player,
+                    castleWarsStairApproach.getX(), castleWarsStairApproach.getY(),
+                    false, 0, 0);
+            if (!foundPath) {
+                if (GameplayTrace.enabled()) {
+                    GameplayTrace.log("castle-wars stair interaction unreachable player="
+                            + GameplayTrace.describe(this.player)
+                            + " objectId=" + this.objectId
+                            + " object=" + this.objectX + "," + this.objectY + "," + this.objectPlane
+                            + " approach=" + GameplayTrace.position(castleWarsStairApproach));
+                }
+                this.stop();
             }
             return;
         }
@@ -203,6 +286,10 @@ extends TickTask {
             return;
         }
         if (ServerSettings.content2007Enabled && GodWarsDungeonManager.handleFirstObjectAction(this.player, this.objectId, this.objectX, this.objectY)) {
+            this.stop();
+            return;
+        }
+        if (CastleWarsManager.handleFirstObjectAction(this.player, this.objectId, this.objectX, this.objectY)) {
             this.stop();
             return;
         }
