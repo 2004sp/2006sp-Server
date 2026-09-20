@@ -168,7 +168,7 @@ extends BotTaskDefinition {
         }
 
         System.out.println(
-            "Recovered hill giant bot route for " + player.username
+            "Recovered hill giant bot route for " + player.getUsername()
                 + " from segment " + previousSegmentIndex
                 + " to segment " + bestSegmentIndex
                 + ", waypoint " + bestWaypointIndex
