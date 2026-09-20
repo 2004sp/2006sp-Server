@@ -111,11 +111,48 @@ public final class BotCombatHelper {
     }
 
     public static void restorePrimaryCombatGear(Player player) {
-        player.getEquipmentManager().equipFromInventorySlot(player.getInventoryManager().getContainer().indexOfItem(player.botWeaponItemId));
+        if (player.getEquipmentManager().getItemIdAtSlot(3) != player.botWeaponItemId) {
+            int weaponSlot = player.getInventoryManager().getContainer().indexOfItem(player.botWeaponItemId);
+            if (weaponSlot >= 0) {
+                player.getEquipmentManager().equipFromInventorySlot(weaponSlot);
+            }
+        }
         if (player.botShieldItemId != 0 && player.getEquipmentManager().getItemIdAtSlot(5) != player.botShieldItemId) {
-            player.getEquipmentManager().equipFromInventorySlot(player.getInventoryManager().getContainer().indexOfItem(player.botShieldItemId));
+            int shieldSlot = player.getInventoryManager().getContainer().indexOfItem(player.botShieldItemId);
+            if (shieldSlot >= 0) {
+                player.getEquipmentManager().equipFromInventorySlot(shieldSlot);
+            }
         }
         player.botActiveCombatStyle = player.botPrimaryCombatStyle;
+        BotCombatHelper.syncPrimaryMagicAutocast(player);
+    }
+
+    public static void syncPrimaryMagicAutocast(Player player) {
+        if (player == null || !player.botEnabled
+                || player.botPrimaryCombatStyle != BotPvpCombatHandler.MAGIC_COMBAT_STYLE) {
+            return;
+        }
+
+        boolean primaryMagicWeaponEquipped = player.botWeaponItemId > 0
+                && player.getEquipmentManager().getItemIdAtSlot(3) == player.botWeaponItemId;
+        if (!primaryMagicWeaponEquipped) {
+            if (player.getAutocastSpell() != null || player.isAutocastEnabled()) {
+                player.setAutocastSpell(null);
+            }
+            return;
+        }
+
+        SpellDefinition preferredSpell = player.botPrimaryAutocastSpell;
+        if (preferredSpell == null
+                || preferredSpell.getRequiredLevel() > player.getSkillManager().getCurrentLevels()[6]
+                || !BotCombatHelper.hasRunesForSpell(player, preferredSpell)) {
+            return;
+        }
+
+        player.botActiveCombatStyle = BotPvpCombatHandler.MAGIC_COMBAT_STYLE;
+        if (player.getAutocastSpell() != preferredSpell || !player.isAutocastEnabled()) {
+            player.setAutocastSpell(preferredSpell);
+        }
     }
 
     public static double calculateBotHitpointsExperience(Player player) {

@@ -54,6 +54,7 @@ public final class BotPvpCombatHandler {
         if (castleWarsCombat) {
             player.botCombatState = null;
             player.botCombatEscapeActive = false;
+            BotCombatHelper.syncPrimaryMagicAutocast(player);
         }
         if (castleWarsCrossLevelCombat
                 && player.botPrimaryCombatStyle != MELEE_COMBAT_STYLE

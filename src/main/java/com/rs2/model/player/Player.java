@@ -553,6 +553,7 @@ extends Entity {
     public int botShieldItemId;
     public int botSpecialWeaponItemId;
     public SpellDefinition botCombatSpell;
+    public SpellDefinition botPrimaryAutocastSpell;
     public int botFoodItemId;
     public int botWildernessMaxY;
     public String botCombatState;

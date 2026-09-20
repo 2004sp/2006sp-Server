@@ -1,5 +1,6 @@
 package com.rs2.model.player;
 
+import com.rs2.bot.combat.BotCombatHelper;
 import com.rs2.ServerSettings;
 import com.rs2.model.EntityTargetMovement;
 import com.rs2.model.GameplayHelper;
@@ -390,6 +391,7 @@ public final class EquipmentManager {
             this.player.setWeaponProfile(WeaponProfile.forItem(itemStack));
             this.player.setSpecialAttackDefinition(SpecialAttackDefinition.forItem(itemStack));
             this.player.setAutocastSpell(null);
+            BotCombatHelper.syncPrimaryMagicAutocast(this.player);
         }
         this.refresh();
         this.refreshCarriedValue();

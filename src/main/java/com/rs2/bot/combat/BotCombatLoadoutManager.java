@@ -737,6 +737,7 @@ public final class BotCombatLoadoutManager {
             ++i;
         }
         SpellDefinition selectedSpell = spellProgression.get(selectedSpellIndex);
+        player.botPrimaryAutocastSpell = selectedSpell;
         if (ancientSpellbook) {
             weaponId = 4675;
         } else if (selectedSpell == SpellDefinition.WIND_STRIKE || selectedSpell == SpellDefinition.WIND_BOLT || selectedSpell == SpellDefinition.WIND_BLAST || selectedSpell == SpellDefinition.WIND_WAVE) {
@@ -916,6 +917,7 @@ public final class BotCombatLoadoutManager {
         player.setSpellbook(Spellbook.ANCIENT);
         player.botCombatSpell = null;
         player.botWeaponItemId = 4675;
+        player.botPrimaryAutocastSpell = selectedSpell;
         player.getEquipmentManager().getContainer().setItem(3, new ItemStack(player.botWeaponItemId));
         BotCombatHelper.grantBotSpellRunes(player, selectedSpell, 100 + GameUtil.randomInt(100));
         player.setAutocastSpell(selectedSpell);
@@ -923,6 +925,8 @@ public final class BotCombatLoadoutManager {
 
     public static void prepareCombatLoadout(Player player, boolean enabled3) {
         int value = player.botCombatStyle;
+        player.botPrimaryAutocastSpell = null;
+        player.setAutocastSpell(null);
         player.getInventoryManager().getContainer().clear();
         player.getEquipmentManager().getContainer().clear();
         boolean enabled2 = true;

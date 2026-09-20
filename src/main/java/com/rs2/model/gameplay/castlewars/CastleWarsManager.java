@@ -1,5 +1,6 @@
 package com.rs2.model.gameplay.castlewars;
 
+import com.rs2.bot.combat.BotCombatHelper;
 import com.rs2.model.Position;
 import com.rs2.model.GameplayHelper;
 import com.rs2.model.combat.CombatType;
@@ -2326,6 +2327,10 @@ public final class CastleWarsManager {
         dropCarriedFlag(player);
         player.clearPvpCombatReferences();
         moveToTeamSpawn(player, team);
+        if (player.botEnabled) {
+            BotCombatHelper.restorePrimaryCombatGear(player);
+            BotCombatHelper.syncPrimaryMagicAutocast(player);
+        }
         player.getPacketSender().sendGameMessage("You respawn in your team's castle.");
     }
 

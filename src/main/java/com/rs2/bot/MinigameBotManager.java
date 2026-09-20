@@ -65,6 +65,7 @@ public final class MinigameBotManager {
             if (!botPlayer.isAutoRetaliate()) {
                 botPlayer.setAutoRetaliate(true);
             }
+            BotCombatHelper.syncPrimaryMagicAutocast(botPlayer);
             spreadWaitingBots.remove(botPlayer);
             clearWaitingSocial(botPlayer);
             if (CastleWarsBotRoleAi.process(botPlayer)) {
@@ -149,6 +150,7 @@ public final class MinigameBotManager {
         for (int runeId : runeIds) {
             setInventoryStackToMax(botPlayer, runeId);
         }
+        BotCombatHelper.syncPrimaryMagicAutocast(botPlayer);
 
         // Astral runes exist only in later compatible caches.
         if (ItemDefinition.isDefined(9075)) {
