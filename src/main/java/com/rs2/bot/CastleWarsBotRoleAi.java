@@ -232,16 +232,9 @@ public final class CastleWarsBotRoleAi {
 
         if (!state.utilityStocked) {
             if (state.role == Role.UNDERGROUND) {
-                makeInventorySpace(bot, 7);
-                // Reserve the non-consumable tunnel tool before expendable supplies so
-                // an unexpectedly full loadout can never leave an underground bot
-                // without a pickaxe.
-                CastleWarsEngineeringManager.giveSupply(bot,
-                        CastleWarsEngineeringManager.BRONZE_PICKAXE_ID, 1);
-                CastleWarsEngineeringManager.giveSupply(bot,
-                        CastleWarsEngineeringManager.EXPLOSIVE_POTION_ID, 4);
-                CastleWarsEngineeringManager.giveSupply(bot,
-                        CastleWarsEngineeringManager.BARRICADE_ITEM_ID, 1);
+                state.utilityStocked = stockUndergroundSupplies(bot);
+                state.delayTicks = 1 + GameUtil.randomInt(3);
+                return;
             } else if (state.role == Role.CATAPULT) {
                 makeInventorySpace(bot, 8);
                 CastleWarsEngineeringManager.giveSupply(bot,
@@ -328,16 +321,11 @@ public final class CastleWarsBotRoleAi {
 
         if (!state.utilityStocked) {
             if (state.role == Role.UNDERGROUND) {
-                makeInventorySpace(bot, 7);
-                // Reserve the non-consumable tunnel tool before expendable supplies so
-                // an unexpectedly full loadout can never leave an underground bot
-                // without a pickaxe.
-                CastleWarsEngineeringManager.giveSupply(bot,
-                        CastleWarsEngineeringManager.BRONZE_PICKAXE_ID, 1);
-                CastleWarsEngineeringManager.giveSupply(bot,
-                        CastleWarsEngineeringManager.EXPLOSIVE_POTION_ID, 4);
-                CastleWarsEngineeringManager.giveSupply(bot,
-                        CastleWarsEngineeringManager.BARRICADE_ITEM_ID, 1);
+                state.utilityStocked = stockUndergroundSupplies(bot);
+                if (!state.utilityStocked) {
+                    state.delayTicks = 1 + GameUtil.randomInt(3);
+                    return;
+                }
             } else if (state.role == Role.CATAPULT) {
                 makeInventorySpace(bot, 8);
                 CastleWarsEngineeringManager.giveSupply(bot,
@@ -346,9 +334,11 @@ public final class CastleWarsBotRoleAi {
                         CastleWarsEngineeringManager.EXPLOSIVE_POTION_ID, 1);
                 CastleWarsEngineeringManager.giveSupply(bot,
                         CastleWarsEngineeringManager.TOOLKIT_ID, 1);
+                state.utilityStocked = true;
+            } else {
+                state.utilityStocked = true;
             }
             bot.getUpdateState().setAnimation(881);
-            state.utilityStocked = true;
             state.delayTicks = 2 + GameUtil.randomInt(4);
         }
 
@@ -1121,6 +1111,35 @@ public final class CastleWarsBotRoleAi {
         }
     }
 
+    private static boolean stockUndergroundSupplies(BotPlayer bot) {
+        makeInventorySpace(bot, 7);
+
+        int pickaxes = bot.getInventoryManager().getItemAmount(
+                CastleWarsEngineeringManager.BRONZE_PICKAXE_ID);
+        if (pickaxes < 1) {
+            CastleWarsEngineeringManager.giveSupply(bot,
+                    CastleWarsEngineeringManager.BRONZE_PICKAXE_ID, 1 - pickaxes);
+        }
+
+        int explosives = bot.getInventoryManager().getItemAmount(
+                CastleWarsEngineeringManager.EXPLOSIVE_POTION_ID);
+        if (explosives < 4) {
+            CastleWarsEngineeringManager.giveSupply(bot,
+                    CastleWarsEngineeringManager.EXPLOSIVE_POTION_ID, 4 - explosives);
+        }
+
+        if (bot.getInventoryManager().getItemAmount(
+                CastleWarsEngineeringManager.BARRICADE_ITEM_ID) < 1) {
+            CastleWarsEngineeringManager.giveSupply(bot,
+                    CastleWarsEngineeringManager.BARRICADE_ITEM_ID, 1);
+        }
+
+        return bot.getInventoryManager().getItemAmount(
+                CastleWarsEngineeringManager.BRONZE_PICKAXE_ID) >= 1
+                && bot.getInventoryManager().getItemAmount(
+                CastleWarsEngineeringManager.EXPLOSIVE_POTION_ID) >= 4;
+    }
+
     private static boolean shouldUseBandage(BotPlayer bot) {
         if (bot.getInventoryManager().getItemAmount(4049) <= 0) {
             return false;
@@ -1680,7 +1699,38 @@ public final class CastleWarsBotRoleAi {
             }
             return Role.UNDERGROUND;
         }
-        return Role.ATTACKER;
+
+        // The remaining bots are the normal rushers. Alternate them by stable
+        // name-hash rank so approximately 50% take the tunnel route while the
+        // other 50% continue using the normal surface flag-runner AI.
+        return shouldRusherUseUndergroundRoute(bot, team, wallGuardHashes, specialistHashes)
+                ? Role.UNDERGROUND : Role.ATTACKER;
+    }
+
+    private static boolean shouldRusherUseUndergroundRoute(
+            BotPlayer bot, CastleWarsManager.Team team,
+            long[] wallGuardHashes, long[] specialistHashes) {
+        long botHash = bot.getNameHash();
+        int rusherRank = 0;
+
+        for (Player player : CastleWarsManager.getGamePlayersView()) {
+            if (!(player instanceof BotPlayer)
+                    || CastleWarsManager.getGameTeam(player) != team) {
+                continue;
+            }
+
+            BotPlayer candidate = (BotPlayer)player;
+            long candidateHash = candidate.getNameHash();
+            if (containsNameHash(wallGuardHashes, candidateHash)
+                    || containsNameHash(specialistHashes, candidateHash)) {
+                continue;
+            }
+            if (candidateHash < botHash) {
+                ++rusherRank;
+            }
+        }
+
+        return (rusherRank & 1) == 0;
     }
 
     private enum Role {
