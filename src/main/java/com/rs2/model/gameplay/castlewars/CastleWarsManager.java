@@ -1505,6 +1505,18 @@ public final class CastleWarsManager {
         return new Position(alternateLane ? 2372 : 2373, 3121, 0);
     }
 
+    private static Position getBotMainDoorInteriorInteractionPosition(Player player,
+                                                                      Team castleTeam) {
+        if (player == null || castleTeam == null) {
+            return null;
+        }
+        boolean alternateLane = (player.getNameHash() & 1L) != 0L;
+        if (castleTeam == Team.SARADOMIN) {
+            return new Position(alternateLane ? 2427 : 2426, 3087, 0);
+        }
+        return new Position(alternateLane ? 2372 : 2373, 3120, 0);
+    }
+
     public static Team getCastleTeamAtPosition(Position position) {
         if (position == null || position.getPlane() < 0 || position.getPlane() > 3) {
             return null;
@@ -1698,6 +1710,19 @@ public final class CastleWarsManager {
         if (samePosition(player.getPosition(), exterior)) {
             return true;
         }
+
+        Position interiorInteraction =
+                getBotMainDoorInteriorInteractionPosition(player, castleTeam);
+        if (getCastleTeamAtPosition(player.getPosition()) == castleTeam
+                && interiorInteraction != null
+                && !samePosition(player.getPosition(), interiorInteraction)) {
+            player.getMovementQueue().setRunning(true);
+            PathFinder.findPath(player, interiorInteraction.getX(),
+                    interiorInteraction.getY(), false, 0, 0);
+            player.getMovementQueue().clearMovementActions();
+            return true;
+        }
+
         if (CastleWarsEngineeringManager.tryHandleMainDoorForBot(player, castleTeam)) {
             return true;
         }
