@@ -366,7 +366,8 @@ public final class CastleWarsEngineeringManager {
 
     public static boolean handleCatapultButton(Player player, int buttonId) {
         InterfaceDefinition definition = InterfaceDefinition.forId(buttonId);
-        if (definition == null || definition.getParentInterfaceId() != CATAPULT_INTERFACE_ID) {
+        if (definition == null
+                || !isInterfaceDescendantOf(buttonId, CATAPULT_INTERFACE_ID)) {
             return false;
         }
 
@@ -436,6 +437,25 @@ public final class CastleWarsEngineeringManager {
         return value < 10 ? "0" + value : Integer.toString(value);
     }
 
+    private static boolean isInterfaceDescendantOf(int interfaceId, int parentId) {
+        int currentId = interfaceId;
+        for (int depth = 0; depth < 16; ++depth) {
+            InterfaceDefinition current = InterfaceDefinition.forId(currentId);
+            if (current == null) {
+                return false;
+            }
+            int parent = current.getParentInterfaceId();
+            if (parent == parentId) {
+                return true;
+            }
+            if (parent < 0 || parent == currentId) {
+                return false;
+            }
+            currentId = parent;
+        }
+        return false;
+    }
+
     private static void resolveCatapultAimButtons() {
         if (catapultAimUpButtonId >= 0 && catapultAimDownButtonId >= 0
                 && catapultAimLeftButtonId >= 0 && catapultAimRightButtonId >= 0) {
@@ -446,7 +466,7 @@ public final class CastleWarsEngineeringManager {
         for (int interfaceId = 0; interfaceId < InterfaceDefinition.interfaceCount; ++interfaceId) {
             InterfaceDefinition definition = InterfaceDefinition.forId(interfaceId);
             if (definition == null
-                    || definition.getParentInterfaceId() != CATAPULT_INTERFACE_ID
+                    || !isInterfaceDescendantOf(interfaceId, CATAPULT_INTERFACE_ID)
                     || definition.getActionType() == 0
                     || interfaceId == CATAPULT_CLOSE_BUTTON_ID
                     || interfaceId == CATAPULT_FIRE_BUTTON_ID
