@@ -388,6 +388,18 @@ public final class CastleWarsEngineeringManager {
                     || !isInterfaceDescendantOf(buttonId, CATAPULT_INTERFACE_ID)) {
                 return false;
             }
+
+            // Unknown descendants used to be silently consumed here, which meant
+            // ::debug could never reveal the native 377 arrow widget IDs.
+            if (player.isInteractionDebugEnabled()) {
+                int parentId = definition.getParentInterfaceId();
+                String message = "Unhandled catapult button: " + buttonId
+                        + " (parent=" + parentId + ")";
+                player.getPacketSender().sendGameMessage(message);
+                System.out.println("[catapult-debug] " + player.getUsername()
+                        + " " + message);
+            }
+            return true;
         }
 
         if (buttonId == CATAPULT_CLOSE_BUTTON_ID) {
