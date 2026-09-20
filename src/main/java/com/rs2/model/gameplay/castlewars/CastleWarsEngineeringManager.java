@@ -893,7 +893,44 @@ public final class CastleWarsEngineeringManager {
                     door.openX, door.openY, MAIN_DOOR_PLANE,
                     door.openOrientation, 0, door.openId, 999999999);
         }
+
+        // DynamicObject's legacy collision-removal helper swaps loc type and
+        // orientation. That is invisible for orientation 0, but leaves the
+        // orientation-2/3 Castle Wars side doors blocking the passage after
+        // their models have opened. Normalize both wall edges explicitly.
+        applySideDoorCollisionState(door, open);
         door.open = open;
+    }
+
+    private static void applySideDoorCollisionState(SideDoorState door, boolean open) {
+        WalkingCollisionMap.removeObjectCollision(
+                door.closedId, door.closedX, door.closedY, MAIN_DOOR_PLANE,
+                door.closedOrientation, 0);
+        ProjectileCollisionMap.removeObjectCollision(
+                door.closedId, door.closedX, door.closedY, MAIN_DOOR_PLANE,
+                door.closedOrientation, 0);
+        WalkingCollisionMap.removeObjectCollision(
+                door.openId, door.openX, door.openY, MAIN_DOOR_PLANE,
+                door.openOrientation, 0);
+        ProjectileCollisionMap.removeObjectCollision(
+                door.openId, door.openX, door.openY, MAIN_DOOR_PLANE,
+                door.openOrientation, 0);
+
+        if (open) {
+            WalkingCollisionMap.addObjectCollision(
+                    door.openId, door.openX, door.openY, MAIN_DOOR_PLANE,
+                    door.openOrientation, 0, false);
+            ProjectileCollisionMap.addObjectCollision(
+                    door.openId, door.openX, door.openY, MAIN_DOOR_PLANE,
+                    door.openOrientation, 0, false);
+        } else {
+            WalkingCollisionMap.addObjectCollision(
+                    door.closedId, door.closedX, door.closedY, MAIN_DOOR_PLANE,
+                    door.closedOrientation, 0, false);
+            ProjectileCollisionMap.addObjectCollision(
+                    door.closedId, door.closedX, door.closedY, MAIN_DOOR_PLANE,
+                    door.closedOrientation, 0, false);
+        }
     }
 
     private static void removeSideDoorDynamicObject(int x, int y) {
