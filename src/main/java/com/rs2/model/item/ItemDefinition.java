@@ -12,6 +12,7 @@ import java.util.ArrayList;
 import java.util.logging.Logger;
 
 public class ItemDefinition {
+    private static final int DRAGON_CLAWS_ID = 14484;
     public ArrayList grandExchangePriceSamples = new ArrayList();
     private static ItemDefinition[] definitionsById;
     private static int definitionCount;
@@ -43,19 +44,58 @@ public class ItemDefinition {
 
     static {
         Logger.getLogger(ItemDefinition.class.getName());
-        definitionsById = new ItemDefinition[11884];
+        // Keep room for extended-revision items used by the client.
+        definitionsById = new ItemDefinition[20000];
         definitionCount = 0;
     }
 
     public static ItemDefinition forId(int value2) {
         ItemDefinition itemDefinition;
-        if (value2 < 0) {
+        if (value2 < 0 || value2 >= definitionsById.length) {
             value2 = 1;
+        }
+        if (value2 == DRAGON_CLAWS_ID && definitionsById[value2] == null) {
+            definitionsById[value2] = createDragonClawsDefinition();
         }
         if ((itemDefinition = definitionsById[value2]) == null) {
             itemDefinition = new ItemDefinition(value2, "# + id", "It's an item!", "NONE", false, false, false, -1, -1, true, 0, 0, 0, 0, new int[14], 0, new int[25], 0, new boolean[QuestDefinition.questCount], 0.0, 0, 0, false);
         }
         return itemDefinition;
+    }
+
+    private static ItemDefinition createDragonClawsDefinition() {
+        int[] bonuses = new int[]{
+                41, 57, -4, 0, 0,
+                0, 0, 0, 0, 0,
+                56, 0, 0, 0
+        };
+        int[] requiredLevels = new int[25];
+        requiredLevels[0] = 60;
+
+        ItemDefinition definition = new ItemDefinition(
+                DRAGON_CLAWS_ID,
+                "Dragon claws",
+                "A pair of vicious dragon claws.",
+                "WEAPON",
+                false, false, false,
+                -1, -1, true,
+                0, 0, 0, 0,
+                bonuses,
+                0,
+                requiredLevels,
+                0,
+                new boolean[QuestDefinition.questCount],
+                0.0,
+                0,
+                0,
+                false);
+        definition.membersOnly = true;
+        definition.twoHanded = true;
+        definition.shopValue = 67500;
+        definition.highAlchemyValue = 40500;
+        definition.lowAlchemyValue = 27000;
+        definition.untradeable = false;
+        return definition;
     }
 
     public static void loadDefinitions() {
@@ -408,7 +448,8 @@ public class ItemDefinition {
     }
 
     public static boolean isDefined(int value2) {
-        return value2 < definitionCount;
+        return value2 >= 0 && value2 < definitionsById.length
+                && (value2 < definitionCount || value2 == DRAGON_CLAWS_ID);
     }
 
     private ItemDefinition(int id, String name, String description, String text32, boolean enabled6, boolean enabled22, boolean enabled32, int value22, int value32, boolean enabled42, int value42, int value52, int value62, int value72, int[] bonuses, int value82, int[] requiredLevels, int value92, boolean[] blArray, double value12, int value103, int value112, boolean enabled52) {
