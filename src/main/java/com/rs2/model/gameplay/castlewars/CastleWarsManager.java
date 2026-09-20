@@ -62,6 +62,137 @@ public final class CastleWarsManager {
     public static final int CASTLE_WARS_TICKET_ID = 4067;
     public static final int LANTHUS_NPC_ID = 1526;
 
+    public static final int CASTLE_WARS_MANUAL_ID = 4055;
+    private static final int CASTLE_WARS_MANUAL_INTERFACE_ID = 837;
+    private static final int CASTLE_WARS_MANUAL_TITLE_TEXT_ID = 903;
+    private static final int CASTLE_WARS_MANUAL_FIRST_LINE_ID = 843;
+    private static final int CASTLE_WARS_MANUAL_LINE_COUNT = 22;
+    private static final int CASTLE_WARS_MANUAL_LEFT_PAGE_TEXT_ID = 14165;
+    private static final int CASTLE_WARS_MANUAL_RIGHT_PAGE_TEXT_ID = 14166;
+    private static final int CASTLE_WARS_MANUAL_PREVIOUS_BUTTON_ID = 840;
+    private static final int CASTLE_WARS_MANUAL_NEXT_BUTTON_ID = 842;
+    private static final int CASTLE_WARS_MANUAL_CLOSE_BUTTON_ID = 10162;
+
+    /*
+     * The 2006 manual predates later Castle Wars additions such as flares and
+     * ballistas. Each entry below is one two-page spread: lines 0-10 are the
+     * left page and lines 11-21 are the right page.
+     */
+    private static final String[][] CASTLE_WARS_MANUAL_PAGES = new String[][]{
+        new String[]{
+            "@dre@Objective", "",
+            "Break into the enemy castle",
+            "and take their team standard.",
+            "Carry it back to your own",
+            "standard to score a capture.",
+            "",
+            "Protect your own standard at",
+            "the same time. The team with",
+            "the most captures wins.",
+            "",
+            "@dre@Toolkit", "",
+            "Toolkits repair your team's",
+            "damaged doors and catapult.",
+            "Use the toolkit on the damaged",
+            "object, or choose its repair",
+            "option while carrying one.",
+            "",
+            "Keeping doors and the catapult",
+            "working helps your defence.",
+            ""
+        },
+        new String[]{
+            "@dre@Bandages", "",
+            "Bandages restore some health",
+            "and some of your run energy.",
+            "They can also be used on a",
+            "team-mate to heal them.",
+            "",
+            "Keep a supply nearby if you",
+            "expect a long fight or a",
+            "dangerous flag run.",
+            "",
+            "@dre@Explosive potion", "",
+            "Explosive potions can destroy",
+            "enemy barricades and catapults.",
+            "They can also clear collapsed",
+            "rock passages underground.",
+            "",
+            "Use the tunnels for surprise",
+            "attacks, and collapse passages",
+            "to slow enemy movement.",
+            ""
+        },
+        new String[]{
+            "@dre@Barricades", "",
+            "Barricades block movement and",
+            "can seal useful approaches.",
+            "Place them where they delay an",
+            "enemy attack on your castle.",
+            "",
+            "A team may only have ten",
+            "barricades standing at once,",
+            "so place them carefully.",
+            "",
+            "@dre@Buckets of water", "",
+            "Fill a bucket with water to",
+            "put out a burning barricade",
+            "or catapult before it is lost.",
+            "",
+            "Fire damage keeps burning for",
+            "a while, so act quickly when",
+            "one of your defences is lit.",
+            "",
+            ""
+        },
+        new String[]{
+            "@dre@Tinderbox", "",
+            "A tinderbox can set an enemy",
+            "barricade or catapult on fire.",
+            "Burning equipment can be put",
+            "out with a bucket of water.",
+            "",
+            "Fire is slower than explosives",
+            "but can still force defenders",
+            "to react and spend supplies.",
+            "",
+            "@dre@Pickaxe", "",
+            "Use a pickaxe to clear rocks",
+            "blocking the underground route.",
+            "The tunnels provide another way",
+            "to reach the enemy castle.",
+            "",
+            "Rock passages may also be",
+            "collapsed to block pursuit,",
+            "so watch the tunnel behind you.",
+            "",
+            ""
+        },
+        new String[]{
+            "@dre@Catapult", "",
+            "The catapult launches Castle",
+            "Wars rocks across the arena.",
+            "Operate it from your castle",
+            "wall and aim at enemy players.",
+            "",
+            "Choose your target carefully:",
+            "a badly aimed shot can miss or",
+            "endanger your own team.",
+            "",
+            "@dre@Rocks", "",
+            "Castle Wars rocks are the",
+            "ammunition used by the catapult.",
+            "Take rocks from your castle",
+            "supplies before operating it.",
+            "",
+            "Each shot consumes one rock,",
+            "so return for more ammunition",
+            "when your supply runs out.",
+            "",
+            ""
+        }
+    };
+
     // Cache 377 Castle Wars waiting-room transformation NPCs.
     private static final int GUTHIX_SHEEP_TRANSFORMATION_ID = 1529;
     private static final int SARADOMIN_RABBIT_TRANSFORMATION_ID = 1530;
@@ -2211,6 +2342,76 @@ public final class CastleWarsManager {
             CASTLE_WARS_LOBBY.getY() - 2 + GameUtil.randomInt(5),
             CASTLE_WARS_LOBBY.getPlane()
         ));
+    }
+
+    public static void openCastleWarsManual(Player player) {
+        if (player == null) {
+            return;
+        }
+        player.activeBookItemId = CASTLE_WARS_MANUAL_ID;
+        player.activeBookPageIndex = 0;
+        renderCastleWarsManual(player);
+    }
+
+    public static boolean handleCastleWarsManualButton(Player player, int buttonId) {
+        if (player == null || player.activeBookItemId != CASTLE_WARS_MANUAL_ID) {
+            return false;
+        }
+
+        if (buttonId == CASTLE_WARS_MANUAL_CLOSE_BUTTON_ID) {
+            player.getPacketSender().closeInterfaces();
+            return true;
+        }
+
+        // 840/842 are the native cache-377 book arrows. 3071/3073 are accepted
+        // too because some compatible clients remap the same book controls.
+        if (buttonId == CASTLE_WARS_MANUAL_PREVIOUS_BUTTON_ID || buttonId == 3071) {
+            if (player.activeBookPageIndex > 0) {
+                --player.activeBookPageIndex;
+                renderCastleWarsManual(player);
+            }
+            return true;
+        }
+
+        if (buttonId == CASTLE_WARS_MANUAL_NEXT_BUTTON_ID || buttonId == 3073) {
+            if (player.activeBookPageIndex + 1 < CASTLE_WARS_MANUAL_PAGES.length) {
+                ++player.activeBookPageIndex;
+                renderCastleWarsManual(player);
+            }
+            return true;
+        }
+
+        return false;
+    }
+
+    private static void renderCastleWarsManual(Player player) {
+        int spread = player.activeBookPageIndex;
+        if (spread < 0) {
+            spread = 0;
+        } else if (spread >= CASTLE_WARS_MANUAL_PAGES.length) {
+            spread = CASTLE_WARS_MANUAL_PAGES.length - 1;
+        }
+        player.activeBookPageIndex = spread;
+
+        String[] lines = CASTLE_WARS_MANUAL_PAGES[spread];
+        for (int index = 0; index < CASTLE_WARS_MANUAL_LINE_COUNT; ++index) {
+            String text = index < lines.length ? lines[index] : "";
+            player.getPacketSender().sendInterfaceText(
+                    text, CASTLE_WARS_MANUAL_FIRST_LINE_ID + index);
+        }
+
+        int leftPage = spread * 2 + 1;
+        int rightPage = leftPage + 1;
+        player.getPacketSender().sendInterfaceText(
+                "Castle Wars Manual", CASTLE_WARS_MANUAL_TITLE_TEXT_ID);
+        player.getPacketSender().sendInterfaceText(
+                leftPage > 1 ? "Page " + leftPage : "",
+                CASTLE_WARS_MANUAL_LEFT_PAGE_TEXT_ID);
+        player.getPacketSender().sendInterfaceText(
+                rightPage < CASTLE_WARS_MANUAL_PAGES.length * 2
+                        ? "Page " + rightPage : "",
+                CASTLE_WARS_MANUAL_RIGHT_PAGE_TEXT_ID);
+        player.getPacketSender().showInterface(CASTLE_WARS_MANUAL_INTERFACE_ID);
     }
 
     private static void startGame(long now) {
