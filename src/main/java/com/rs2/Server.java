@@ -210,6 +210,16 @@ implements Runnable {
     public static void main(String[] args) {
         String bindHost = System.getProperty("prs.bindHost", "0.0.0.0");
         runtimeMinutes = 0;
+        shutdownRequested = false;
+        ConnectionThrottleSettings.connectionsEnabled = true;
+        halloweenEventActive = false;
+        christmasEventActive = false;
+        easterEventActive = false;
+        onlinePlayerCount = 0;
+        adminPlayerCount = 0;
+        moderatorPlayerCount = 0;
+        disconnectQueue.clear();
+        trackedRareItems.clear();
         int value = ServerSettings.serverPort;
         Server server = new Server(bindHost, value, 600);
         if (instance != null) {
@@ -484,25 +494,69 @@ implements Runnable {
                 System.out.println("[server-trace] main loop exited interrupted=" + Thread.currentThread().isInterrupted() + " shutdownRequested=" + shutdownRequested);
             }
             CharacterFileManager.saveAllPlayers();
+            World.resetForServerRestart();
             if (ServerSettings.sqliteHiscoresEnabled) {
                 HiscoresDatabase.disconnect();
             }
-            serverStatus = 0;
-            Server.refreshControlPanelStats();
-            instance = null;
-            if (Boolean.getBoolean("prs.traceGameplay")) {
-                System.out.println("[server-trace] stopping server thread from cleanup");
+            DatabaseService.shutdownInstance();
+            LanDiscoveryService.stopListener();
+            DedicatedReactor.shutdown();
+            try {
+                if (this.serverSocketChannel != null) {
+                    this.serverSocketChannel.close();
+                    this.serverSocketChannel = null;
+                }
             }
-            serverThread.stop();
+            catch (IOException iOException) {
+                iOException.printStackTrace();
+            }
+            try {
+                if (this.selector != null) {
+                    this.selector.close();
+                    this.selector = null;
+                }
+            }
+            catch (IOException iOException) {
+                iOException.printStackTrace();
+            }
+
+            serverStatus = 0;
+            runtimeMinutes = 0;
+            shutdownRequested = false;
+            onlinePlayerCount = 0;
+            adminPlayerCount = 0;
+            moderatorPlayerCount = 0;
+            instance = null;
             serverThread = null;
             engineThread = null;
-            ((Thread)null).stop();
+            Server.refreshControlPanelStats();
+            if (Boolean.getBoolean("prs.traceGameplay")) {
+                System.out.println("[server-trace] game server stopped; launcher remains open");
+            }
         }
         catch (Exception exception) {
-            Exception exception2 = exception;
             exception.printStackTrace();
             serverStatus = 0;
+            shutdownRequested = false;
             instance = null;
+            serverThread = null;
+            engineThread = null;
+            try {
+                LanDiscoveryService.stopListener();
+                DedicatedReactor.shutdown();
+                DatabaseService.shutdownInstance();
+                if (this.serverSocketChannel != null) {
+                    this.serverSocketChannel.close();
+                    this.serverSocketChannel = null;
+                }
+                if (this.selector != null) {
+                    this.selector.close();
+                    this.selector = null;
+                }
+            }
+            catch (Exception cleanupException) {
+                cleanupException.printStackTrace();
+            }
             Server.refreshControlPanelStats();
         }
         PluginManager.shutdownGlobalPlugins();
