@@ -179,60 +179,84 @@ implements PacketHandler {
                 + " plane=" + plane + " type=" + type);
     }
 
-    private static void queueObjectInteractionMovement(Player player) {
+    public static boolean queueObjectInteractionMovement(Player player) {
         int objectId = player.getInteractionTargetId();
         int objectX = player.getInteractionTargetX();
         int objectY = player.getInteractionTargetY();
         int plane = player.getInteractionTargetPlane();
+
         if (!SkillActionHelper.isObjectPresent(objectId, objectX, objectY, plane)) {
             if (GameplayTrace.enabled()) {
-                GameplayTrace.log("object movement skipped missing-object player=" + GameplayTrace.describe(player) + " objectId=" + objectId + " x=" + objectX + " y=" + objectY + " plane=" + plane);
+                GameplayTrace.log("object movement skipped missing-object player="
+                        + GameplayTrace.describe(player)
+                        + " objectId=" + objectId
+                        + " x=" + objectX + " y=" + objectY + " plane=" + plane);
             }
-            return;
+            return false;
         }
+
+        WorldObject worldObject = SkillActionHelper.findWorldObjectById(
+                objectId, objectX, objectY, plane);
+        if (worldObject == null) {
+            return false;
+        }
+
+        return queueObjectInteractionMovement(player, worldObject);
+    }
+
+    public static boolean queueObjectInteractionMovement(Player player, WorldObject worldObject) {
+        if (player == null || worldObject == null) {
+            return false;
+        }
+
+        int objectId = worldObject.getObjectId();
+        int objectX = worldObject.getPosition().getX();
+        int objectY = worldObject.getPosition().getY();
+        int plane = worldObject.getPosition().getPlane();
+
         Position castleWarsSideDoorApproach =
                 CastleWarsEngineeringManager.getSideDoorInteractionApproach(
                         player, objectId, objectX, objectY);
         if (castleWarsSideDoorApproach != null) {
-            PathFinder.getInstance();
-            PathFinder.findPath(player,
-                    castleWarsSideDoorApproach.getX(), castleWarsSideDoorApproach.getY(),
-                    false, 0, 0);
-            return;
+            return PathFinder.findPath(player,
+                    castleWarsSideDoorApproach.getX(),
+                    castleWarsSideDoorApproach.getY(),
+                    false, 1, 1);
         }
 
         Position castleWarsMainDoorApproach =
                 CastleWarsEngineeringManager.getMainDoorInteractionApproach(
                         player, objectId, objectX, objectY);
         if (castleWarsMainDoorApproach != null) {
-            PathFinder.getInstance();
-            PathFinder.findPath(player,
-                    castleWarsMainDoorApproach.getX(), castleWarsMainDoorApproach.getY(),
-                    false, 0, 0);
-            return;
+            return PathFinder.findPath(player,
+                    castleWarsMainDoorApproach.getX(),
+                    castleWarsMainDoorApproach.getY(),
+                    false, 1, 1);
         }
 
         Position castleWarsStairApproach =
-                CastleWarsManager.getStairTraversalApproach(player, objectId, objectX, objectY);
+                CastleWarsManager.getStairTraversalApproach(
+                        player, objectId, objectX, objectY);
         if (castleWarsStairApproach != null) {
-            PathFinder.getInstance();
             boolean foundPath = PathFinder.findPath(player,
-                    castleWarsStairApproach.getX(), castleWarsStairApproach.getY(), false, 0, 0);
+                    castleWarsStairApproach.getX(),
+                    castleWarsStairApproach.getY(),
+                    false, 1, 1);
             if (GameplayTrace.enabled()) {
                 GameplayTrace.log("castle-wars stair movement queued player="
-                        + GameplayTrace.describe(player) + " objectId=" + objectId
+                        + GameplayTrace.describe(player)
+                        + " objectId=" + objectId
                         + " object=" + objectX + "," + objectY + "," + plane
                         + " approach=" + GameplayTrace.position(castleWarsStairApproach)
                         + " path=" + foundPath
                         + " steps=" + player.getMovementQueue().getSteps().size());
             }
-            return;
+            return foundPath;
         }
+
         ObjectDefinition definition = ObjectDefinition.forId(objectId);
-        WorldObject worldObject = SkillActionHelper.findWorldObjectById(
-                objectId, objectX, objectY, plane);
-        if (definition == null || worldObject == null) {
-            return;
+        if (definition == null) {
+            return false;
         }
 
         int orientation = worldObject.getOrientation();
@@ -240,18 +264,19 @@ implements PacketHandler {
         int width = Math.max(1, definition.width);
         int length = Math.max(1, definition.length);
 
-        PathFinder.getInstance();
         boolean foundPath = PathFinder.findPathToObject(
                 player,
                 objectX, objectY,
                 width, length,
                 type, orientation,
                 0,
-                true);
+                false);
+
         if (GameplayTrace.enabled()) {
             int routedWidth = definition.getWidthForOrientation(orientation);
             int routedLength = definition.getLengthForOrientation(orientation);
-            GameplayTrace.log("object movement queued player=" + GameplayTrace.describe(player)
+            GameplayTrace.log("object movement queued player="
+                    + GameplayTrace.describe(player)
                     + " objectId=" + objectId
                     + " x=" + objectX + " y=" + objectY + " plane=" + plane
                     + " type=" + type + " orientation=" + orientation
@@ -259,6 +284,8 @@ implements PacketHandler {
                     + " path=" + foundPath
                     + " steps=" + player.getMovementQueue().getSteps().size());
         }
+
+        return foundPath;
     }
 
 }
