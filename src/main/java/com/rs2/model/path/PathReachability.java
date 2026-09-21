@@ -7,7 +7,7 @@ import com.rs2.util.path.PathFinder;
  * Compatibility wrapper around the shared route finder.
  */
 public final class PathReachability {
-    private PathReachability() {
+    public PathReachability() {
     }
 
     public static boolean isReachable(Player player, int targetX, int targetY,
