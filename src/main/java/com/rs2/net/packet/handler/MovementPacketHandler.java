@@ -119,10 +119,10 @@ implements PacketHandler {
         }
         if (pathLength > 0) {
             PathFinder.getInstance();
-            PathFinder.findPath(player, pathSteps[pathLength - 1][0], pathSteps[pathLength - 1][1], true, 16, 16);
+            PathFinder.findPath(player, pathSteps[pathLength - 1][0], pathSteps[pathLength - 1][1], true, 1, 1);
             return;
         }
         PathFinder.getInstance();
-        PathFinder.findPath(player, baseX, baseY, true, 16, 16);
+        PathFinder.findPath(player, baseX, baseY, true, 1, 1);
     }
 }
