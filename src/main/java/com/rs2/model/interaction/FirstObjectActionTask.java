@@ -184,15 +184,8 @@ extends TickTask {
             return;
         }
         Object interactionTargetId = ObjectDefinition.forId(this.player.getInteractionTargetId());
-        Position position = GameUtil.findReachableInteractionPosition(worldObject.getPosition().getX(), worldObject.getPosition().getY(), this.player.getPosition().getX(), this.player.getPosition().getY(), ((ObjectDefinition)interactionTargetId).getWidthForOrientation(worldObject.getOrientation()), ((ObjectDefinition)interactionTargetId).getLengthForOrientation(worldObject.getOrientation()), this.objectPlane);
-        if (position == null) {
-            if (GameplayTrace.enabled() && !this.loggedMissingReachPosition) {
-                this.loggedMissingReachPosition = true;
-                GameplayTrace.log("first-object wait no-reachable-position seq=" + this.actionSequence + " player=" + GameplayTrace.describe(this.player) + " objectId=" + this.objectId + " x=" + this.objectX + " y=" + this.objectY + " plane=" + this.objectPlane + " worldObjectType=" + worldObject.getType() + " orientation=" + worldObject.getOrientation());
-            }
-            return;
-        }
-        if (!InteractionDispatcher.canReachObjectInteraction(this.player, position, worldObject)) {
+        Position position = this.player.getPosition();
+        if (!InteractionDispatcher.canReachObjectInteraction(this.player, worldObject)) {
             if (GameplayTrace.enabled()) {
                 GameplayTrace.log("first-object stop reach-check-failed seq=" + this.actionSequence + " player=" + GameplayTrace.describe(this.player) + " objectId=" + this.objectId + " targetPos=" + GameplayTrace.position(position) + " object=" + this.objectX + "," + this.objectY + "," + this.objectPlane);
             }
