@@ -19,6 +19,7 @@ import com.rs2.model.combat.hit.DamageContribution;
 import com.rs2.model.combat.hit.HitDefinition;
 import com.rs2.model.combat.hit.HitType;
 import com.rs2.model.combat.special.SpecialAttackDefinition;
+import com.rs2.model.gameplay.castlewars.CastleWarsManager;
 import com.rs2.model.ground.GroundItem;
 import com.rs2.model.ground.GroundItemManager;
 import com.rs2.model.item.DegradableEquipmentHandler;
@@ -666,8 +667,12 @@ public class CombatAction {
         ItemStack droppedAmmunition = this.hitDefinition.getDroppedAmmunition();
         boolean droppedAmmunitionIsArrow = droppedAmmunition != null
                 && ItemDefinition.forId(droppedAmmunition.getId()).getName().toLowerCase().contains("arrow");
+        boolean suppressCastleWarsArrowDrop = droppedAmmunitionIsArrow
+                && this.attacker != null
+                && this.attacker.isPlayer()
+                && CastleWarsManager.isInGame((Player)this.attacker);
         if (droppedAmmunition != null
-                && !droppedAmmunitionIsArrow
+                && !suppressCastleWarsArrowDrop
                 && this.attacker != null
                 && this.attacker.isPlayer()
                 && this.hitDefinition.getChainedTargets().isEmpty()
