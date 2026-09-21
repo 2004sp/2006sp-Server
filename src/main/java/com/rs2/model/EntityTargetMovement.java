@@ -152,146 +152,55 @@ public class EntityTargetMovement {
             if (EntityTargetMovement.canReachTarget(this.entity, entity)) {
                 return;
             }
-            Entity entity2 = entity;
-            entity = npc;
-            int position3 = entity2.getPosition().getX();
-            int position4 = entity2.getPosition().getY();
-            int index = 0;
-            int index2 = 0;
-            if (position3 != entity.getPosition().getX() && position4 != entity.getPosition().getY()) {
-                if (position3 > entity.getPosition().getX() && position4 > entity.getPosition().getY()) {
-                    if (((Npc)entity).canTraverseStep(1, 1) && !entity.isWithinReach(entity2, 1)) {
-                        index = 1;
-                        index2 = 1;
-                    } else if (((Npc)entity).canTraverseStep(1, 0)) {
-                        index = 1;
-                        index2 = 0;
-                    } else if (((Npc)entity).canTraverseStep(0, 1)) {
-                        index = 0;
-                        index2 = 1;
-                    }
-                } else if (position3 > entity.getPosition().getX() && position4 < entity.getPosition().getY()) {
-                    if (((Npc)entity).canTraverseStep(1, -1) && !entity.isWithinReach(entity2, 1)) {
-                        index = 1;
-                        index2 = -1;
-                    } else if (((Npc)entity).canTraverseStep(0, -1)) {
-                        index = 0;
-                        index2 = -1;
-                    } else if (((Npc)entity).canTraverseStep(1, 0)) {
-                        index = 1;
-                        index2 = 0;
-                    }
-                } else if (position3 < entity.getPosition().getX() && position4 > entity.getPosition().getY()) {
-                    if (((Npc)entity).canTraverseStep(-1, 1) && !entity.isWithinReach(entity2, 1)) {
-                        index = -1;
-                        index2 = 1;
-                    } else if (((Npc)entity).canTraverseStep(-1, 0)) {
-                        index = -1;
-                        index2 = 0;
-                    } else if (((Npc)entity).canTraverseStep(0, 1)) {
-                        index = 0;
-                        index2 = 1;
-                    }
-                } else if (position3 < entity.getPosition().getX() && position4 < entity.getPosition().getY()) {
-                    if (((Npc)entity).canTraverseStep(-1, -1) && !entity.isWithinReach(entity2, 1)) {
-                        index = -1;
-                        index2 = -1;
-                    } else if (((Npc)entity).canTraverseStep(0, -1)) {
-                        index = 0;
-                        index2 = -1;
-                    } else if (((Npc)entity).canTraverseStep(-1, 0)) {
-                        index = -1;
-                        index2 = 0;
-                    }
-                }
-            } else if (position3 != entity.getPosition().getX()) {
-                if (position3 > entity.getPosition().getX()) {
-                    if (((Npc)entity).canTraverseStep(1, 0)) {
-                        index = 1;
-                        index2 = 0;
-                    }
-                } else if (position3 < entity.getPosition().getX() && ((Npc)entity).canTraverseStep(-1, 0)) {
-                    index = -1;
-                    index2 = 0;
-                }
-            } else if (position4 != entity.getPosition().getY()) {
-                if (position4 > entity.getPosition().getY()) {
-                    if (((Npc)entity).canTraverseStep(0, 1)) {
-                        index = 0;
-                        index2 = 1;
-                    }
-                } else if (position4 < entity.getPosition().getY() && ((Npc)entity).canTraverseStep(0, -1)) {
-                    index = 0;
-                    index2 = -1;
+
+            boolean isPet = false;
+            int[][] petPairs = PetManager.petItemNpcPairs;
+            for (int index = 0; index < petPairs.length; index++) {
+                int[] pair = petPairs[index];
+                if (pair != null && pair.length > 1 && npc.getNpcId() == pair[1]) {
+                    isPet = true;
+                    break;
                 }
             }
-            if (index != 0 || index2 != 0) {
-                boolean enabled2 = false;
-                int[][] integerValues = PetManager.petItemNpcPairs;
-                position4 = 0;
-                while (position4 < 6) {
-                    int[] integerValues2 = integerValues[position4];
-                    if (((Npc)entity).getNpcId() == integerValues2[1]) {
-                        enabled2 = true;
-                    }
-                    ++position4;
-                }
-                if (!GameUtil.isWithinDistance(entity.getPosition(), ((Npc)entity).getSpawnPosition(), ((Npc)entity).getDefinition().getChaseRadius()) && !enabled2 && ((Npc)entity).getForcedCombatTarget() == null) {
-                    CombatManager.stopCombat(entity);
-                    Entity entity3 = entity;
-                    entity3.nextActionSequence();
-                    entity3.setInteractionTarget(null);
-                    entity3.setCombatTarget(null);
-                    entity3.setActiveCycleEvent(null);
-                    entity3.getUpdateState().setFaceEntity(-1);
-                    EntityTargetMovement.clearMovementTarget(entity3);
-                    entity.queuePathTo(((Npc)entity).getSpawnPosition().getX(), ((Npc)entity).getSpawnPosition().getY(), true);
-                    return;
-                }
-                entity.queuePathTo(entity.getPosition().getX() + index, entity.getPosition().getY() + index2, true);
+
+            if (!GameUtil.isWithinDistance(
+                    npc.getPosition(), npc.getSpawnPosition(),
+                    npc.getDefinition().getChaseRadius())
+                    && !isPet && npc.getForcedCombatTarget() == null) {
+                CombatManager.stopCombat(npc);
+                npc.nextActionSequence();
+                npc.setInteractionTarget(null);
+                npc.setCombatTarget(null);
+                npc.setActiveCycleEvent(null);
+                npc.getUpdateState().setFaceEntity(-1);
+                EntityTargetMovement.clearMovementTarget(npc);
+                PathFinder.findPath(npc,
+                        npc.getSpawnPosition().getX(),
+                        npc.getSpawnPosition().getY(),
+                        false, 1, 1);
+                return;
             }
+
+            PathFinder.findPathToAdjacent(npc,
+                    entity.getPosition().getX(),
+                    entity.getPosition().getY(),
+                    Math.max(1, entity.getSize()),
+                    Math.max(1, entity.getSize()),
+                    true);
         }
     }
 
     public static void pathPlayerAdjacentToTarget(Player player, Entity entity) {
-        int position = player.getPosition().getX();
-        int position2 = player.getPosition().getY();
-        int position3 = entity.getPosition().getX();
-        int position4 = entity.getPosition().getY();
-        if (position > position3 && entity.canStepToOffset(1, 0)) {
-            PathFinder.getInstance();
-            PathFinder.findPath(player, position3 + 1, position4, true, 0, 0);
+        if (player == null || entity == null) {
             return;
         }
-        if (position < position3 && entity.canStepToOffset(-1, 0)) {
-            PathFinder.getInstance();
-            PathFinder.findPath(player, position3 - 1, position4, true, 0, 0);
-            return;
-        }
-        if (position2 < position4 && entity.canStepToOffset(0, -1)) {
-            PathFinder.getInstance();
-            PathFinder.findPath(player, position3, position4 - 1, true, 0, 0);
-            return;
-        }
-        if (entity.canStepToOffset(1, 0)) {
-            PathFinder.getInstance();
-            PathFinder.findPath(player, position3 + 1, position4, true, 0, 0);
-            return;
-        }
-        if (entity.canStepToOffset(-1, 0)) {
-            PathFinder.getInstance();
-            PathFinder.findPath(player, position3 - 1, position4, true, 0, 0);
-            return;
-        }
-        if (entity.canStepToOffset(0, -1)) {
-            PathFinder.getInstance();
-            PathFinder.findPath(player, position3, position4 - 1, true, 0, 0);
-            return;
-        }
-        if (entity.canStepToOffset(0, 1)) {
-            PathFinder.getInstance();
-            PathFinder.findPath(player, position3, position4 + 1, true, 0, 0);
-        }
+
+        PathFinder.findPathToAdjacent(player,
+                entity.getPosition().getX(),
+                entity.getPosition().getY(),
+                Math.max(1, entity.getSize()),
+                Math.max(1, entity.getSize()),
+                true);
     }
 
     public static void clearMovementTarget(Entity entity) {
