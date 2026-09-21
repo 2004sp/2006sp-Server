@@ -157,6 +157,28 @@ public final class PathFinder {
     }
 
     /**
+     * Tests whether an object interaction destination can be reached without
+     * mutating the entity's movement queue.
+     */
+    public static boolean isObjectReachable(Entity entity,
+                                            int targetX, int targetY,
+                                            int targetWidth, int targetHeight,
+                                            int shape, int rotation,
+                                            int accessMask) {
+        if (entity == null) {
+            return false;
+        }
+
+        return searchLocal(entity, targetX, targetY,
+                Math.max(1, targetWidth),
+                Math.max(1, targetHeight),
+                false,
+                shape,
+                rotation & 3,
+                accessMask & 0xf) != null;
+    }
+
+    /**
      * Checks whether the entity's current footprint has reached an object
      * according to that object's loc shape and orientation.
      */
