@@ -235,7 +235,7 @@ implements PacketHandler {
         int width = Math.max(1, definition.getWidthForOrientation(orientation));
         int length = Math.max(1, definition.getLengthForOrientation(orientation));
         PathFinder.getInstance();
-        boolean foundPath = PathFinder.findPath(player, objectX, objectY, true, width, length);
+        boolean foundPath = PathFinder.findPathToAdjacent(player, objectX, objectY, width, length, true);
         if (GameplayTrace.enabled()) {
             GameplayTrace.log("object movement queued player=" + GameplayTrace.describe(player) + " objectId=" + objectId + " x=" + objectX + " y=" + objectY + " plane=" + plane + " size=" + width + "x" + length + " path=" + foundPath + " steps=" + player.getMovementQueue().getSteps().size());
         }
