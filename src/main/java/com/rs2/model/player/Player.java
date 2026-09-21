@@ -3081,6 +3081,9 @@ extends Entity {
                 boolean alreadyReachable =
                         InteractionDispatcher.canReachObjectInteraction(
                                 this, worldObject2);
+                if (alreadyReachable) {
+                    this.getMovementQueue().clear();
+                }
                 boolean pathQueued = alreadyReachable
                         || ObjectInteractionPacketHandler
                                 .queueObjectInteractionMovement(
