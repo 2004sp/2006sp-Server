@@ -4,6 +4,7 @@ import com.rs2.bot.combat.BotCombatHelper;
 import com.rs2.model.Position;
 import com.rs2.model.GameplayHelper;
 import com.rs2.model.combat.CombatType;
+import com.rs2.model.combat.effect.PoisonEffect;
 import com.rs2.model.World;
 import com.rs2.model.ground.GroundItem;
 import com.rs2.model.ground.GroundItemManager;
@@ -357,7 +358,7 @@ public final class CastleWarsManager {
         removeBandages(player);
         removeTemporaryCastleWarsInventoryItems(player);
         CastleWarsEngineeringManager.cleanupPlayerSupplies(player);
-        player.resetCombatState();
+        restorePlayerAfterCastleWars(player);
 
         // This runs before World.registerPlayer(), so update the saved position
         // directly instead of using moveTo/applyTeleportPosition (which assume a
@@ -543,7 +544,7 @@ public final class CastleWarsManager {
                 removeBandages(player);
                 CastleWarsEngineeringManager.cleanupPlayerSupplies(player);
                 clearCastleWarsInterface(player);
-                player.resetCombatState();
+                restorePlayerAfterCastleWars(player);
                 moveToLobby(player);
                 player.getPacketSender().sendGameMessage("You return to the Castle Wars lobby.");
             }
@@ -726,7 +727,7 @@ public final class CastleWarsManager {
         CastleWarsEngineeringManager.cleanupPlayerSupplies(player);
         clearCastleWarsInterface(player);
         clearFlagHint(player);
-        player.resetCombatState();
+        restorePlayerAfterCastleWars(player);
         moveToLobby(player);
         player.getPacketSender().sendGameMessage("You leave Castle Wars and return to the lobby.");
     }
@@ -2496,6 +2497,7 @@ public final class CastleWarsManager {
             CastleWarsEngineeringManager.cleanupPlayerSupplies(player);
             clearCastleWarsInterface(player);
             clearFlagHint(player);
+            restorePlayerAfterCastleWars(player);
 
             int reward = team == Team.SARADOMIN ? saradominReward : zamorakReward;
             if (reward > 0) {
@@ -2520,6 +2522,23 @@ public final class CastleWarsManager {
         nextGameStartMillis = hasMinimumPlayersToStartInternal()
             ? now + WAITING_DURATION_SECONDS * 1000L
             : -1L;
+    }
+
+    /**
+     * Castle Wars should not leave combat damage-over-time or reduced health
+     * behind when a player returns to the lobby. Stopping the PoisonEffect task
+     * is important: clearing only poisonDamage would leave the scheduled poison
+     * task alive and it could keep hitting bots after the game has finished.
+     */
+    private static void restorePlayerAfterCastleWars(Player player) {
+        if (player == null) {
+            return;
+        }
+
+        player.clearCombatEffectTasks(PoisonEffect.class);
+        player.setPoisonDamage(0.0);
+        player.resetCombatState();
+        player.setCurrentHitpoints(player.getMaxHitpoints());
     }
 
     private static void applyWaitingRoomGodTransformation(Player player, int portalId) {
