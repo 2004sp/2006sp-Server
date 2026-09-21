@@ -271,6 +271,12 @@ public final class ConfigEditorPanel extends JPanel {
                 percentLabel.setBorder(BorderFactory.createEmptyBorder(0, 4, 0, 0));
                 valuePanel.add(percentLabel, BorderLayout.EAST);
                 valueField.setToolTipText("Resizable/fullscreen UI size, from 50% to 200%.");
+            } else if ("CAMERA_REFRESH_RATE".equals(entry.key)) {
+                JLabel fpsLabel = new JLabel("FPS");
+                fpsLabel.setFont(ConfigEditorPanel.this.controlFont);
+                fpsLabel.setBorder(BorderFactory.createEmptyBorder(0, 4, 0, 0));
+                valuePanel.add(fpsLabel, BorderLayout.EAST);
+                valueField.setToolTipText("Camera/render refresh rate, from 50 to 240 FPS. Game simulation remains at 50 Hz.");
             }
             row.add(valuePanel, BorderLayout.NORTH);
 
@@ -293,6 +299,7 @@ public final class ConfigEditorPanel extends JPanel {
             List<ConfigEntry> entries = new ArrayList<ConfigEntry>();
             BufferedReader reader = new BufferedReader(new FileReader(this.configFile));
             StringBuilder pendingDescription = new StringBuilder();
+            boolean cameraRefreshRatePresent = false;
             try {
                 String line;
                 while ((line = reader.readLine()) != null) {
@@ -312,6 +319,9 @@ public final class ConfigEditorPanel extends JPanel {
                         int closingBracket = trimmed.indexOf(']');
                         String key = trimmed.substring(1, closingBracket);
                         String value = "";
+                        if ("CAMERA_REFRESH_RATE".equals(key)) {
+                            cameraRefreshRatePresent = true;
+                        }
                         if (closingBracket + 1 < trimmed.length() && trimmed.charAt(closingBracket + 1) == ';') {
                             value = trimmed.substring(closingBracket + 2);
                         }
@@ -331,6 +341,18 @@ public final class ConfigEditorPanel extends JPanel {
             }
             finally {
                 reader.close();
+            }
+
+            // Older client configs predate this option. Still expose it in the
+            // control panel immediately; Save will append the setting to the
+            // client's cfg if it is not already present.
+            if (!this.serverConfig && !cameraRefreshRatePresent) {
+                entries.add(new ConfigEntry(
+                    "CAMERA_REFRESH_RATE",
+                    "120",
+                    "50-240 = camera/render refresh rate in frames per second.\n"
+                        + "Game simulation remains at 50 Hz; this only makes camera motion/redrawing smoother."
+                ));
             }
             return entries;
         }
@@ -391,6 +413,29 @@ public final class ConfigEditorPanel extends JPanel {
                         return false;
                     }
                 }
+                if (!this.serverConfig && "CAMERA_REFRESH_RATE".equals(fieldEntry.getKey())) {
+                    try {
+                        int cameraRefreshRate = Integer.parseInt(value);
+                        if (cameraRefreshRate < 50 || cameraRefreshRate > 240) {
+                            JOptionPane.showMessageDialog(
+                                ConfigEditorPanel.this,
+                                "CAMERA REFRESH RATE must be between 50 and 240 FPS.",
+                                "Config",
+                                JOptionPane.WARNING_MESSAGE
+                            );
+                            return false;
+                        }
+                    }
+                    catch (NumberFormatException numberFormatException) {
+                        JOptionPane.showMessageDialog(
+                            ConfigEditorPanel.this,
+                            "CAMERA REFRESH RATE must be a whole-number FPS value between 50 and 240.",
+                            "Config",
+                            JOptionPane.WARNING_MESSAGE
+                        );
+                        return false;
+                    }
+                }
             }
 
             try {
@@ -406,6 +451,7 @@ public final class ConfigEditorPanel extends JPanel {
                     reader.close();
                 }
 
+                boolean cameraRefreshRateWritten = false;
                 for (int lineIndex = 0; lineIndex < lines.size(); ++lineIndex) {
                     String trimmed = lines.get(lineIndex).trim();
                     if (!trimmed.startsWith("[") || !trimmed.contains("]")) {
@@ -416,6 +462,21 @@ public final class ConfigEditorPanel extends JPanel {
                     JTextField valueField = this.valueFields.get(key);
                     if (valueField != null) {
                         lines.set(lineIndex, "[" + key + "];" + valueField.getText().trim());
+                    }
+                    if ("CAMERA_REFRESH_RATE".equals(key)) {
+                        cameraRefreshRateWritten = true;
+                    }
+                }
+
+                if (!this.serverConfig && !cameraRefreshRateWritten) {
+                    JTextField cameraRefreshRateField = this.valueFields.get("CAMERA_REFRESH_RATE");
+                    if (cameraRefreshRateField != null) {
+                        lines.add("");
+                        lines.add("//CAMERA_REFRESH_RATE - Parameters for customization:");
+                        lines.add("//50-240 = camera/render refresh rate in frames per second.");
+                        lines.add("//Game simulation remains at 50 Hz; this only makes camera motion/redrawing smoother.");
+                        lines.add("");
+                        lines.add("[CAMERA_REFRESH_RATE];" + cameraRefreshRateField.getText().trim());
                     }
                 }
 
