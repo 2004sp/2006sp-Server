@@ -13,6 +13,7 @@ import com.rs2.util.path.MapDataReader;
 
 public final class WalkingCollisionMap {
     private static WalkingCollisionMap[] regions;
+    private static WalkingCollisionMap[] regionLookup = new WalkingCollisionMap[65536];
     private int regionId;
     private int[][][] tileFlags = new int[4][][];
     private static int[] regionIds;
@@ -24,68 +25,41 @@ public final class WalkingCollisionMap {
         this.regionId = regionId;
     }
 
-    private static void setTileFlag(int x, int y, int plane, int collisionFlag) {
-        int value = x >> 3;
-        int value2 = y >> 3;
-        value = (value / 8 << 8) + value2 / 8;
-        WalkingCollisionMap[] walkingCollisionMapArray = regions;
-        int length = regions.length;
-        int index = 0;
-        while (index < length) {
-            WalkingCollisionMap walkingCollisionMap;
-            WalkingCollisionMap walkingCollisionMap2 = walkingCollisionMap = walkingCollisionMapArray[index];
-            if (walkingCollisionMap.regionId == value) {
-                value = collisionFlag;
-                collisionFlag = plane;
-                plane = y;
-                y = x;
-                WalkingCollisionMap walkingCollisionMap3 = walkingCollisionMap;
-                try {
-                    int value3 = walkingCollisionMap3.regionId >> 8 << 6;
-                    index = (walkingCollisionMap3.regionId & 0xFF) << 6;
-                    if (walkingCollisionMap3.tileFlags[collisionFlag] == null) {
-                        walkingCollisionMap3.tileFlags[collisionFlag] = new int[64][64];
-                    }
-                    int[] integerValues = walkingCollisionMap3.tileFlags[collisionFlag][y - value3];
-                    int value4 = plane - index;
-                    integerValues[value4] = integerValues[value4] | value;
-                    break;
-                }
-                catch (Exception exception) {
-                    return;
-                }
-            }
-            ++index;
+    private static WalkingCollisionMap getRegionForTile(int x, int y) {
+        int regionX = x >> 6;
+        int regionY = y >> 6;
+        if (regionX < 0 || regionX > 255 || regionY < 0 || regionY > 255) {
+            return null;
         }
+        return regionLookup[(regionX << 8) | regionY];
+    }
+
+    private static void setTileFlag(int x, int y, int plane, int collisionFlag) {
+        WalkingCollisionMap region = getRegionForTile(x, y);
+        if (region == null) {
+            return;
+        }
+
+        plane &= 3;
+        if (region.tileFlags[plane] == null) {
+            region.tileFlags[plane] = new int[64][64];
+        }
+
+        region.tileFlags[plane][x & 63][y & 63] |= collisionFlag;
     }
 
     private static void clearTileFlag(int x, int y, int plane, int collisionFlag) {
-        int value = x >> 3;
-        int value2 = y >> 3;
-        value = (value / 8 << 8) + value2 / 8;
-        WalkingCollisionMap[] walkingCollisionMapArray = regions;
-        int length = regions.length;
-        int index = 0;
-        while (index < length) {
-            WalkingCollisionMap walkingCollisionMap;
-            WalkingCollisionMap walkingCollisionMap2 = walkingCollisionMap = walkingCollisionMapArray[index];
-            if (walkingCollisionMap.regionId == value) {
-                value = collisionFlag;
-                collisionFlag = plane;
-                plane = y;
-                y = x;
-                WalkingCollisionMap walkingCollisionMap3 = walkingCollisionMap;
-                int value3 = walkingCollisionMap3.regionId >> 8 << 6;
-                index = (walkingCollisionMap3.regionId & 0xFF) << 6;
-                if (walkingCollisionMap3.tileFlags != null && walkingCollisionMap3.tileFlags[collisionFlag] != null) {
-                    int[] integerValues = walkingCollisionMap3.tileFlags[collisionFlag][y - value3];
-                    int value4 = plane - index;
-                    integerValues[value4] = integerValues[value4] & 0xFFFFFF - value;
-                }
-                return;
-            }
-            ++index;
+        WalkingCollisionMap region = getRegionForTile(x, y);
+        if (region == null) {
+            return;
         }
+
+        plane &= 3;
+        if (region.tileFlags[plane] == null) {
+            return;
+        }
+
+        region.tileFlags[plane][x & 63][y & 63] &= ~collisionFlag;
     }
 
     private static void removeWallCollision(int x, int y, int plane, int wallType, int orientation, boolean x2) {
@@ -441,31 +415,17 @@ public final class WalkingCollisionMap {
     }
 
     public static int getTileFlags(int x, int y, int plane) {
-        plane %= 4;
-        int value = x >> 3;
-        int value2 = y >> 3;
-        value = (value / 8 << 8) + value2 / 8;
-        WalkingCollisionMap[] walkingCollisionMapArray = regions;
-        int length = regions.length;
-        int index = 0;
-        while (index < length) {
-            WalkingCollisionMap walkingCollisionMap;
-            WalkingCollisionMap walkingCollisionMap2 = walkingCollisionMap = walkingCollisionMapArray[index];
-            if (walkingCollisionMap.regionId == value) {
-                value = plane;
-                plane = y;
-                y = x;
-                WalkingCollisionMap walkingCollisionMap3 = walkingCollisionMap;
-                int value3 = walkingCollisionMap3.regionId >> 8 << 6;
-                index = (walkingCollisionMap3.regionId & 0xFF) << 6;
-                if (walkingCollisionMap3.tileFlags[value] == null) {
-                    return 0;
-                }
-                return walkingCollisionMap3.tileFlags[value][y - value3][plane - index];
-            }
-            ++index;
+        WalkingCollisionMap region = getRegionForTile(x, y);
+        if (region == null) {
+            return 0x200000;
         }
-        return 0x200000;
+
+        plane &= 3;
+        if (region.tileFlags[plane] == null) {
+            return 0;
+        }
+
+        return region.tileFlags[plane][x & 63][y & 63];
     }
 
     public static boolean canTravelBetween(int value11, int value22, int value32, int value42, int value52, int value62, int value72) {
@@ -509,6 +469,7 @@ public final class WalkingCollisionMap {
             Object value = new ByteArrayReader(fileBytes);
             int value2 = fileBytes.length / 7;
             regions = new WalkingCollisionMap[value2];
+            regionLookup = new WalkingCollisionMap[65536];
             regionIds = new int[value2];
             int[] integerValues = new int[value2];
             int[] integerValues2 = new int[value2];
@@ -522,7 +483,9 @@ public final class WalkingCollisionMap {
             }
             index = 0;
             while (index < value2) {
-                WalkingCollisionMap.regions[index] = new WalkingCollisionMap(regionIds[index]);
+                WalkingCollisionMap region = new WalkingCollisionMap(regionIds[index]);
+                WalkingCollisionMap.regions[index] = region;
+                WalkingCollisionMap.regionLookup[regionIds[index] & 0xFFFF] = region;
                 ++index;
             }
             index = 0;
