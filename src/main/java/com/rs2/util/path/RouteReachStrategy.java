@@ -122,15 +122,17 @@ final class RouteReachStrategy {
                                           int rotation,
                                           int accessMask,
                                           boolean exclusive) {
-        int width = destinationWidth(RECTANGLE_STRATEGY, rotation,
-                destinationWidth, destinationHeight);
-        int height = destinationHeight(RECTANGLE_STRATEGY, rotation,
-                destinationWidth, destinationHeight);
+        int width = (rotation & 1) != 0
+                ? Math.max(1, destinationHeight)
+                : Math.max(1, destinationWidth);
+        int height = (rotation & 1) != 0
+                ? Math.max(1, destinationWidth)
+                : Math.max(1, destinationHeight);
         int rotatedAccessMask = rotateAccessMask(rotation, accessMask);
 
         boolean overlaps = rectanglesOverlap(
-                x, y, sourceSize, sourceSize,
-                destinationX, destinationY, width, height);
+                x, y, destinationX, destinationY,
+                sourceSize, sourceSize, width, height);
 
         if (exclusive && overlaps) {
             return false;
