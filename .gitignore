@@ -9,3 +9,4 @@ config/server.cfg
 config/server.cfg.bak
 /data/castle_wars_scoreboard.dat
 config/server.cfg
+data/messageOfTheWeek.dat
