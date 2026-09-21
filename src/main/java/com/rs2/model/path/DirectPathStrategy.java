@@ -66,6 +66,7 @@ implements PathStrategy {
             }
             ++x;
         }
+        pathResult.setSuccessful(true);
         return pathResult;
     }
 
