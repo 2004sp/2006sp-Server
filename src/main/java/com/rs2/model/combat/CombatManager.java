@@ -343,6 +343,14 @@ extends TickTask {
     }
 
     public static void finishDeath(Entity entity, Entity killer, boolean dropItems) {
+        SpellDefinition retainedAutocastSpell = null;
+        if (entity.isPlayer()) {
+            Player player = (Player)entity;
+            if (player.isAutocastEnabled() && player.getAutocastSpell() != null) {
+                retainedAutocastSpell = player.getAutocastSpell();
+            }
+        }
+
         boolean castleWarsDeath = entity.isPlayer() && CastleWarsManager.isInGame((Player)entity);
         if (castleWarsDeath) {
             dropItems = false;
@@ -513,9 +521,16 @@ extends TickTask {
             Player player = (Player)entity;
             player.setActionLocked(false);
             player.setHideHeldItemsInAppearance(false);
-            player.setAutocastSpell(null);
             player.resetCombatState();
             player.getSkillManager().refreshAllSkills();
+
+            // Death should stop the current combat action, not forget the
+            // player's selected autocast spell. Equipment refreshes during
+            // item-drop cleanup can overwrite the client-side attack-style
+            // config, so explicitly re-apply the spell after the death reset.
+            if (retainedAutocastSpell != null) {
+                player.setAutocastSpell(retainedAutocastSpell);
+            }
         }
         entity.getDamageContributions().clear();
         if (entity.isPlayer() && entity.isInDuelArena()) {
