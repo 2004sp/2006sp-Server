@@ -99,7 +99,7 @@ public final class PathFinder {
 
         Route route = searchLocal(entity, targetX, targetY,
                 Math.max(1, targetWidth), Math.max(1, targetHeight),
-                allowAlternative, RouteMode.EXACT_TILE);
+                allowAlternative, RouteReachStrategy.EXACT_TILE, 0, 0);
         if (route == null) {
             return false;
         }
@@ -122,7 +122,32 @@ public final class PathFinder {
 
         Route route = searchLocal(entity, targetX, targetY,
                 Math.max(1, targetWidth), Math.max(1, targetHeight),
-                allowAlternative, RouteMode.ADJACENT_RECTANGLE);
+                allowAlternative, RouteReachStrategy.EXCLUSIVE_RECTANGLE, 0, 0);
+        if (route == null) {
+            return false;
+        }
+
+        queueRoute(entity, route);
+        return true;
+    }
+
+    /**
+     * Routes to an object using its RuneScape loc shape and orientation.
+     * Width and height are the unrotated definition dimensions.
+     */
+    public static boolean findPathToObject(Entity entity,
+                                           int targetX, int targetY,
+                                           int targetWidth, int targetHeight,
+                                           int shape, int rotation,
+                                           int accessMask,
+                                           boolean allowAlternative) {
+        if (entity == null) {
+            return false;
+        }
+
+        Route route = searchLocal(entity, targetX, targetY,
+                Math.max(1, targetWidth), Math.max(1, targetHeight),
+                allowAlternative, shape, rotation & 3, accessMask & 0xf);
         if (route == null) {
             return false;
         }
@@ -140,14 +165,15 @@ public final class PathFinder {
         }
 
         return searchLocal(entity, targetX, targetY,
-                1, 1, false, RouteMode.EXACT_TILE) != null;
+                1, 1, false, RouteReachStrategy.EXACT_TILE, 0, 0) != null;
     }
 
     private static Route searchLocal(Entity entity,
                                      int targetX, int targetY,
                                      int targetWidth, int targetHeight,
                                      boolean allowAlternative,
-                                     RouteMode mode) {
+                                     int shape, int rotation,
+                                     int accessMask) {
         SearchWorkspace workspace = LOCAL_WORKSPACE.get();
         int generation = workspace.nextGeneration();
 
@@ -180,8 +206,9 @@ public final class PathFinder {
             int worldX = baseX + localX;
             int worldY = baseY + localY;
 
-            if (hasReached(mode, worldX, worldY, moverSize,
-                    targetX, targetY, targetWidth, targetHeight)) {
+            if (hasReached(plane, worldX, worldY, moverSize,
+                    targetX, targetY, targetWidth, targetHeight,
+                    shape, rotation, accessMask)) {
                 endLocalX = localX;
                 endLocalY = localY;
                 reached = true;
@@ -222,6 +249,10 @@ public final class PathFinder {
         }
 
         if (!reached && allowAlternative) {
+            int fallbackWidth = RouteReachStrategy.destinationWidth(
+                    shape, rotation, targetWidth, targetHeight);
+            int fallbackHeight = RouteReachStrategy.destinationHeight(
+                    shape, rotation, targetWidth, targetHeight);
             int bestDistance = Integer.MAX_VALUE;
             int bestSteps = Integer.MAX_VALUE;
 
@@ -240,9 +271,9 @@ public final class PathFinder {
                     int worldX = baseX + localX;
                     int worldY = baseY + localY;
                     int gapX = rectangleGap(worldX, worldX + moverSize - 1,
-                            targetX, targetX + targetWidth - 1);
+                            targetX, targetX + fallbackWidth - 1);
                     int gapY = rectangleGap(worldY, worldY + moverSize - 1,
-                            targetY, targetY + targetHeight - 1);
+                            targetY, targetY + fallbackHeight - 1);
 
                     if (gapX > ALTERNATIVE_RADIUS || gapY > ALTERNATIVE_RADIUS) {
                         continue;
@@ -357,32 +388,21 @@ public final class PathFinder {
         return reconstructGlobal(result);
     }
 
-    private static boolean hasReached(RouteMode mode,
+    private static boolean hasReached(int plane,
                                       int x, int y, int moverSize,
                                       int targetX, int targetY,
-                                      int targetWidth, int targetHeight) {
-        if (mode == RouteMode.EXACT_TILE) {
-            return x == targetX && y == targetY;
-        }
-
-        int sourceMinX = x;
-        int sourceMaxX = x + moverSize - 1;
-        int sourceMinY = y;
-        int sourceMaxY = y + moverSize - 1;
-        int targetMinX = targetX;
-        int targetMaxX = targetX + targetWidth - 1;
-        int targetMinY = targetY;
-        int targetMaxY = targetY + targetHeight - 1;
-
-        boolean xOverlap = sourceMaxX >= targetMinX && sourceMinX <= targetMaxX;
-        boolean yOverlap = sourceMaxY >= targetMinY && sourceMinY <= targetMaxY;
-
-        boolean besideX = sourceMaxX + 1 == targetMinX
-                || targetMaxX + 1 == sourceMinX;
-        boolean besideY = sourceMaxY + 1 == targetMinY
-                || targetMaxY + 1 == sourceMinY;
-
-        return (besideX && yOverlap) || (besideY && xOverlap);
+                                      int targetWidth, int targetHeight,
+                                      int shape, int rotation,
+                                      int accessMask) {
+        return RouteReachStrategy.reached(
+                plane,
+                x, y,
+                targetX, targetY,
+                targetWidth, targetHeight,
+                moverSize,
+                rotation,
+                shape,
+                accessMask);
     }
 
     private static Route reconstructLocal(SearchWorkspace workspace,
@@ -496,11 +516,6 @@ public final class PathFinder {
 
     private static long key(int x, int y) {
         return ((long) x << 32) ^ (y & 0xffffffffL);
-    }
-
-    private enum RouteMode {
-        EXACT_TILE,
-        ADJACENT_RECTANGLE
     }
 
     private static final class SearchWorkspace {
