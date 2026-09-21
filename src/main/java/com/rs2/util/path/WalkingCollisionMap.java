@@ -18,6 +18,19 @@ public final class WalkingCollisionMap {
     private int[][][] tileFlags = new int[4][][];
     private static int[] regionIds;
 
+    private static final int BLOCK_WEST = 0x1280108;
+    private static final int BLOCK_EAST = 0x1280180;
+    private static final int BLOCK_SOUTH = 0x1280102;
+    private static final int BLOCK_NORTH = 0x1280120;
+    private static final int BLOCK_SOUTH_WEST = 0x128010E;
+    private static final int BLOCK_SOUTH_EAST = 0x1280183;
+    private static final int BLOCK_NORTH_WEST = 0x1280138;
+    private static final int BLOCK_NORTH_EAST = 0x12801E0;
+    private static final int BLOCK_NORTH_AND_SOUTH_EAST = 0x128013E;
+    private static final int BLOCK_NORTH_AND_SOUTH_WEST = 0x12801E3;
+    private static final int BLOCK_NORTH_EAST_AND_WEST = 0x128018F;
+    private static final int BLOCK_SOUTH_EAST_AND_WEST = 0x12801F8;
+
     static {
     }
 
@@ -428,38 +441,204 @@ public final class WalkingCollisionMap {
         return region.tileFlags[plane][x & 63][y & 63];
     }
 
-    public static boolean canTravelBetween(int value11, int value22, int value32, int value42, int value52, int value62, int value72) {
-        value11 = value32 - value11;
-        value22 = value42 - value22;
-        int value8 = Math.max(Math.abs(value11), Math.abs(value22));
-        int index = 0;
-        while (index < value8) {
-            int value9 = value32 - value11;
-            int value10 = value42 - value22;
-            int index2 = 0;
-            while (index2 < value62) {
-                int index3 = 0;
-                while (index3 < value72) {
-                    if (value11 < 0 && value22 < 0 ? (WalkingCollisionMap.getTileFlags(value9 + index2 - 1, value10 + index3 - 1, value52) & 0x128010E) != 0 || (WalkingCollisionMap.getTileFlags(value9 + index2 - 1, value10 + index3, value52) & 0x1280108) != 0 || (WalkingCollisionMap.getTileFlags(value9 + index2, value10 + index3 - 1, value52) & 0x1280102) != 0 : (value11 > 0 && value22 > 0 ? (WalkingCollisionMap.getTileFlags(value9 + index2 + 1, value10 + index3 + 1, value52) & 0x12801E0) != 0 || (WalkingCollisionMap.getTileFlags(value9 + index2 + 1, value10 + index3, value52) & 0x1280180) != 0 || (WalkingCollisionMap.getTileFlags(value9 + index2, value10 + index3 + 1, value52) & 0x1280120) != 0 : (value11 < 0 && value22 > 0 ? (WalkingCollisionMap.getTileFlags(value9 + index2 - 1, value10 + index3 + 1, value52) & 0x1280138) != 0 || (WalkingCollisionMap.getTileFlags(value9 + index2 - 1, value10 + index3, value52) & 0x1280108) != 0 || (WalkingCollisionMap.getTileFlags(value9 + index2, value10 + index3 + 1, value52) & 0x1280120) != 0 : (value11 > 0 && value22 < 0 ? (WalkingCollisionMap.getTileFlags(value9 + index2 + 1, value10 + index3 - 1, value52) & 0x1280183) != 0 || (WalkingCollisionMap.getTileFlags(value9 + index2 + 1, value10 + index3, value52) & 0x1280180) != 0 || (WalkingCollisionMap.getTileFlags(value9 + index2, value10 + index3 - 1, value52) & 0x1280102) != 0 : (value11 > 0 && value22 == 0 ? (WalkingCollisionMap.getTileFlags(value9 + index2 + 1, value10 + index3, value52) & 0x1280180) != 0 : (value11 < 0 && value22 == 0 ? (WalkingCollisionMap.getTileFlags(value9 + index2 - 1, value10 + index3, value52) & 0x1280108) != 0 : (value11 == 0 && value22 > 0 ? (WalkingCollisionMap.getTileFlags(value9 + index2, value10 + index3 + 1, value52) & 0x1280120) != 0 : value11 == 0 && value22 < 0 && (WalkingCollisionMap.getTileFlags(value9 + index2, value10 + index3 - 1, value52) & 0x1280102) != 0))))))) {
-                        return false;
-                    }
-                    ++index3;
+    public static boolean canTravelBetween(int startX, int startY,
+                                           int destinationX, int destinationY,
+                                           int plane,
+                                           int width, int height) {
+        width = Math.max(1, width);
+        height = Math.max(1, height);
+
+        int x = startX;
+        int y = startY;
+        while (x != destinationX || y != destinationY) {
+            int deltaX = Integer.compare(destinationX, x);
+            int deltaY = Integer.compare(destinationY, y);
+
+            if (!canTravelStep(x, y, plane, deltaX, deltaY, width, height)) {
+                return false;
+            }
+
+            x += deltaX;
+            y += deltaY;
+        }
+
+        return true;
+    }
+
+    private static boolean canTravelStep(int x, int y, int plane,
+                                         int deltaX, int deltaY,
+                                         int width, int height) {
+        if (deltaX == 0 && deltaY == 0) {
+            return true;
+        }
+
+        if (deltaX < 0 && deltaY == 0) {
+            if (height == 1) {
+                return isOpen(x - 1, y, plane, BLOCK_WEST);
+            }
+            if (!isOpen(x - 1, y, plane, BLOCK_SOUTH_WEST)
+                    || !isOpen(x - 1, y + height - 1, plane, BLOCK_NORTH_WEST)) {
+                return false;
+            }
+            for (int offset = 1; offset < height - 1; offset++) {
+                if (!isOpen(x - 1, y + offset, plane, BLOCK_NORTH_AND_SOUTH_EAST)) {
+                    return false;
                 }
-                ++index2;
             }
-            if (value11 < 0) {
-                ++value11;
-            } else if (value11 > 0) {
-                --value11;
+            return true;
+        }
+
+        if (deltaX > 0 && deltaY == 0) {
+            int edgeX = x + width;
+            if (height == 1) {
+                return isOpen(edgeX, y, plane, BLOCK_EAST);
             }
-            if (value22 < 0) {
-                ++value22;
-            } else if (value22 > 0) {
-                --value22;
+            if (!isOpen(edgeX, y, plane, BLOCK_SOUTH_EAST)
+                    || !isOpen(edgeX, y + height - 1, plane, BLOCK_NORTH_EAST)) {
+                return false;
             }
-            ++index;
+            for (int offset = 1; offset < height - 1; offset++) {
+                if (!isOpen(edgeX, y + offset, plane, BLOCK_NORTH_AND_SOUTH_WEST)) {
+                    return false;
+                }
+            }
+            return true;
+        }
+
+        if (deltaX == 0 && deltaY < 0) {
+            if (width == 1) {
+                return isOpen(x, y - 1, plane, BLOCK_SOUTH);
+            }
+            if (!isOpen(x, y - 1, plane, BLOCK_SOUTH_WEST)
+                    || !isOpen(x + width - 1, y - 1, plane, BLOCK_SOUTH_EAST)) {
+                return false;
+            }
+            for (int offset = 1; offset < width - 1; offset++) {
+                if (!isOpen(x + offset, y - 1, plane, BLOCK_NORTH_EAST_AND_WEST)) {
+                    return false;
+                }
+            }
+            return true;
+        }
+
+        if (deltaX == 0 && deltaY > 0) {
+            int edgeY = y + height;
+            if (width == 1) {
+                return isOpen(x, edgeY, plane, BLOCK_NORTH);
+            }
+            if (!isOpen(x, edgeY, plane, BLOCK_NORTH_WEST)
+                    || !isOpen(x + width - 1, edgeY, plane, BLOCK_NORTH_EAST)) {
+                return false;
+            }
+            for (int offset = 1; offset < width - 1; offset++) {
+                if (!isOpen(x + offset, edgeY, plane, BLOCK_SOUTH_EAST_AND_WEST)) {
+                    return false;
+                }
+            }
+            return true;
+        }
+
+        if (width == 1 && height == 1) {
+            if (deltaX < 0 && deltaY < 0) {
+                return isOpen(x - 1, y - 1, plane, BLOCK_SOUTH_WEST)
+                        && isOpen(x - 1, y, plane, BLOCK_WEST)
+                        && isOpen(x, y - 1, plane, BLOCK_SOUTH);
+            }
+            if (deltaX < 0 && deltaY > 0) {
+                return isOpen(x - 1, y + 1, plane, BLOCK_NORTH_WEST)
+                        && isOpen(x - 1, y, plane, BLOCK_WEST)
+                        && isOpen(x, y + 1, plane, BLOCK_NORTH);
+            }
+            if (deltaX > 0 && deltaY < 0) {
+                return isOpen(x + 1, y - 1, plane, BLOCK_SOUTH_EAST)
+                        && isOpen(x + 1, y, plane, BLOCK_EAST)
+                        && isOpen(x, y - 1, plane, BLOCK_SOUTH);
+            }
+            return isOpen(x + 1, y + 1, plane, BLOCK_NORTH_EAST)
+                    && isOpen(x + 1, y, plane, BLOCK_EAST)
+                    && isOpen(x, y + 1, plane, BLOCK_NORTH);
+        }
+
+        if (deltaX < 0 && deltaY < 0) {
+            if (!isOpen(x - 1, y - 1, plane, BLOCK_SOUTH_WEST)) {
+                return false;
+            }
+            for (int offset = 1; offset < height; offset++) {
+                if (!isOpen(x - 1, y + offset - 1, plane,
+                        BLOCK_NORTH_AND_SOUTH_EAST)) {
+                    return false;
+                }
+            }
+            for (int offset = 1; offset < width; offset++) {
+                if (!isOpen(x + offset - 1, y - 1, plane,
+                        BLOCK_NORTH_EAST_AND_WEST)) {
+                    return false;
+                }
+            }
+            return true;
+        }
+
+        if (deltaX < 0 && deltaY > 0) {
+            if (!isOpen(x - 1, y + height, plane, BLOCK_NORTH_WEST)) {
+                return false;
+            }
+            for (int offset = 1; offset < height; offset++) {
+                if (!isOpen(x - 1, y + offset, plane,
+                        BLOCK_NORTH_AND_SOUTH_EAST)) {
+                    return false;
+                }
+            }
+            for (int offset = 1; offset < width; offset++) {
+                if (!isOpen(x + offset - 1, y + height, plane,
+                        BLOCK_SOUTH_EAST_AND_WEST)) {
+                    return false;
+                }
+            }
+            return true;
+        }
+
+        if (deltaX > 0 && deltaY < 0) {
+            int edgeX = x + width;
+            if (!isOpen(edgeX, y - 1, plane, BLOCK_SOUTH_EAST)) {
+                return false;
+            }
+            for (int offset = 1; offset < height; offset++) {
+                if (!isOpen(edgeX, y + offset - 1, plane,
+                        BLOCK_NORTH_AND_SOUTH_WEST)) {
+                    return false;
+                }
+            }
+            for (int offset = 1; offset < width; offset++) {
+                if (!isOpen(x + offset, y - 1, plane,
+                        BLOCK_NORTH_EAST_AND_WEST)) {
+                    return false;
+                }
+            }
+            return true;
+        }
+
+        int edgeX = x + width;
+        int edgeY = y + height;
+        if (!isOpen(edgeX, edgeY, plane, BLOCK_NORTH_EAST)) {
+            return false;
+        }
+        for (int offset = 1; offset < width; offset++) {
+            if (!isOpen(x + offset, edgeY, plane,
+                    BLOCK_SOUTH_EAST_AND_WEST)) {
+                return false;
+            }
+        }
+        for (int offset = 1; offset < height; offset++) {
+            if (!isOpen(edgeX, y + offset, plane,
+                    BLOCK_NORTH_AND_SOUTH_WEST)) {
+                return false;
+            }
         }
         return true;
+    }
+
+    private static boolean isOpen(int x, int y, int plane, int mask) {
+        return (WalkingCollisionMap.getTileFlags(x, y, plane) & mask) == 0;
     }
 
     public static void loadCollisionMaps() {
