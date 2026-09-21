@@ -101,6 +101,7 @@ import com.rs2.model.skill.EquipmentKeywordBootstrap;
 import com.rs2.model.skill.ItemCombinationHandler;
 import com.rs2.model.skill.SkillActionHelper;
 import com.rs2.model.skill.SkillManager;
+import com.rs2.net.packet.handler.ObjectInteractionPacketHandler;
 import com.rs2.model.skill.cooking.CookableFoodDefinition;
 import com.rs2.model.skill.cooking.CookingManager;
 import com.rs2.model.skill.cooking.DairyChurnHandler;
@@ -2816,39 +2817,6 @@ extends Entity {
         return position;
     }
 
-    private Position findReachableObjectInteractionPosition(WorldObject worldObject, ObjectDefinition objectDefinition) {
-        Position position = null;
-        int position4 = worldObject.getPosition().getX();
-        int position5 = worldObject.getPosition().getY();
-        int widthForOrientation = objectDefinition.getWidthForOrientation(worldObject.getOrientation()) - 1;
-        int lengthForOrientation = objectDefinition.getLengthForOrientation(worldObject.getOrientation()) - 1;
-        int value = 40;
-        int value2 = position4 - 1;
-        while (value2 <= position4 + widthForOrientation + 1) {
-            int value3 = position5 - 1;
-            while (value3 <= position5 + lengthForOrientation + 1) {
-                if (value2 < position4 || value2 > position4 + widthForOrientation || value3 < position5 || value3 > position5 + lengthForOrientation) {
-                    Position position2 = new Position(value2, value3);
-                    Position position3 = GameUtil.findReachableInteractionPosition(worldObject.getPosition().getX(), worldObject.getPosition().getY(), position2.getX(), position2.getY(), objectDefinition.getWidthForOrientation(worldObject.getOrientation()), objectDefinition.getLengthForOrientation(worldObject.getOrientation()), this.getPosition().getPlane());
-                    if (position3 != null) {
-                        boolean position6 = InteractionDispatcher.canReachObjectInteraction(position2, worldObject.getPosition(), worldObject);
-                        PathFinder.getInstance();
-                        boolean path = PathFinder.findPath(this, value2, value3, false, 0, 0);
-                        int movementQueue = this.getMovementQueue().getSteps().size();
-                        if (position6 && path && movementQueue < value) {
-                            position = position2;
-                            value = movementQueue;
-                        }
-                        this.getMovementQueue().reset();
-                    }
-                }
-                ++value3;
-            }
-            ++value2;
-        }
-        return position;
-    }
-
     public final boolean interactWithBotObjectTargetsNoRetry(ArrayList arrayList, boolean objectId) {
         return this.interactWithBotObjectTargets(arrayList, false, 20, 3);
     }
@@ -3028,92 +2996,152 @@ extends Entity {
             ++index;
         }
         value = 0;
-        Object value9 = null;
+        boolean routeAvailable = false;
+
         if (arrayList2.size() > 1) {
             Collections.shuffle(arrayList2);
             for (WorldObject nearbyObject : arrayList2) {
-                ObjectDefinition objectDefinition = ObjectDefinition.forId(nearbyObject.getObjectId());
-                value = GameUtil.getDistance(this.getPosition(), nearbyObject.getPosition());
-                value9 = this.findReachableObjectInteractionPosition(nearbyObject, objectDefinition);
-                if (value9 == null && value > 2) continue;
+                ObjectDefinition objectDefinition =
+                        ObjectDefinition.forId(nearbyObject.getObjectId());
+                if (objectDefinition == null) {
+                    continue;
+                }
+
+                boolean alreadyReachable =
+                        InteractionDispatcher.canReachObjectInteraction(
+                                this, nearbyObject);
+                boolean pathReachable = alreadyReachable
+                        || PathFinder.isObjectReachable(
+                                this,
+                                nearbyObject.getPosition().getX(),
+                                nearbyObject.getPosition().getY(),
+                                Math.max(1, objectDefinition.width),
+                                Math.max(1, objectDefinition.length),
+                                nearbyObject.getType(),
+                                nearbyObject.getOrientation(),
+                                0);
+
+                if (!pathReachable) {
+                    continue;
+                }
+
                 worldObject2 = nearbyObject;
+                value = GameUtil.getDistance(
+                        this.getPosition(), nearbyObject.getPosition());
+                routeAvailable = true;
                 break;
             }
         } else if (arrayList2.size() == 1) {
             worldObject7 = (WorldObject)arrayList2.get(0);
-            ObjectDefinition objectDefinition = ObjectDefinition.forId(worldObject7.getObjectId());
-            value = GameUtil.getDistance(this.getPosition(), worldObject7.getPosition());
-            value9 = this.findReachableObjectInteractionPosition(worldObject7, objectDefinition);
+            ObjectDefinition objectDefinition =
+                    ObjectDefinition.forId(worldObject7.getObjectId());
+
+            if (objectDefinition != null) {
+                boolean alreadyReachable =
+                        InteractionDispatcher.canReachObjectInteraction(
+                                this, worldObject7);
+                routeAvailable = alreadyReachable
+                        || PathFinder.isObjectReachable(
+                                this,
+                                worldObject7.getPosition().getX(),
+                                worldObject7.getPosition().getY(),
+                                Math.max(1, objectDefinition.width),
+                                Math.max(1, objectDefinition.length),
+                                worldObject7.getType(),
+                                worldObject7.getOrientation(),
+                                0);
+            }
+
             worldObject2 = worldObject7;
+            value = GameUtil.getDistance(
+                    this.getPosition(), worldObject7.getPosition());
         }
+
         if (worldObject2 != null) {
             Player player = this;
-            player.packetSender.sendGameMessage("Nearby object found: " + worldObject2.getObjectId() + " [" + worldObject2.getPosition() + "].");
-            if (value9 != null || value <= 2) {
-                if (value9 == null) {
-                    player = this;
-                    player.packetSender.sendGameMessage("No position to walk to was found! Trying to use object anyway, distance: " + value);
-                } else {
-                    if (((Position)value9).getX() == 2934 && ((Position)value9).getY() == 3449) {
-                        ((Position)value9).setX(2935);
-                        ((Position)value9).setY(3450);
-                    } else if (((Position)value9).getX() == 2933 && ((Position)value9).getY() == 3290) {
-                        ((Position)value9).setX(2933);
-                        ((Position)value9).setY(3289);
-                    }
-                    PathFinder.getInstance();
-                    PathFinder.findPath(this, ((Position)value9).getX(), ((Position)value9).getY(), false, 0, 0);
-                }
+            player.packetSender.sendGameMessage(
+                    "Nearby object found: " + worldObject2.getObjectId()
+                    + " [" + worldObject2.getPosition() + "].");
+
+            if (routeAvailable) {
                 int position3 = worldObject2.getPosition().getX();
-                player = this;
                 this.interactionTargetX = position3;
-                position3 = worldObject2.getObjectId();
-                player = this;
-                this.interactionTargetId = position3;
-                position3 = worldObject2.getPosition().getY();
-                player = this;
-                this.interactionTargetY = position3;
-                position3 = worldObject2.getPosition().getPlane();
-                player = this;
-                this.interactionTargetPlane = position3;
+                this.interactionTargetId = worldObject2.getObjectId();
+                this.interactionTargetY = worldObject2.getPosition().getY();
+                this.interactionTargetPlane =
+                        worldObject2.getPosition().getPlane();
+
                 EntityTargetMovement.clearMovementTarget(this);
+                ObjectManager.prepareObjectInteractionMovement(
+                        this,
+                        this.interactionTargetId,
+                        this.interactionTargetX,
+                        this.interactionTargetY);
+
+                boolean alreadyReachable =
+                        InteractionDispatcher.canReachObjectInteraction(
+                                this, worldObject2);
+                boolean pathQueued = alreadyReachable
+                        || ObjectInteractionPacketHandler
+                                .queueObjectInteractionMovement(
+                                        this, worldObject2);
+
+                if (!pathQueued) {
+                    player.packetSender.sendGameMessage(
+                            "No position to walk to was found!");
+                    if (objectId) {
+                        TickTask retryTask =
+                                new RetryUnreachableObjectTask(
+                                        this, 10, this, arrayList);
+                        World.getTaskScheduler().schedule(retryTask);
+                    }
+                    return false;
+                }
+
                 if (!this.botUseTaskItemOnTarget) {
                     if (this.botInteractionOption == 1) {
-                        InteractionDispatcher.setCurrentInteractionType(InteractionType.FIRST_OBJECT);
+                        InteractionDispatcher.setCurrentInteractionType(
+                                InteractionType.FIRST_OBJECT);
                     }
                     if (this.botInteractionOption == 2) {
-                        InteractionDispatcher.setCurrentInteractionType(InteractionType.SECOND_OBJECT);
+                        InteractionDispatcher.setCurrentInteractionType(
+                                InteractionType.SECOND_OBJECT);
                     }
                     if (this.botInteractionOption == 3) {
-                        InteractionDispatcher.setCurrentInteractionType(InteractionType.THIRD_OBJECT);
+                        InteractionDispatcher.setCurrentInteractionType(
+                                InteractionType.THIRD_OBJECT);
                     }
                 } else {
-                    player = this;
-                    position3 = player.inventoryManager.getContainer().indexOfItem(this.botTaskItemId);
-                    player = this;
+                    position3 =
+                            this.inventoryManager.getContainer()
+                                    .indexOfItem(this.botTaskItemId);
                     this.selectedItemSlot = position3;
-                    position3 = this.botTaskItemId;
-                    player = this;
-                    this.selectedItemId = position3;
-                    InteractionDispatcher.setCurrentInteractionType(InteractionType.ITEM_ON_OBJECT);
+                    this.selectedItemId = this.botTaskItemId;
+                    InteractionDispatcher.setCurrentInteractionType(
+                            InteractionType.ITEM_ON_OBJECT);
                 }
+
                 InteractionDispatcher.dispatchCurrentInteraction(this);
                 return true;
             }
-            player = this;
-            player.packetSender.sendGameMessage("No position to walk to was found!");
+
+            player.packetSender.sendGameMessage(
+                    "No position to walk to was found!");
             if (objectId) {
-                value9 = this;
-                TickTask retryTask = new RetryUnreachableObjectTask(this, 10, (Player)value9, arrayList);
+                TickTask retryTask =
+                        new RetryUnreachableObjectTask(
+                                this, 10, this, arrayList);
                 World.getTaskScheduler().schedule(retryTask);
             }
             return false;
         }
+
         Player player = this;
         player.packetSender.sendGameMessage("Nearby object not found.");
         if (objectId) {
-            value9 = this;
-            TickTask retryTask = new RetryMissingObjectSearchTask(this, 10, (Player)value9, arrayList);
+            TickTask retryTask =
+                    new RetryMissingObjectSearchTask(
+                            this, 10, this, arrayList);
             World.getTaskScheduler().schedule(retryTask);
         }
         return false;
