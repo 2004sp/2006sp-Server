@@ -27,7 +27,7 @@
 //# = +- of base combatlvl (new generation system)
 //0 = deeper wildy wandering based on combatlvl, 1 = ignore combatlvl for deep wildy wandering (new generation system)
 
-[WILDY_BOTS];1;50;0;50;5;0
+[WILDY_BOTS];0;0;0;50;5;0
 
 //HOTZONES_FOR_WILDYBOTS - Parameters for customization:
 //1 = enable, 0 = disable
@@ -39,7 +39,7 @@
 //1 = enable, 0 = disable
 //# = amount of bots
 
-[SKILLING_BOTS];1;50
+[SKILLING_BOTS];0;0
 
 //PROGRESSIVE_BOTS - Parameters for customization:
 //1 = enable, 0 = disable
@@ -47,13 +47,13 @@
 //0 = random bots, 1 = prioritize existing bots
 //Progressive and skilling bot populations can run together.
 
-[PROGRESSIVE_BOTS];1;50;0
+[PROGRESSIVE_BOTS];0;0;0
 
 //TRADE_BOTS - Parameters for customization:
 //1 = enable, 0 = disable
 //# = amount of bots
 
-[TRADE_BOTS];1;50
+[TRADE_BOTS];0;0
 
 //OTHER_BOTS - Parameters for customization:
 //1 = enable, 0 = disable
@@ -68,14 +68,14 @@
 //# = Chance of event start 1/# (checked every 5mins)
 //Clanwars event area is in deepwild near greater demons
 
-[CLANWAR_BOTS];1;50;24
+[CLANWAR_BOTS];0;0;24
 
 //MINIGAME_BOTS - Parameters for customization:
 //1 = enable, 0 = disable
 //# = amount of minigame bots
 //Castle Wars needs at least 2 total, one on each team, to start.
 
-[MINIGAME_BOTS];1;49
+[MINIGAME_BOTS];1;10
 
 //DROP_PARTY_CHANCE - Parameters for customization:
 //# = chance for a drop party to trigger
@@ -210,7 +210,7 @@
 //3rd param: 1 = instant trades, 0 = normal offer matching
 //4th param: 1 = instant-price fluctuation, 0 = fixed guide-price behavior
 
-[GRAND_EXCHANGE];0;200;1;0
+[GRAND_EXCHANGE];1;200;1;0
 
 //FIGHTCAVE_START_WAVE - Parameters for customization:
 //# = starting wave for fightcave minigame (1 - 63)
