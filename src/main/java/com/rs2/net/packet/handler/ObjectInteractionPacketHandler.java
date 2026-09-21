@@ -11,6 +11,7 @@ import com.rs2.model.interaction.InteractionType;
 import com.rs2.model.item.ItemStack;
 import com.rs2.model.objects.ObjectDefinition;
 import com.rs2.model.objects.ObjectManager;
+import com.rs2.model.objects.WorldObject;
 import com.rs2.model.player.Player;
 import com.rs2.model.skill.SkillActionHelper;
 import com.rs2.net.packet.ByteOrder;
@@ -228,16 +229,35 @@ implements PacketHandler {
             return;
         }
         ObjectDefinition definition = ObjectDefinition.forId(objectId);
-        if (definition == null) {
+        WorldObject worldObject = SkillActionHelper.findWorldObjectById(
+                objectId, objectX, objectY, plane);
+        if (definition == null || worldObject == null) {
             return;
         }
-        int orientation = SkillActionHelper.getObjectOrientation(objectId, objectX, objectY, plane);
-        int width = Math.max(1, definition.getWidthForOrientation(orientation));
-        int length = Math.max(1, definition.getLengthForOrientation(orientation));
+
+        int orientation = worldObject.getOrientation();
+        int type = worldObject.getType();
+        int width = Math.max(1, definition.width);
+        int length = Math.max(1, definition.length);
+
         PathFinder.getInstance();
-        boolean foundPath = PathFinder.findPathToAdjacent(player, objectX, objectY, width, length, true);
+        boolean foundPath = PathFinder.findPathToObject(
+                player,
+                objectX, objectY,
+                width, length,
+                type, orientation,
+                0,
+                true);
         if (GameplayTrace.enabled()) {
-            GameplayTrace.log("object movement queued player=" + GameplayTrace.describe(player) + " objectId=" + objectId + " x=" + objectX + " y=" + objectY + " plane=" + plane + " size=" + width + "x" + length + " path=" + foundPath + " steps=" + player.getMovementQueue().getSteps().size());
+            int routedWidth = definition.getWidthForOrientation(orientation);
+            int routedLength = definition.getLengthForOrientation(orientation);
+            GameplayTrace.log("object movement queued player=" + GameplayTrace.describe(player)
+                    + " objectId=" + objectId
+                    + " x=" + objectX + " y=" + objectY + " plane=" + plane
+                    + " type=" + type + " orientation=" + orientation
+                    + " size=" + routedWidth + "x" + routedLength
+                    + " path=" + foundPath
+                    + " steps=" + player.getMovementQueue().getSteps().size());
         }
     }
 
