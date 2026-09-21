@@ -38,6 +38,7 @@ import com.rs2.model.task.DelayTimer;
 import com.rs2.net.packet.PacketSender;
 import com.rs2.util.GameUtil;
 import com.rs2.util.RectangularArea;
+import com.rs2.util.path.PathFinder;
 import com.rs2.util.path.WalkingCollisionMap;
 import java.awt.Polygon;
 import java.awt.Rectangle;
@@ -681,6 +682,13 @@ public abstract class Entity {
 
     public final void queuePathTo(Position position, boolean enabled2) {
         PathResult pathResult = new DirectPathStrategy().buildPath(this, position, enabled2);
+
+        if (!pathResult.isSuccessful() && enabled2) {
+            this.movementQueue.clear();
+            PathFinder.findPath(this, position.getX(), position.getY(), false, 1, 1);
+            return;
+        }
+
         this.movementQueue.clear();
         while (!pathResult.getSteps().isEmpty()) {
             PathStep pathStep = (PathStep)pathResult.getSteps().poll();
