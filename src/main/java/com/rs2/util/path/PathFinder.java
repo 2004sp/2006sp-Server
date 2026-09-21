@@ -157,6 +157,32 @@ public final class PathFinder {
     }
 
     /**
+     * Checks whether the entity's current footprint has reached an object
+     * according to that object's loc shape and orientation.
+     */
+    public static boolean hasReachedObject(Entity entity,
+                                           int targetX, int targetY,
+                                           int targetWidth, int targetHeight,
+                                           int shape, int rotation,
+                                           int accessMask) {
+        if (entity == null) {
+            return false;
+        }
+
+        return RouteReachStrategy.reached(
+                entity.getPosition().getPlane(),
+                entity.getPosition().getX(),
+                entity.getPosition().getY(),
+                targetX, targetY,
+                Math.max(1, targetWidth),
+                Math.max(1, targetHeight),
+                Math.max(1, entity.getSize()),
+                rotation & 3,
+                shape,
+                accessMask & 0xf);
+    }
+
+    /**
      * Reachability check without mutating the movement queue.
      */
     public static boolean isReachable(Entity entity, int targetX, int targetY) {
