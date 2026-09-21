@@ -22,6 +22,7 @@ import com.rs2.model.combat.special.SpecialAttackDefinition;
 import com.rs2.model.ground.GroundItem;
 import com.rs2.model.ground.GroundItemManager;
 import com.rs2.model.item.DegradableEquipmentHandler;
+import com.rs2.model.item.ItemDefinition;
 import com.rs2.model.item.ItemStack;
 import com.rs2.model.npc.Npc;
 import com.rs2.model.player.Player;
@@ -662,8 +663,20 @@ public class CombatAction {
             String style = this.hitDefinition.getAttackStyle() == null ? "null" : this.hitDefinition.getAttackStyle().getXpMode() + "/" + this.hitDefinition.getAttackStyle().getCombatType();
             GameplayTrace.log("combat apply-hit start attacker=" + GameplayTrace.describe(this.attacker) + " target=" + GameplayTrace.describe(this.target) + " style=" + style + " damage=" + this.damage + " hitSuccessful=" + this.hitSuccessful + " always=" + this.hitDefinition.isAlwaysHit() + " canTakeDamage=" + this.target.getAttributes().get("canTakeDamage"));
         }
-        if (this.hitDefinition.getDroppedAmmunition() != null && this.attacker != null && this.attacker.isPlayer() && this.hitDefinition.getChainedTargets().isEmpty() && ((Player)(value3 = (Player)this.attacker)).isAmmunitionDropsEnabled() && GameUtil.randomInt(5) > 0) {
-            value2 = new GroundItem(new ItemStack(this.hitDefinition.getDroppedAmmunition().getId(), this.hitDefinition.getDroppedAmmunition().getAmount()), (Entity)value3, this.target.getPosition().copy());
+        ItemStack droppedAmmunition = this.hitDefinition.getDroppedAmmunition();
+        boolean droppedAmmunitionIsArrow = droppedAmmunition != null
+                && ItemDefinition.forId(droppedAmmunition.getId()).getName().toLowerCase().contains("arrow");
+        if (droppedAmmunition != null
+                && !droppedAmmunitionIsArrow
+                && this.attacker != null
+                && this.attacker.isPlayer()
+                && this.hitDefinition.getChainedTargets().isEmpty()
+                && ((Player)(value3 = (Player)this.attacker)).isAmmunitionDropsEnabled()
+                && GameUtil.randomInt(5) > 0) {
+            value2 = new GroundItem(
+                    new ItemStack(droppedAmmunition.getId(), droppedAmmunition.getAmount()),
+                    (Entity)value3,
+                    this.target.getPosition().copy());
             GroundItemManager.getInstance().spawn((GroundItem)value2);
         }
         if (!this.canTargetTakeDamage()) {
