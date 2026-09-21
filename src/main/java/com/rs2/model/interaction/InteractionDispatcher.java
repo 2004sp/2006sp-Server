@@ -28,6 +28,7 @@ import com.rs2.model.player.Player;
 import com.rs2.model.skill.magic.SpellDefinition;
 import com.rs2.util.GameUtil;
 import com.rs2.util.GameplayTrace;
+import com.rs2.util.path.PathFinder;
 import com.rs2.util.path.ProjectileCollisionMap;
 
 public final class InteractionDispatcher {
@@ -193,6 +194,30 @@ public final class InteractionDispatcher {
                 World.scheduleTickTask(new SpellOnObjectTask(1, true, player, value13, interactionTargetId6, interactionTargetX6, interactionTargetY6, interactionTargetPlane6, spellDefinition));
             }
         }
+    }
+
+    public static boolean canReachObjectInteraction(Player player, WorldObject worldObject) {
+        if (player == null || worldObject == null) {
+            return false;
+        }
+        if (worldObject.getObjectId() == 2638) {
+            return true;
+        }
+
+        ObjectDefinition definition = ObjectDefinition.forId(worldObject.getObjectId());
+        if (definition == null) {
+            return false;
+        }
+
+        return PathFinder.hasReachedObject(
+                player,
+                worldObject.getPosition().getX(),
+                worldObject.getPosition().getY(),
+                Math.max(1, definition.width),
+                Math.max(1, definition.length),
+                worldObject.getType(),
+                worldObject.getOrientation(),
+                0);
     }
 
     public static boolean canReachObjectInteraction(Position position, Position position2, WorldObject worldObject) {
