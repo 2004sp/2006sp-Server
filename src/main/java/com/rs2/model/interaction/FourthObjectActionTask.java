@@ -42,11 +42,8 @@ extends TickTask {
             return;
         }
         ObjectDefinition objectDefinition = ObjectDefinition.forId(this.player.getInteractionTargetId());
-        Position position = GameUtil.findReachableInteractionPosition(((WorldObject)worldObjectById).getPosition().getX(), ((WorldObject)worldObjectById).getPosition().getY(), this.player.getPosition().getX(), this.player.getPosition().getY(), objectDefinition.getWidthForOrientation(((WorldObject)worldObjectById).getOrientation()), objectDefinition.getLengthForOrientation(((WorldObject)worldObjectById).getOrientation()), this.objectPlane);
-        if (position == null) {
-            return;
-        }
-        if (!InteractionDispatcher.canReachObjectInteraction(this.player, position, (WorldObject)worldObjectById)) {
+        if (!InteractionDispatcher.canReachObjectInteraction(
+                this.player, (WorldObject)worldObjectById)) {
             this.stop();
             return;
         }
