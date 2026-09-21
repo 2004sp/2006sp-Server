@@ -2208,7 +2208,7 @@ public final class CharacterFileManager {
     }
 
     private static void restorePlayerFromBackup(Player player) {
-        File[] fileArray = new File("./data/backups/").listFiles();
+        File[] fileArray = CharacterFileManager.listTimestampedBackupDirectories();
         if (fileArray == null) {
             return;
         }
@@ -2240,8 +2240,45 @@ public final class CharacterFileManager {
         return text2;
     }
 
+    /**
+     * Returns only backup directories that use the expected
+     * day-month-year-hour-minute timestamp name. The backups directory also
+     * contains repository metadata such as .gitkeep, which must never be fed
+     * into the timestamp comparators.
+     */
+    private static File[] listTimestampedBackupDirectories() {
+        File[] files = new File("./data/backups/").listFiles();
+        if (files == null) {
+            return null;
+        }
+
+        ArrayList<File> backupDirectories = new ArrayList<File>();
+        for (File file : files) {
+            if (file == null || !file.isDirectory()) {
+                continue;
+            }
+
+            String[] timestampParts = file.getName().split("-");
+            if (timestampParts.length != 5) {
+                continue;
+            }
+
+            try {
+                for (String timestampPart : timestampParts) {
+                    Integer.parseInt(timestampPart);
+                }
+                backupDirectories.add(file);
+            }
+            catch (NumberFormatException numberFormatException) {
+                // Ignore non-backup folders instead of failing backup repair.
+            }
+        }
+
+        return backupDirectories.toArray(new File[backupDirectories.size()]);
+    }
+
     private static void repairBackupCharacterFiles() {
-        File[] fileArray = new File("./data/backups/").listFiles();
+        File[] fileArray = CharacterFileManager.listTimestampedBackupDirectories();
         ArrayList<File> arrayList = new ArrayList<File>();
         if (fileArray == null) {
             return;
@@ -2341,7 +2378,10 @@ public final class CharacterFileManager {
     }
 
     private static void copyFile(File file, File file2) throws IOException {
-        Files.copy(file.toPath(), file2.toPath(), new CopyOption[0]);
+        // Backups use minute-resolution folder names, so a second backup in
+        // the same minute can legitimately target an existing file. Replace
+        // it atomically instead of throwing FileAlreadyExistsException.
+        Files.copy(file.toPath(), file2.toPath(), StandardCopyOption.REPLACE_EXISTING);
     }
 
     /*
