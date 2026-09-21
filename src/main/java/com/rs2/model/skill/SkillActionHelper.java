@@ -68,17 +68,19 @@ public final class SkillActionHelper {
     }
 
     public static int getObjectOrientation(int objectId, int value2, int value32, int value42) {
-        LoadedWorldObject loadedWorldObject = WorldObjectLookup.findObjectByIdAt(objectId, value2, value32, value42);
-        if (loadedWorldObject != null) {
-            return loadedWorldObject.getOrientation();
+        WorldObject worldObject = SkillActionHelper.findWorldObjectById(
+                objectId, value2, value32, value42);
+        if (worldObject != null) {
+            return worldObject.getOrientation();
         }
         return 0;
     }
 
     public static int getObjectType(int objectId, int value2, int value32, int value42) {
-        LoadedWorldObject loadedWorldObject = WorldObjectLookup.findObjectByIdAt(objectId, value2, value32, value42);
-        if (loadedWorldObject != null) {
-            return loadedWorldObject.getType();
+        WorldObject worldObject = SkillActionHelper.findWorldObjectById(
+                objectId, value2, value32, value42);
+        if (worldObject != null) {
+            return worldObject.getType();
         }
         return 10;
     }
