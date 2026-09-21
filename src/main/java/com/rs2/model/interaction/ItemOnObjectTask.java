@@ -73,21 +73,13 @@ extends TickTask {
             return;
         }
         Object interactionTargetId = ObjectDefinition.forId(this.player.getInteractionTargetId());
-        Object reachableInteractionPosition = GameUtil.findReachableInteractionPosition(worldObject.getPosition().getX(), worldObject.getPosition().getY(), this.player.getPosition().getX(), this.player.getPosition().getY(), ((ObjectDefinition)interactionTargetId).getWidthForOrientation(worldObject.getOrientation()), ((ObjectDefinition)interactionTargetId).getLengthForOrientation(worldObject.getOrientation()), this.objectPlane);
-        if (this.objectId != 2638) {
-            if (reachableInteractionPosition == null) {
-                if (GameplayTrace.enabled()) {
-                    GameplayTrace.log("item-on-object task no-reachable-position player=" + GameplayTrace.describe(this.player) + " itemId=" + this.itemId + " objectId=" + this.objectId + " x=" + this.objectX + " y=" + this.objectY + " plane=" + this.objectPlane);
-                }
-                return;
+        Object reachableInteractionPosition = this.player.getPosition();
+        if (!InteractionDispatcher.canReachObjectInteraction(this.player, worldObject)) {
+            if (GameplayTrace.enabled()) {
+                GameplayTrace.log("item-on-object task blocked-path player=" + GameplayTrace.describe(this.player) + " itemId=" + this.itemId + " objectId=" + this.objectId + " objectX=" + this.objectX + " objectY=" + this.objectY + " reachX=" + this.player.getPosition().getX() + " reachY=" + this.player.getPosition().getY());
             }
-            if (!InteractionDispatcher.canReachObjectInteraction(this.player, (Position)reachableInteractionPosition, worldObject)) {
-                if (GameplayTrace.enabled()) {
-                    GameplayTrace.log("item-on-object task blocked-path player=" + GameplayTrace.describe(this.player) + " itemId=" + this.itemId + " objectId=" + this.objectId + " objectX=" + this.objectX + " objectY=" + this.objectY + " reachX=" + ((Position)reachableInteractionPosition).getX() + " reachY=" + ((Position)reachableInteractionPosition).getY());
-                }
-                this.stop();
-                return;
-            }
+            this.stop();
+            return;
         }
         reachableInteractionPosition = new Position(this.player.getInteractionTargetX(), this.player.getInteractionTargetY(), this.objectPlane);
         if (interactionTargetId != null) {
