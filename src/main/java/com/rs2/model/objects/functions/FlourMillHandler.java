@@ -50,6 +50,11 @@ public final class FlourMillHandler {
             return;
         }
         player2 = player;
+        player2.packetSender.sendObjectAnimation(
+                player2.getInteractionTargetX(),
+                player2.getInteractionTargetY(),
+                player2.getInteractionTargetPlane(),
+                127);
         int value = player.configStates[flourBinConfigId] + player2.flourMillHopperGrainCount;
         player2 = player;
         player2.packetSender.sendConfig(flourBinConfigId, value);
