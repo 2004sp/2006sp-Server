@@ -1,0 +1,59 @@
+name: Inspect hopper cache
+
+on:
+  push:
+    branches:
+      - fix/issue-36-windmill-lever-animation
+
+jobs:
+  inspect:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '8'
+      - name: Compile server
+        run: |
+          mkdir -p build/classes
+          find src/main/java -name '*.java' > build/sources.txt
+          javac -Xmaxerrs 5000 -classpath 'lib/*' -d build/classes @build/sources.txt
+      - name: Dump hopper object definitions
+        run: |
+          cat > build/HopperDefinitionDump.java <<'EOF'
+          import com.rs2.cache.CacheArchive;
+          import com.rs2.cache.CacheStore;
+
+          public final class HopperDefinitionDump {
+              public static void main(String[] args) throws Exception {
+                  CacheStore.initializeCacheStore();
+                  CacheStore store = CacheStore.getInstance();
+                  byte[] loc = new CacheArchive(store.readFile(0, 2)).getFileBytes("loc.dat");
+
+                  for (int id = 2713; id <= 2722; id++) {
+                      int start = store.getDefinitionIndex().getObjectDefinitionEntry(id).getDataOffset();
+                      int end = store.getDefinitionIndex().getObjectDefinitionEntry(id + 1).getDataOffset();
+                      StringBuilder hex = new StringBuilder();
+                      StringBuilder ascii = new StringBuilder();
+                      for (int p = start; p < end; p++) {
+                          int value = loc[p] & 0xff;
+                          if (hex.length() > 0) {
+                              hex.append(' ');
+                          }
+                          if (value < 16) {
+                              hex.append('0');
+                          }
+                          hex.append(Integer.toHexString(value));
+                          ascii.append(value >= 32 && value <= 126 ? (char) value : '.');
+                      }
+                      System.out.println("OBJECT " + id + " OFFSET " + start + " LENGTH " + (end - start));
+                      System.out.println("HEX " + hex);
+                      System.out.println("ASCII " + ascii);
+                  }
+                  store.close();
+              }
+          }
+          EOF
+          javac -classpath 'build/classes:lib/*' -d build/classes build/HopperDefinitionDump.java
+          java -classpath 'build/classes:lib/*' HopperDefinitionDump
