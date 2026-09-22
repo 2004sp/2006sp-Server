@@ -60,3 +60,133 @@ jobs:
           EOF
           javac -classpath 'build/classes:lib/*' -d build/classes build/HopperDefinitionDump.java
           java -classpath 'build/classes:lib/*' HopperDefinitionDump
+      - name: Check out client
+        uses: actions/checkout@v4
+        with:
+          repository: 2004sp/2006sp-Client
+          path: client-src
+      - name: Scan hopper-compatible object animations
+        run: |
+          mkdir -p client-src/build/classes client-src/build/diag/client
+          find client-src/src/main/java -name '*.java' > client-src/build/sources.txt
+          javac -Xmaxerrs 5000 -classpath 'client-src/lib/*' -d client-src/build/classes @client-src/build/sources.txt
+          cat > client-src/build/diag/client/HopperAnimationScan.java <<'EOF'
+          package client;
+
+          import java.io.File;
+          import java.io.RandomAccessFile;
+          import java.util.Arrays;
+
+          public final class HopperAnimationScan {
+              private static boolean differs(Model a, Model b) {
+                  if (a == null || b == null || a.vertexCount != b.vertexCount) {
+                      return a != b;
+                  }
+                  for (int i = 0; i < a.vertexCount; i++) {
+                      if (a.verticesX[i] != b.verticesX[i]
+                              || a.verticesY[i] != b.verticesY[i]
+                              || a.verticesZ[i] != b.verticesZ[i]) {
+                          return true;
+                      }
+                  }
+                  return false;
+              }
+
+              private static int changedVertices(Model a, Model b) {
+                  if (a == null || b == null || a.vertexCount != b.vertexCount) {
+                      return -1;
+                  }
+                  int changed = 0;
+                  for (int i = 0; i < a.vertexCount; i++) {
+                      if (a.verticesX[i] != b.verticesX[i]
+                              || a.verticesY[i] != b.verticesY[i]
+                              || a.verticesZ[i] != b.verticesZ[i]) {
+                          changed++;
+                      }
+                  }
+                  return changed;
+              }
+
+              public static void main(String[] args) throws Exception {
+                  File cacheDir = new File("client-src/runtime/cache");
+                  RandomAccessFile data = new RandomAccessFile(new File(cacheDir, "main_file_cache.dat"), "r");
+                  RandomAccessFile idx0 = new RandomAccessFile(new File(cacheDir, "main_file_cache.idx0"), "r");
+                  RandomAccessFile idx1 = new RandomAccessFile(new File(cacheDir, "main_file_cache.idx1"), "r");
+                  RandomAccessFile idx2 = new RandomAccessFile(new File(cacheDir, "main_file_cache.idx2"), "r");
+
+                  CacheStore configStore = new CacheStore(data, idx0, 1);
+                  CacheStore modelStore = new CacheStore(data, idx1, 2);
+                  CacheStore animStore = new CacheStore(data, idx2, 3);
+
+                  Archive config = new Archive(configStore.read(2));
+                  Client.hdModels = false;
+                  Client.extendedRevisionEnabled = false;
+                  Client.use2007Models = false;
+                  ObjectDefinition.unpackConfig(config);
+                  AnimationSequence.load(config);
+
+                  AnimationFrame.initialize(65535);
+                  int animGroupCount = (int)(idx2.length() / 6L);
+                  int loadedGroups = 0;
+                  for (int group = 0; group < animGroupCount; group++) {
+                      byte[] bytes = animStore.read(group);
+                      if (bytes == null) {
+                          continue;
+                      }
+                      try {
+                          AnimationFrame.decodeClassic(bytes);
+                          loadedGroups++;
+                      } catch (Throwable t) {
+                          System.out.println("FRAME GROUP " + group + " FAILED: " + t);
+                      }
+                  }
+
+                  int modelCount = (int)(idx1.length() / 6L);
+                  Model.initializeModelCache(modelCount, new OnDemandFetcherBase());
+                  byte[] modelBytes = modelStore.read(1381);
+                  Model.decodeModelHeader(modelBytes, 1381);
+
+                  ObjectDefinition def = ObjectDefinition.lookup(2718);
+                  Model baseline = def.modelAt(10, 0, 0, 0, 0, 0, -1, -1, -1, -1);
+
+                  System.out.println("ANIM_GROUPS " + loadedGroups + "/" + animGroupCount);
+                  System.out.println("HOPPER name=" + def.name + " animationId=" + def.animationId
+                          + " baselineVertices=" + (baseline == null ? -1 : baseline.vertexCount));
+
+                  for (int sequenceId = 0; sequenceId < AnimationSequence.sequences.length; sequenceId++) {
+                      AnimationSequence sequence = AnimationSequence.sequences[sequenceId];
+                      if (sequence == null || sequence.frameIds == null) {
+                          continue;
+                      }
+                      int changedFrames = 0;
+                      int maxChangedVertices = 0;
+                      for (int frameId : sequence.frameIds) {
+                          if (frameId < 0 || AnimationFrame.get(frameId) == null) {
+                              continue;
+                          }
+                          Model animated = def.modelAt(10, 0, 0, 0, 0, 0, frameId, -1, -1, -1);
+                          if (differs(baseline, animated)) {
+                              changedFrames++;
+                              maxChangedVertices = Math.max(maxChangedVertices, changedVertices(baseline, animated));
+                          }
+                      }
+                      if (changedFrames > 0 || sequenceId == 127) {
+                          System.out.println("SEQUENCE " + sequenceId
+                                  + " frames=" + sequence.frameCount
+                                  + " changedFrames=" + changedFrames
+                                  + " maxChangedVertices=" + maxChangedVertices
+                                  + " ids=" + Arrays.toString(sequence.frameIds)
+                                  + " lengths=" + Arrays.toString(sequence.frameLengths)
+                                  + " step=" + sequence.frameStep);
+                      }
+                  }
+
+                  data.close();
+                  idx0.close();
+                  idx1.close();
+                  idx2.close();
+              }
+          }
+          EOF
+          javac -classpath 'client-src/build/classes:client-src/lib/*' -d client-src/build/classes client-src/build/diag/client/HopperAnimationScan.java
+          java -classpath 'client-src/build/classes:client-src/lib/*' client.HopperAnimationScan
