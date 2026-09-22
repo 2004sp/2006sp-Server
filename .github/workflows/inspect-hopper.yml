@@ -109,7 +109,7 @@ jobs:
               }
 
               public static void main(String[] args) throws Exception {
-                  File cacheDir = new File("client-src/runtime/cache");
+                  File cacheDir = new File("cache");
                   RandomAccessFile data = new RandomAccessFile(new File(cacheDir, "main_file_cache.dat"), "r");
                   RandomAccessFile idx0 = new RandomAccessFile(new File(cacheDir, "main_file_cache.idx0"), "r");
                   RandomAccessFile idx1 = new RandomAccessFile(new File(cacheDir, "main_file_cache.idx1"), "r");
@@ -126,7 +126,7 @@ jobs:
                   ObjectDefinition.unpackConfig(config);
                   AnimationSequence.load(config);
 
-                  AnimationFrame.initialize(65535);
+                  AnimationFrame.initialize(200000);
                   int animGroupCount = (int)(idx2.length() / 6L);
                   int loadedGroups = 0;
                   for (int group = 0; group < animGroupCount; group++) {
