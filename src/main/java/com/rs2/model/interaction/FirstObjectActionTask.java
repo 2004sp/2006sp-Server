@@ -1053,12 +1053,12 @@ extends TickTask {
                 int playerX = this.player.getPosition().getX();
                 int playerY = this.player.getPosition().getY();
                 if (Math.abs(playerX - this.objectX) > Math.abs(playerY - this.objectY)) {
-                    deltaX = playerX < this.objectX ? 2 : -2;
+                    deltaX = playerX <= this.objectX ? 1 : -1;
                 } else {
-                    deltaY = playerY < this.objectY ? 2 : -2;
+                    deltaY = playerY <= this.objectY ? 1 : -1;
                 }
                 this.player.getUpdateState().setAnimation(839);
-                this.player.getPacketSender().queueRelativeMovementStep(deltaX, deltaY, true);
+                AgilityObstacleHandler.startForcedMovement(this.player, deltaX, deltaY, 1, 80, 2, true, 0, 0);
                 break;
             }
             case 2618: {
