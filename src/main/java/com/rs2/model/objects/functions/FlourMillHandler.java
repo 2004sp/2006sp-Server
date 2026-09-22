@@ -1,10 +1,15 @@
 package com.rs2.model.objects.functions;
 
 import com.rs2.model.item.ItemStack;
+import com.rs2.model.objects.DynamicObject;
+import com.rs2.model.objects.LoadedWorldObject;
+import com.rs2.model.objects.WorldObjectLookup;
 import com.rs2.model.player.Player;
 
 public final class FlourMillHandler {
     public static int flourBinConfigId = 695;
+    private static final int HOPPER_CONTROLS_OPERATED_OBJECT_ID = 2722;
+    private static final int HOPPER_CONTROLS_RESET_TICKS = 2;
 
     public static void addGrainToHopper(Player player) {
         Player player2 = player;
@@ -49,12 +54,7 @@ public final class FlourMillHandler {
             player2.packetSender.sendGameMessage("The grain bin is already full.");
             return;
         }
-        player2 = player;
-        player2.packetSender.sendObjectAnimation(
-                player2.getInteractionTargetX(),
-                player2.getInteractionTargetY(),
-                player2.getInteractionTargetPlane(),
-                127);
+        animateHopperControls(player);
         int value = player.configStates[flourBinConfigId] + player2.flourMillHopperGrainCount;
         player2 = player;
         player2.packetSender.sendConfig(flourBinConfigId, value);
@@ -65,6 +65,32 @@ public final class FlourMillHandler {
         player.getUpdateState().setAnimation(832);
         player2 = player;
         player2.packetSender.sendGameMessage("The grain in the hopper slides down the chute.");
+    }
+
+    private static void animateHopperControls(Player player) {
+        int x = player.getInteractionTargetX();
+        int y = player.getInteractionTargetY();
+        int plane = player.getInteractionTargetPlane();
+        LoadedWorldObject controls = WorldObjectLookup.findObjectAt(x, y, plane);
+        if (controls == null) {
+            return;
+        }
+
+        int objectId = controls.getWorldObject().getObjectId();
+        if (objectId < 2718 || objectId > 2721) {
+            return;
+        }
+
+        new DynamicObject(
+                HOPPER_CONTROLS_OPERATED_OBJECT_ID,
+                x,
+                y,
+                plane,
+                controls.getOrientation(),
+                controls.getType(),
+                objectId,
+                HOPPER_CONTROLS_RESET_TICKS,
+                false);
     }
 
     public static void collectFlourFromBin(Player player) {
