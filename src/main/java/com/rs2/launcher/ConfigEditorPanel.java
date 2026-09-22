@@ -296,7 +296,7 @@ public final class ConfigEditorPanel extends JPanel {
         }
 
         private List<ConfigEntry> readEntries() throws IOException {
-            List<ConfigEntry> entries = new ArrayList<ConfigEntry>();
+            Map<String, ConfigEntry> entriesByKey = new LinkedHashMap<String, ConfigEntry>();
             BufferedReader reader = new BufferedReader(new FileReader(this.configFile));
             StringBuilder pendingDescription = new StringBuilder();
             boolean cameraRefreshRatePresent = false;
@@ -328,7 +328,11 @@ public final class ConfigEditorPanel extends JPanel {
 
                         if (!this.excludedKeys.contains(key)) {
                             String description = ConfigEditorPanel.cleanDescription(key, pendingDescription.toString());
-                            entries.add(new ConfigEntry(key, value, description));
+                            // Config files may contain the same key more than once
+                            // after settings are migrated between client versions.
+                            // The client applies them in file order, so keep the last
+                            // occurrence while showing a single control-panel row.
+                            entriesByKey.put(key, new ConfigEntry(key, value, description));
                         }
                         pendingDescription.setLength(0);
                         continue;
@@ -347,14 +351,14 @@ public final class ConfigEditorPanel extends JPanel {
             // control panel immediately; Save will append the setting to the
             // client's cfg if it is not already present.
             if (!this.serverConfig && !cameraRefreshRatePresent) {
-                entries.add(new ConfigEntry(
+                entriesByKey.put("CAMERA_REFRESH_RATE", new ConfigEntry(
                     "CAMERA_REFRESH_RATE",
                     "120",
                     "50-240 = camera/render refresh rate in frames per second.\n"
                         + "Game simulation remains at 50 Hz; this only makes camera motion/redrawing smoother."
                 ));
             }
-            return entries;
+            return new ArrayList<ConfigEntry>(entriesByKey.values());
         }
 
         private boolean saveSettings(boolean showSuccessMessage) {
