@@ -1047,7 +1047,7 @@ extends TickTask {
                 this.player.getPacketSender().queueRelativeMovementStep(0, this.player.getPosition().getY() < 3508 ? 1 : -1, true);
                 break;
             }
-            case 993: {
+            case 7527: {
                 int deltaX = 0;
                 int deltaY = 0;
                 int playerX = this.player.getPosition().getX();
