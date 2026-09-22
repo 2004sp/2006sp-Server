@@ -68,6 +68,7 @@ jobs:
       - name: Scan hopper-compatible object animations
         run: |
           mkdir -p client-src/build/classes client-src/build/diag/client
+          curl -fsSL -o client-src/lib/lwjgl-2.9.3.jar https://repo1.maven.org/maven2/org/lwjgl/lwjgl/lwjgl/2.9.3/lwjgl-2.9.3.jar
           find client-src/src/main/java -name '*.java' > client-src/build/sources.txt
           javac -Xmaxerrs 5000 -classpath 'client-src/lib/*' -d client-src/build/classes @client-src/build/sources.txt
           cat > client-src/build/diag/client/HopperAnimationScan.java <<'EOF'
