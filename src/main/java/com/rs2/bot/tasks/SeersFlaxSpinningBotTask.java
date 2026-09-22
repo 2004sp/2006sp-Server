@@ -120,6 +120,9 @@ extends BotTaskDefinition {
     @Override
     public final void continueWalkToTask(Player player, int value2) {
         player.setAutoRetaliate(true);
+        if (this.recoverInvalidRouteSegment(player, true)) {
+            value2 = 0;
+        }
         player.botPathWaypointIndex = value2;
         player.currentBotRoute = taskRouteSegments[player.botPathSegmentIndex];
         this.advanceTaskRouteSegment(player, true);
@@ -128,16 +131,53 @@ extends BotTaskDefinition {
     @Override
     public final void continueWalkToBank(Player player, int value2) {
         player.setAutoRetaliate(false);
+        if (this.recoverInvalidRouteSegment(player, false)) {
+            value2 = 0;
+        }
         player.botPathWaypointIndex = value2;
         player.currentBotRoute = taskRouteSegments[player.botPathSegmentIndex].reversed();
         this.advanceTaskRouteSegment(player, true);
     }
 
+    private boolean recoverInvalidRouteSegment(Player player, boolean walkingToTask) {
+        int lastSegmentIndex = taskRouteSegments.length - 1;
+        if (player.botPathSegmentIndex >= 0 && player.botPathSegmentIndex <= lastSegmentIndex) {
+            return false;
+        }
+
+        if (walkingToTask) {
+            if (player.botPathSegmentIndex > lastSegmentIndex) {
+                player.botPathSegmentIndex = lastSegmentIndex;
+                player.botTaskState = "walk to task";
+            } else {
+                player.botPathSegmentIndex = 0;
+            }
+        } else if (player.botPathSegmentIndex < 0) {
+            player.botPathSegmentIndex = 0;
+            player.botTaskState = "walk to bank";
+        } else {
+            player.botPathSegmentIndex = lastSegmentIndex;
+        }
+
+        player.botPathWaypointIndex = 0;
+        return true;
+    }
+
     @Override
     public final void advanceTaskRouteSegment(Player player, boolean enabled2) {
         if (player.botTaskState.equals("walk towards task") || player.botTaskState.equals("walk to task") && enabled2) {
-            if (!enabled2) {
-                ++player.botPathSegmentIndex;
+            boolean recoveredInvalidSegment = this.recoverInvalidRouteSegment(player, true);
+            if (!enabled2 && !recoveredInvalidSegment) {
+                if (player.botPathSegmentIndex >= taskRouteSegments.length - 1) {
+                    // A route action should normally switch the final segment to
+                    // "walk to task" before it completes. If that transition was
+                    // missed, keep the bot on the final segment instead of
+                    // walking beyond the route array.
+                    player.botPathSegmentIndex = taskRouteSegments.length - 1;
+                    player.botTaskState = "walk to task";
+                } else {
+                    ++player.botPathSegmentIndex;
+                }
             }
             player.currentBotRoute = taskRouteSegments[player.botPathSegmentIndex];
             if (!enabled2) {
@@ -156,8 +196,17 @@ extends BotTaskDefinition {
                 return;
             }
         } else if (player.botTaskState.equals("walk towards bank") || player.botTaskState.equals("walk to bank") && enabled2) {
-            if (!enabled2) {
-                --player.botPathSegmentIndex;
+            boolean recoveredInvalidSegment = this.recoverInvalidRouteSegment(player, false);
+            if (!enabled2 && !recoveredInvalidSegment) {
+                if (player.botPathSegmentIndex <= 0) {
+                    // Segment zero is the terminal bank leg. Do not underflow
+                    // the route array if a stale "walk towards bank" state
+                    // survives until the segment completes.
+                    player.botPathSegmentIndex = 0;
+                    player.botTaskState = "walk to bank";
+                } else {
+                    --player.botPathSegmentIndex;
+                }
             }
             player.currentBotRoute = taskRouteSegments[player.botPathSegmentIndex].reversed();
             if (!enabled2) {
