@@ -164,10 +164,18 @@ jobs:
 
                   ObjectDefinition def = ObjectDefinition.lookup(2718);
                   Model baseline = def.modelAt(10, 0, 0, 0, 0, 0, -1, -1, -1, -1);
+                  byte[] alternateModelBytes = gunzip(modelStore.read(1382));
+                  Model.decodeModelHeader(alternateModelBytes, 1382);
+                  ObjectDefinition alternateDef = ObjectDefinition.lookup(2722);
+                  Model alternate = alternateDef.modelAt(10, 0, 0, 0, 0, 0, -1, -1, -1, -1);
 
                   System.out.println("ANIM_GROUPS " + loadedGroups + "/" + animGroupCount);
                   System.out.println("HOPPER name=" + def.name + " animationId=" + def.animationId
-                          + " baselineVertices=" + (baseline == null ? -1 : baseline.vertexCount));
+                          + " baselineVertices=" + (baseline == null ? -1 : baseline.vertexCount)
+                          + " vectorSkin=" + (baseline == null || baseline.vectorSkin == null ? "null" : baseline.vectorSkin.length));
+                  System.out.println("ALT_HOPPER name=" + alternateDef.name + " animationId=" + alternateDef.animationId
+                          + " vertices=" + (alternate == null ? -1 : alternate.vertexCount)
+                          + " changedVertices=" + changedVertices(baseline, alternate));
 
                   for (int sequenceId = 0; sequenceId < AnimationSequence.sequences.length; sequenceId++) {
                       AnimationSequence sequence = AnimationSequence.sequences[sequenceId];
