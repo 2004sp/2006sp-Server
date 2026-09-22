@@ -4,6 +4,9 @@ on:
   push:
     branches:
       - fix/issue-36-windmill-lever-animation
+  pull_request:
+    branches:
+      - main
 
 jobs:
   inspect:
