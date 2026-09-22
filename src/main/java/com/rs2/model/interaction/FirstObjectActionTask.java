@@ -1047,6 +1047,20 @@ extends TickTask {
                 this.player.getPacketSender().queueRelativeMovementStep(0, this.player.getPosition().getY() < 3508 ? 1 : -1, true);
                 break;
             }
+            case 993: {
+                int deltaX = 0;
+                int deltaY = 0;
+                int playerX = this.player.getPosition().getX();
+                int playerY = this.player.getPosition().getY();
+                if (Math.abs(playerX - this.objectX) > Math.abs(playerY - this.objectY)) {
+                    deltaX = playerX < this.objectX ? 2 : -2;
+                } else {
+                    deltaY = playerY < this.objectY ? 2 : -2;
+                }
+                this.player.getUpdateState().setAnimation(839);
+                this.player.getPacketSender().queueRelativeMovementStep(deltaX, deltaY, true);
+                break;
+            }
             case 2618: {
                 this.player.getUpdateState().setAnimation(839);
                 AgilityObstacleHandler.startForcedMovement(this.player, 0, this.player.getPosition().getY() < 3493 ? 1 : -1, 1, 80, 2, true, 0, 0);
