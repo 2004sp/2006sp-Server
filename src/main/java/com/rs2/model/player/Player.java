@@ -2463,6 +2463,28 @@ extends Entity {
         if (this.isMoving()) {
             return;
         }
+        if (this.currentBotTask != null
+                && this.currentBotTask.taskRouteSegments != null
+                && ("walk towards task".equals(this.botTaskState)
+                    || "walk to task".equals(this.botTaskState)
+                    || "walk towards bank".equals(this.botTaskState)
+                    || "walk to bank".equals(this.botTaskState))
+                && (this.botPathSegmentIndex < 0
+                    || this.botPathSegmentIndex >= this.currentBotTask.taskRouteSegments.length)) {
+            Player player = this;
+            System.out.println(String.valueOf(player.username)
+                    + " has invalid bot task route segment index "
+                    + this.botPathSegmentIndex + " for "
+                    + this.currentBotTask.getClass().getSimpleName()
+                    + " (" + this.currentBotTask.taskRouteSegments.length
+                    + " segments), restarting route.");
+            if (this.botTaskState.contains("bank")) {
+                this.currentBotTask.startWalkToBank(this);
+            } else {
+                this.currentBotTask.startWalkToTask(this);
+            }
+            return;
+        }
         this.getMovementQueue().clearMovementActions();
         if (this.botTaskState.equals("do task") && DropPartyBotManager.dropPartyParticipants.contains(this)) {
             this.currentBotRoute = null;
