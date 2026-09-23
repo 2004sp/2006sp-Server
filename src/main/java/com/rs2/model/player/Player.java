@@ -5202,6 +5202,15 @@ extends Entity {
     public final void resetInteractionState() {
         this.invalidateInterruptibleAction();
         this.nextActionSequence();
+        this.interactionApproachX = 0;
+        this.interactionApproachY = 0;
+        this.interactionOffsetX = 0;
+        this.interactionOffsetY = 0;
+        this.interactionObjectSizeX = 0;
+        this.interactionObjectSizeY = 0;
+        this.interactionExitX = 0;
+        this.interactionExitY = 0;
+        this.interactionExitPlane = 0;
         Player player = this;
         int initialValue = -1;
         Player player2 = player;

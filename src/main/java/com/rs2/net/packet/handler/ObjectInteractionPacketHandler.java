@@ -59,6 +59,10 @@ implements PacketHandler {
                             System.out.println("item: " + player.getSelectedItemId() + " object: " + player.getInteractionTargetId());
                         }
                         EntityTargetMovement.clearMovementTarget(player);
+                        ObjectManager.prepareObjectInteractionMovement(player,
+                                player.getInteractionTargetId(),
+                                player.getInteractionTargetX(),
+                                player.getInteractionTargetY());
                         ObjectInteractionPacketHandler.queueObjectInteractionMovement(player);
                         InteractionDispatcher.setCurrentInteractionType(InteractionType.ITEM_ON_OBJECT);
                         InteractionDispatcher.dispatchCurrentInteraction(player);
@@ -248,6 +252,32 @@ implements PacketHandler {
                         + " objectId=" + objectId
                         + " object=" + objectX + "," + objectY + "," + plane
                         + " approach=" + GameplayTrace.position(castleWarsStairApproach)
+                        + " path=" + foundPath
+                        + " steps=" + player.getMovementQueue().getSteps().size());
+            }
+            return foundPath;
+        }
+
+        boolean exactApproachConfigured =
+                player.getInteractionTargetId() == objectId
+                && player.getInteractionTargetX() == objectX
+                && player.getInteractionTargetY() == objectY
+                && player.getInteractionTargetPlane() == plane
+                && player.getPosition().getPlane() == plane
+                && (player.interactionApproachX != 0
+                    || player.interactionApproachY != 0);
+        if (exactApproachConfigured) {
+            boolean foundPath = PathFinder.findPath(player,
+                    player.interactionApproachX,
+                    player.interactionApproachY,
+                    false, 1, 1);
+            if (GameplayTrace.enabled()) {
+                GameplayTrace.log("object exact-approach movement queued player="
+                        + GameplayTrace.describe(player)
+                        + " objectId=" + objectId
+                        + " object=" + objectX + "," + objectY + "," + plane
+                        + " approach=" + player.interactionApproachX + ","
+                        + player.interactionApproachY + "," + plane
                         + " path=" + foundPath
                         + " steps=" + player.getMovementQueue().getSteps().size());
             }

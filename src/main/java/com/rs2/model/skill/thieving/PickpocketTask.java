@@ -79,6 +79,12 @@ extends CycleEvent {
 
     @Override
     public final void onStop() {
+        if (this.player.getUpdateState().getFaceEntityId() == this.npc.getEncodedIndex()) {
+            this.player.getUpdateState().setFaceEntity(65535);
+        }
+        if (this.player.getInteractionTarget() == this.npc) {
+            this.player.setInteractionTarget(null);
+        }
         this.player.setActionLocked(false);
     }
 }

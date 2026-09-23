@@ -62,7 +62,9 @@ extends TickTask {
             this.stop();
             return;
         }
-        if (this.player.isMoving() || this.player.isStunned()) {
+        if (this.player.isMoving()
+                || this.player.hasMovedWithinTicks(1)
+                || this.player.isStunned()) {
             return;
         }
         WorldObject worldObject = SkillActionHelper.findWorldObjectById(this.objectId, this.objectX, this.objectY, this.objectPlane);

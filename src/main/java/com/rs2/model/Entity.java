@@ -91,6 +91,7 @@ public abstract class Entity {
     private int size;
     private int walkDirection;
     private int runDirection;
+    private int lastMovementTick;
     private Map attributes;
     private Position position;
     private EntityUpdateState updateState;
@@ -141,6 +142,15 @@ public abstract class Entity {
 
     public final int getRunDirection() {
         return this.runDirection;
+    }
+
+    public final void recordMovementTick() {
+        this.lastMovementTick = World.tickCount;
+    }
+
+    public final boolean hasMovedWithinTicks(int ticks) {
+        return this.lastMovementTick > 0
+                && World.tickCount - this.lastMovementTick <= ticks;
     }
 
     public final boolean isMoving() {

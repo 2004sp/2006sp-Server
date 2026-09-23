@@ -88,7 +88,9 @@ extends TickTask {
             this.stop();
             return;
         }
-        if (this.player.isMoving() || this.player.isStunned()) {
+        if (this.player.isMoving()
+                || this.player.hasMovedWithinTicks(1)
+                || this.player.isStunned()) {
             if (GameplayTrace.enabled() && !this.loggedWaitingForMovement) {
                 this.loggedWaitingForMovement = true;
                 GameplayTrace.log("first-object wait moving-or-stunned seq=" + this.actionSequence + " moving=" + this.player.isMoving() + " stunned=" + this.player.isStunned() + " player=" + GameplayTrace.describe(this.player) + " objectId=" + this.objectId + " x=" + this.objectX + " y=" + this.objectY + " plane=" + this.objectPlane);
