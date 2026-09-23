@@ -26,6 +26,11 @@ public class AgilityObstacleHandler {
         CycleEventHandler.getInstance().schedule(player, new AgilityShortcutStartTask(player, value22, 0, 30, 2, 50), 2);
     }
     public static void startForcedMovement(Player player, int value9, int value22, int value32, int value42, int value52, boolean enabled2, int value62, int value72) {
+        startForcedMovement(player, value9, value22, value32, value42,
+                value52, enabled2, value62, value72, -1);
+    }
+
+    public static void startForcedMovement(Player player, int value9, int value22, int value32, int value42, int value52, boolean enabled2, int value62, int value72, int animationId) {
         int value8 = value72;
         player.setActionLocked(true);
         player.getMovementQueue().clear();
@@ -46,7 +51,7 @@ public class AgilityObstacleHandler {
         value8 = player.getPosition().getY() + value22;
         int position2 = player.getPosition().getPlane();
         player.forcedMovementActive = true;
-        CycleEventHandler.getInstance().schedule(player, new AgilityMovementStepTask(player, value9, value22, 1, value42, value32), 1);
+        CycleEventHandler.getInstance().schedule(player, new AgilityMovementStepTask(player, value9, value22, 1, value42, value32, animationId), 1);
         CycleEventHandler.getInstance().schedule(player, new AgilityMovementFinishTask(player, value62, true, position, value8, position2), value52 + 1);
     }
 

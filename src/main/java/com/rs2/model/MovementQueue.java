@@ -13,6 +13,9 @@ import com.rs2.model.gameplay.DesertHeatManager;
 import com.rs2.model.gameplay.partyroom.PartyRoomManager;
 import com.rs2.model.music.MusicManager;
 import com.rs2.model.npc.Npc;
+import com.rs2.model.objects.LoadedWorldObject;
+import com.rs2.model.objects.ObjectDefinition;
+import com.rs2.model.objects.WorldObjectLookup;
 import com.rs2.model.player.Player;
 import com.rs2.net.packet.PacketSender;
 import com.rs2.util.GameUtil;
@@ -275,6 +278,55 @@ public final class MovementQueue {
         this.entity.getUpdateState().setFaceEntity(65535);
     }
 
+    private static boolean isActiveStileEntryTile(Player player,
+                                                   int destinationX,
+                                                   int destinationY) {
+        if (player == null) {
+            return false;
+        }
+
+        int objectId = player.getInteractionTargetId();
+        if (objectId < 0) {
+            return false;
+        }
+
+        ObjectDefinition definition = ObjectDefinition.forId(objectId);
+        boolean isStile = objectId == 7527
+                || definition != null
+                && definition.getName() != null
+                && definition.getName().toLowerCase().contains("stile");
+        if (!isStile) {
+            return false;
+        }
+
+        int plane = player.getInteractionTargetPlane() & 3;
+        if (player.getPosition().getPlane() != plane) {
+            return false;
+        }
+
+        int objectX = player.getInteractionTargetX();
+        int objectY = player.getInteractionTargetY();
+        LoadedWorldObject stile = WorldObjectLookup.findObjectByIdAt(
+                objectId, objectX, objectY, plane);
+        if (stile == null || stile.getType() != 10) {
+            return false;
+        }
+
+        if (definition == null) {
+            return false;
+        }
+
+        int footprintWidth = Math.max(1,
+                definition.getWidthForOrientation(stile.getOrientation()));
+        int footprintLength = Math.max(1,
+                definition.getLengthForOrientation(stile.getOrientation()));
+
+        return destinationX >= objectX
+                && destinationX < objectX + footprintWidth
+                && destinationY >= objectY
+                && destinationY < objectY + footprintLength;
+    }
+
     private boolean canStep(int value8, int value23) {
         Entity entity;
         int value;
@@ -286,11 +338,19 @@ public final class MovementQueue {
         int index = 0;
         while (index < integerValues.length) {
             int[] bypassTile = integerValues[index];
-            if (this.entity.getPosition().getX() + value8 == bypassTile[0] && this.entity.getPosition().getY() + value23 == bypassTile[1]) {
+            if (this.entity.getPosition().getX() + value8 == bypassTile[0]
+                    && this.entity.getPosition().getY() + value23 == bypassTile[1]
+                    && (bypassTile.length < 3 || this.entity.getPosition().getPlane() == bypassTile[2])) {
                 enabled = true;
                 break;
             }
             ++index;
+        }
+        if (!enabled && this.entity.isPlayer()) {
+            Player player = (Player)this.entity;
+            enabled = isActiveStileEntryTile(player,
+                    this.entity.getPosition().getX() + value8,
+                    this.entity.getPosition().getY() + value23);
         }
         if (!enabled && !this.entity.canTravelBetween(this.entity.getPosition().getX(), this.entity.getPosition().getY(), this.entity.getPosition().getX() + value8, this.entity.getPosition().getY() + value23, this.entity.getPosition().getPlane(), this.entity.getSize(), this.entity.getSize())) {
             return false;
