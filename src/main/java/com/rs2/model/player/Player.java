@@ -498,6 +498,7 @@ extends Entity {
     public ArrayList visibleDynamicObjects;
     public ArrayList pendingDynamicObjectRemovals;
     public int agilityCourseProgress;
+    public int gnomeAgilityCourseProgress;
     public int piratesTreasureBananaCrateCount;
     public int hintedNpcIndex;
     private String profileString1;
@@ -1517,6 +1518,7 @@ extends Entity {
         this.visibleDynamicObjects = new ArrayList();
         this.pendingDynamicObjectRemovals = new ArrayList();
         this.agilityCourseProgress = 0;
+        this.gnomeAgilityCourseProgress = 0;
         this.piratesTreasureBananaCrateCount = 0;
         this.hintedNpcIndex = -1;
         this.profileString1 = "";

@@ -1306,6 +1306,30 @@ public class GameplayHelper {
     /*
      * Enabled aggressive block sorting
      */
+    private static void shoutNearbyGnomeTrainer(Player player, String text) {
+        if (player == null || text == null) {
+            return;
+        }
+        Npc nearestTrainer = null;
+        int nearestDistance = 16;
+        for (Object localNpcObject : player.getLocalNpcs()) {
+            Npc npc = (Npc)localNpcObject;
+            if (npc == null || npc.getDefinition() == null
+                    || !npc.getDefinition().getName().equalsIgnoreCase("Gnome trainer")) {
+                continue;
+            }
+            int distance = GameUtil.getDistance(player.getPosition(), npc.getPosition());
+            if (distance >= nearestDistance) {
+                continue;
+            }
+            nearestTrainer = npc;
+            nearestDistance = distance;
+        }
+        if (nearestTrainer != null) {
+            nearestTrainer.getUpdateState().setForcedText(text);
+        }
+    }
+
     public static boolean handleAgilityObjectAction(Player player, int objectId, int value8, int value32) {
         int value2;
         int value4 = value32;
@@ -1315,52 +1339,73 @@ public class GameplayHelper {
         switch (value6) {
             case 2295: {
                 if (value5 != 2474 || value4 != 3435) break;
-                AgilityObstacleHandler.startAgilityMovement(player2, 7.5, 0, -7, -1, 762, -1, 4, "You walk carefully across the slippery log...", "...You make it safely to the other side.");
-                player2.agilityCourseProgress = 1;
+                AgilityObstacleHandler.startAgilityMovement(player2, 7.5, 0, 3429 - player2.getPosition().getY(), -1, 762, -1, 4, "You walk carefully across the slippery log...", "...You make it safely to the other side.");
+                player2.gnomeAgilityCourseProgress = 1;
                 return true;
             }
             case 2285: {
                 if (!(value5 == 2475 && value4 == 3425 || value5 == 2473 && value4 == 3425) && (value5 != 2471 || value4 != 3425) || player2.getPosition().getY() < 3426) break;
-                AgilityObstacleHandler.startPositionOffsetObstacle(player2, 7.5, 0, -2, 1, 828, 2, "You climb the netting...", null);
-                if (player2.agilityCourseProgress != 1) return true;
-                player2.agilityCourseProgress = 2;
+                GameplayHelper.shoutNearbyGnomeTrainer(player2, "That's it, straight up");
+                value2 = 3424 - player2.getPosition().getY();
+                AgilityObstacleHandler.startPositionOffsetObstacle(player2, 7.5, 0, value2, 1, 828, 2, "You climb the netting...", null);
+                if (player2.gnomeAgilityCourseProgress != 1) return true;
+                player2.gnomeAgilityCourseProgress = 2;
                 return true;
             }
             case 2313: {
                 if (value5 != 2473 || value4 != 3422) break;
-                value2 = 3421 - player2.getPosition().getY();
-                AgilityObstacleHandler.startPositionOffsetObstacle(player2, 5.0, 0, value2, 1, 828, 2, "You climb the tree...", "...To the platform above.");
-                if (player2.agilityCourseProgress != 2) return true;
-                player2.agilityCourseProgress = 3;
+                int branchUpDeltaX = 2473 - player2.getPosition().getX();
+                value2 = 3420 - player2.getPosition().getY();
+                AgilityObstacleHandler.startPositionOffsetObstacle(player2, 5.0, branchUpDeltaX, value2, 1, 828, 2, "You climb the tree...", "...To the platform above.");
+                if (player2.gnomeAgilityCourseProgress != 2) return true;
+                player2.gnomeAgilityCourseProgress = 3;
                 return true;
             }
             case 2312: {
                 if (value5 != 2478 || value4 != 3420) break;
-                AgilityObstacleHandler.startAgilityMovement(player2, 7.5, 6, 0, -1, 762, -1, 3, "You carefully cross the tightrope.", null);
-                if (player2.agilityCourseProgress != 3) return true;
-                player2.agilityCourseProgress = 4;
+                GameplayHelper.shoutNearbyGnomeTrainer(player2, "Come on scaredy cat get across that rope");
+                int ropeDeltaX = 2483 - player2.getPosition().getX();
+                int ropeDeltaY = 3420 - player2.getPosition().getY();
+                AgilityObstacleHandler.startAgilityMovement(player2, 7.5, ropeDeltaX, ropeDeltaY, -1, 762, -1, 3, "You carefully cross the tightrope.", null);
+                if (player2.gnomeAgilityCourseProgress != 3) return true;
+                player2.gnomeAgilityCourseProgress = 4;
                 return true;
             }
             case 2314: {
                 if (value5 != 2486 || value4 != 3419) break;
-                AgilityObstacleHandler.startPositionOffsetObstacle(player2, 5.0, 0, 0, -2, 828, 2, "You climb down the tree...", "You land on the ground.");
-                if (player2.agilityCourseProgress != 4) return true;
-                player2.agilityCourseProgress = 5;
+                GameplayHelper.shoutNearbyGnomeTrainer(player2, "My granny can move faster than you");
+                int branchDownDeltaX = 2486 - player2.getPosition().getX();
+                int branchDownDeltaY = 3420 - player2.getPosition().getY();
+                AgilityObstacleHandler.startPositionOffsetObstacle(player2, 5.0, branchDownDeltaX, branchDownDeltaY, -2, 828, 2, "You climb down the tree...", "You land on the ground.");
+                if (player2.gnomeAgilityCourseProgress != 4) return true;
+                player2.gnomeAgilityCourseProgress = 5;
+                return true;
+            }
+            case 2315: {
+                if (value5 != 2487 || (value4 != 3420 && value4 != 3418)) break;
+                GameplayHelper.shoutNearbyGnomeTrainer(player2, "My granny can move faster than you");
+                int branchDownDeltaX = 2486 - player2.getPosition().getX();
+                int branchDownDeltaY = 3420 - player2.getPosition().getY();
+                AgilityObstacleHandler.startPositionOffsetObstacle(player2, 5.0, branchDownDeltaX, branchDownDeltaY, -2, 828, 2, "You climb down the tree...", "You land on the ground.");
+                if (player2.gnomeAgilityCourseProgress != 4) return true;
+                player2.gnomeAgilityCourseProgress = 5;
                 return true;
             }
             case 2286: {
                 if (!(value5 == 2483 && value4 == 3426 || value5 == 2485 && value4 == 3426) && (value5 != 2487 || value4 != 3426) || player2.getPosition().getY() > 3425) break;
-                AgilityObstacleHandler.startPositionOffsetObstacle(player2, 7.5, 0, 2, 0, 828, 2, "You climb the netting...", null);
-                if (player2.agilityCourseProgress != 5) return true;
-                player2.agilityCourseProgress = 6;
+                GameplayHelper.shoutNearbyGnomeTrainer(player2, "move it, move it, move it!");
+                value2 = 3427 - player2.getPosition().getY();
+                AgilityObstacleHandler.startPositionOffsetObstacle(player2, 7.5, 0, value2, 0, 828, 2, "You climb the netting...", null);
+                if (player2.gnomeAgilityCourseProgress != 5) return true;
+                player2.gnomeAgilityCourseProgress = 6;
                 return true;
             }
             case 154: 
             case 4058: {
                 if ((value5 != 2484 || value4 != 3431) && (value5 != 2487 || value4 != 3431)) break;
-                double value7 = player2.agilityCourseProgress == 6 ? 46.5 : 7.5;
-                AgilityObstacleHandler.startAgilityMovement(player2, value7, 0, 7, 746, 844, 748, 7, null, null);
-                player2.agilityCourseProgress = 0;
+                double value7 = player2.gnomeAgilityCourseProgress == 6 ? 46.5 : 7.5;
+                AgilityObstacleHandler.startGnomePipeTraversal(player2, value7, value5, 3437);
+                player2.gnomeAgilityCourseProgress = 0;
                 return true;
             }
         }
@@ -1568,6 +1613,40 @@ public class GameplayHelper {
                 player2.getUpdateState().setAnimation(754);
                 player2.getSkillManager().addExperience(16, 10.0);
                 AgilityObstacleHandler.startForcedMovement(player2, 0, player2.getPosition().getY() < 4403 ? 2 : -2, 1, 80, 2, true, 0, 0);
+                return true;
+            }
+            case 9300: {
+                if (player2.getSkillManager().getCurrentLevels()[16] < 13) {
+                    player2.getDialogueManager().showOneLineStatement("You need a agility level of 13 to do that.");
+                    return true;
+                }
+
+                int plane = player2.getPosition().getPlane();
+                int orientation = SkillActionHelper.getObjectOrientation(
+                        value6, value5, value4, plane);
+                int deltaX = 0;
+                int deltaY = 0;
+
+                // Type-0 wall orientations block the edge immediately west,
+                // north, east or south of the object's map tile respectively.
+                // Move one tile across that blocked edge from whichever side
+                // the player approached the broken fence.
+                if (orientation == 0) {
+                    deltaX = player2.getPosition().getX() < value5 ? 1 : -1;
+                } else if (orientation == 1) {
+                    deltaY = player2.getPosition().getY() <= value4 ? 1 : -1;
+                } else if (orientation == 2) {
+                    deltaX = player2.getPosition().getX() <= value5 ? 1 : -1;
+                } else if (orientation == 3) {
+                    deltaY = player2.getPosition().getY() < value4 ? 1 : -1;
+                } else {
+                    return false;
+                }
+
+                player2.getUpdateState().setFacePosition(
+                        new Position(value5, value4, plane));
+                player2.getUpdateState().setAnimation(839);
+                player2.packetSender.queueRelativeMovementStep(deltaX, deltaY, true);
                 return true;
             }
             case 9302: {

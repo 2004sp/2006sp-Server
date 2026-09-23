@@ -15,6 +15,7 @@ import com.rs2.model.music.MusicManager;
 import com.rs2.model.npc.Npc;
 import com.rs2.model.objects.LoadedWorldObject;
 import com.rs2.model.objects.ObjectDefinition;
+import com.rs2.model.objects.StileObject;
 import com.rs2.model.objects.WorldObjectLookup;
 import com.rs2.model.player.Player;
 import com.rs2.net.packet.PacketSender;
@@ -293,12 +294,7 @@ public final class MovementQueue {
         }
 
         ObjectDefinition definition = ObjectDefinition.forId(objectId);
-        boolean isStile = objectId == 7527
-                || objectId == 12982
-                || definition != null
-                && definition.getName() != null
-                && definition.getName().toLowerCase().contains("stile");
-        if (!isStile) {
+        if (!StileObject.isStile(objectId)) {
             return false;
         }
 
@@ -311,8 +307,7 @@ public final class MovementQueue {
         int objectY = player.getInteractionTargetY();
         LoadedWorldObject stile = WorldObjectLookup.findObjectByIdAt(
                 objectId, objectX, objectY, plane);
-        if (stile == null
-                || stile.getType() != 10 && !(objectId == 12982 && stile.getType() == 0)) {
+        if (stile == null || !StileObject.isStile(stile.getWorldObject())) {
             return false;
         }
 

@@ -147,7 +147,7 @@ public class EntityUpdateState {
 
     public void setAnimation(int animationId, int value2) {
         this.animationId = animationId;
-        this.animationDelay = 0;
+        this.animationDelay = value2;
         this.animationUpdateRequired = true;
         this.updateRequired = true;
     }

@@ -2,6 +2,7 @@ package com.rs2.model.interaction;
 
 import com.rs2.model.Position;
 import com.rs2.model.objects.ObjectDefinition;
+import com.rs2.model.objects.StileObject;
 import com.rs2.model.objects.WorldObject;
 import com.rs2.model.player.Player;
 import com.rs2.model.skill.SkillActionHelper;
@@ -18,7 +19,6 @@ public final class StileInteractionTask extends TickTask {
     private final int objectPlane;
 
     private boolean routeSelected;
-    private boolean entryStepQueued;
     private int approachX;
     private int approachY;
     private int entryX;
@@ -51,8 +51,7 @@ public final class StileInteractionTask extends TickTask {
 
         WorldObject worldObject = SkillActionHelper.findWorldObjectById(
                 this.objectId, this.objectX, this.objectY, this.objectPlane);
-        if (worldObject == null
-                || worldObject.getType() != 10 && !(this.objectId == 12982 && worldObject.getType() == 0)) {
+        if (!StileObject.isStile(worldObject)) {
             this.stop();
             return;
         }
@@ -71,39 +70,49 @@ public final class StileInteractionTask extends TickTask {
                         this.approachX, this.approachY,
                         false, 0, 0)) {
                     this.stop();
-                    return;
                 }
+                return;
             }
-
-            // Keep the final step onto the stile in the same movement route.
-            // This lets the client visibly walk/run onto the exact stile tile
-            // instead of clearing the route beside it and starting a new step.
-            this.player.getMovementQueue().addStep(new Position(
-                    this.entryX, this.entryY, this.objectPlane));
-            this.entryStepQueued = true;
-            return;
         }
 
-        boolean continuingIntoClimb = this.entryStepQueued && isAtEntry();
-        if (this.player.isMoving() && !continuingIntoClimb) {
+        boolean continuingOntoStile = isAtApproach();
+        if (this.player.isMoving() && !continuingOntoStile) {
             return;
         }
-        if (this.player.hasMovedWithinTicks(1) && !continuingIntoClimb) {
+        if (this.player.hasMovedWithinTicks(1) && !continuingOntoStile) {
+            return;
+        }
+        if (!isAtApproach()) {
+            this.stop();
             return;
         }
 
-        if (!isAtEntry()) {
-            return;
-        }
+        // Send the final normal walk step and the delayed climb in the same
+        // player update. The client gets one server tick to finish stepping onto
+        // the stile, then animation 839 and forced movement begin together.
+        this.player.getMovementQueue().clear();
+        this.player.getMovementQueue().addStep(new Position(
+                this.entryX, this.entryY, this.objectPlane));
+        this.player.getMovementQueue().removeFirstStep();
 
         int deltaX = this.destinationX - this.entryX;
         int deltaY = this.destinationY - this.entryY;
+        int handoffDelay = 30;
+        // Animation 839's visible climb lasts about one more game-tick pair
+        // after the handoff. End the forced movement on the same boundary so
+        // the player is unlocked as soon as the animation visually finishes.
+        int forcedMovementEndDelay = 90;
 
         this.player.getUpdateState().setFacePosition(new Position(
                 this.objectX, this.objectY, this.objectPlane));
-        this.player.getUpdateState().setAnimation(839);
-        AgilityObstacleHandler.startForcedMovement(
-                this.player, deltaX, deltaY, 1, 80, 2, true, 0, 0);
+        AgilityObstacleHandler.startForcedMovementAfterQueuedStep(
+                this.player,
+                deltaX, deltaY,
+                handoffDelay, forcedMovementEndDelay,
+                4,
+                StileObject.getAgilityExperience(this.objectId),
+                839, handoffDelay,
+                this.destinationX, this.destinationY, this.objectPlane);
         this.player.setInteractionTargetId(-1);
         this.stop();
     }
@@ -237,12 +246,6 @@ public final class StileInteractionTask extends TickTask {
     private boolean isAtApproach() {
         return this.player.getPosition().getX() == this.approachX
                 && this.player.getPosition().getY() == this.approachY
-                && this.player.getPosition().getPlane() == this.objectPlane;
-    }
-
-    private boolean isAtEntry() {
-        return this.player.getPosition().getX() == this.entryX
-                && this.player.getPosition().getY() == this.entryY
                 && this.player.getPosition().getPlane() == this.objectPlane;
     }
 }

@@ -375,6 +375,32 @@ public final class ObjectManager {
                 player.interactionApproachY = 3436;
                 return;
             }
+            case 2285: {
+                player.interactionApproachX = value2;
+                player.interactionApproachY = 3426;
+                return;
+            }
+            case 2313: {
+                player.interactionApproachX = 2473;
+                player.interactionApproachY = 3423;
+                return;
+            }
+            case 2312: {
+                player.interactionApproachX = 2477;
+                player.interactionApproachY = 3420;
+                return;
+            }
+            case 2314: 
+            case 2315: {
+                player.interactionApproachX = 2486;
+                player.interactionApproachY = 3420;
+                return;
+            }
+            case 2286: {
+                player.interactionApproachX = value2;
+                player.interactionApproachY = 3425;
+                return;
+            }
             case 154: {
                 player.interactionApproachX = 2484;
                 player.interactionApproachY = 3430;

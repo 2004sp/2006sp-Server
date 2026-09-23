@@ -1,6 +1,7 @@
 package com.rs2.model.skill.agility;
 
 import com.rs2.ServerSettings;
+import com.rs2.model.Position;
 import com.rs2.model.objects.ObjectRegionKey;
 import com.rs2.model.player.Player;
 import com.rs2.model.skill.agility.AgilityMovementFinishTask;
@@ -55,6 +56,72 @@ public class AgilityObstacleHandler {
         CycleEventHandler.getInstance().schedule(player, new AgilityMovementFinishTask(player, value62, true, position, value8, position2), value52 + 1);
     }
 
+    public static void startForcedMovementAfterQueuedStep(Player player,
+                                                          int deltaX, int deltaY,
+                                                          int startDelay, int endDelay,
+                                                          int finishDelayTicks,
+                                                          int experience,
+                                                          int animationId, int animationDelay,
+                                                          int destinationX, int destinationY,
+                                                          int destinationPlane) {
+        player.setActionLocked(true);
+
+        int direction = 2;
+        if (deltaX > 0) {
+            direction = 1;
+        } else if (deltaX < 0) {
+            direction = 3;
+        } else if (deltaY > 0) {
+            direction = 0;
+        }
+
+        player.forcedMovementActive = true;
+        if (animationId >= 0) {
+            player.getUpdateState().setAnimation(animationId, animationDelay);
+        }
+        player.getUpdateState().setForcedMovement(
+                player, deltaX, deltaY, startDelay, endDelay, direction);
+        CycleEventHandler.getInstance().schedule(player,
+                new AgilityMovementFinishTask(player, experience, true,
+                        destinationX, destinationY, destinationPlane, true),
+                finishDelayTicks);
+    }
+
+    public static void startGnomePipeTraversal(Player player, double experience,
+                                                int destinationX, int destinationY) {
+        if (!ServerSettings.agilityEnabled) {
+            player.packetSender.sendGameMessage("This skill is currently disabled.");
+            return;
+        }
+
+        boolean restoreRunning = player.getMovementQueue().isRunning();
+        if (restoreRunning) {
+            player.getMovementQueue().setRunning(false);
+        }
+
+        int plane = player.getPosition().getPlane();
+        int entranceY = destinationY - 7;
+        Position entrance = new Position(destinationX, entranceY, plane);
+
+        player.setActionLocked(true);
+        player.forcedMovementActive = true;
+        player.getMovementQueue().clear();
+        player.getUpdateState().setFacePosition(entrance);
+
+        if (player.getPosition().getX() != entrance.getX()
+                || player.getPosition().getY() != entrance.getY()) {
+            player.getMovementQueue().addStep(entrance);
+            player.getMovementQueue().removeFirstStep();
+        }
+
+        CycleEventHandler.getInstance().schedule(player,
+                new AgilityPipeTraversalTask(player,
+                        entrance.getX(), entrance.getY(),
+                        destinationX, destinationY, plane,
+                        experience, restoreRunning),
+                1);
+    }
+
     public static void startQueuedObstacleMovement(Player player, int value8, int value22, int value32, int value42, int value52, int value62, int value72) {
         if (!ServerSettings.agilityEnabled) {
             player.packetSender.sendGameMessage("This skill is currently disabled.");
@@ -64,6 +131,10 @@ public class AgilityObstacleHandler {
     }
 
     public static void startAgilityMovement(Player player, double value7, int value8, int value23, int value32, int value42, int value52, int value62, String text3, String text22) {
+        startAgilityMovement(player, value7, value8, value23, value32, value42, value52, value62, text3, text22, 2);
+    }
+
+    public static void startAgilityMovement(Player player, double value7, int value8, int value23, int value32, int value42, int value52, int value62, String text3, String text22, int initialAnimationDelayTicks) {
         if (!ServerSettings.agilityEnabled) {
             Player player2 = player;
             player2.packetSender.sendGameMessage("This skill is currently disabled.");
@@ -75,7 +146,7 @@ public class AgilityObstacleHandler {
         player.setActionLocked(true);
         Player player3 = player;
         player3.packetSender.sendGameMessage(text3);
-        CycleEventHandler.getInstance().schedule(player, new AgilityObstacleCompletionTask(player, value8, value23, value42, value52, value62, value7, text22), value32 > 0 ? 2 : 0);
+        CycleEventHandler.getInstance().schedule(player, new AgilityObstacleCompletionTask(player, value8, value23, value42, value52, value62, value7, text22), value32 > 0 ? initialAnimationDelayTicks : 0);
     }
 
     public static void startPositionOffsetObstacle(Player player, double value6, int value7, int value23, int value32, int value42, int value52, String text3, String text22) {
