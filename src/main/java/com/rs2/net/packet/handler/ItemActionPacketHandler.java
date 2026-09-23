@@ -88,7 +88,7 @@ import com.rs2.util.GameUtil;
 public final class ItemActionPacketHandler
 implements PacketHandler {
     private static boolean isItemActionInterfaceOpen(Player player, int interfaceId, InterfaceDefinition interfaceDefinition) {
-        return player.isInterfaceOpen(interfaceDefinition)
+        return player.isInterfaceIdOpen(interfaceId)
                 || player.getOpenInterfaceId() == 5292
                 && BankManager.isBankItemContainerInterfaceId(interfaceId);
     }
