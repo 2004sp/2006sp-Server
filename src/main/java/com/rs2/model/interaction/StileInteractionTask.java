@@ -44,15 +44,16 @@ public final class StileInteractionTask extends TickTask {
 
         WorldObject worldObject = SkillActionHelper.findWorldObjectById(
                 this.objectId, this.objectX, this.objectY, this.objectPlane);
-        if (worldObject == null) {
+        if (worldObject == null || worldObject.getType() != 10) {
             this.stop();
             return;
         }
 
         if (!this.approachQueued) {
-            Position approach = getApproachPosition(worldObject);
-            this.approachX = approach.getX();
-            this.approachY = approach.getY();
+            this.approachX = this.player.getPosition().getX() < this.objectX
+                    ? this.objectX - 1
+                    : this.objectX + 1;
+            this.approachY = this.objectY;
             this.approachQueued = true;
 
             this.player.getMovementQueue().clear();
@@ -74,31 +75,13 @@ public final class StileInteractionTask extends TickTask {
             return;
         }
 
-        int deltaX = 0;
-        int deltaY = 0;
-        switch (worldObject.getOrientation() & 3) {
-            case 0:
-                deltaX = this.player.getPosition().getX() < this.objectX ? 1 : -1;
-                break;
-            case 1:
-                deltaY = this.player.getPosition().getY() > this.objectY ? -1 : 1;
-                break;
-            case 2:
-                deltaX = this.player.getPosition().getX() > this.objectX ? -1 : 1;
-                break;
-            default:
-                deltaY = this.player.getPosition().getY() < this.objectY ? 1 : -1;
-                break;
-        }
-
-        Position destination = new Position(
-                this.player.getPosition().getX() + deltaX,
-                this.player.getPosition().getY() + deltaY,
-                this.objectPlane);
-        this.player.getUpdateState().setFacePosition(destination);
+        int deltaX = this.approachX < this.objectX ? 2 : -2;
+        Position stilePosition = new Position(
+                this.objectX, this.objectY, this.objectPlane);
+        this.player.getUpdateState().setFacePosition(stilePosition);
         this.player.getUpdateState().setAnimation(839);
         AgilityObstacleHandler.startForcedMovement(
-                this.player, deltaX, deltaY, 1, 80, 2, true, 0, 0);
+                this.player, deltaX, 0, 1, 80, 2, true, 0, 0);
         this.stop();
     }
 
@@ -106,30 +89,5 @@ public final class StileInteractionTask extends TickTask {
         return this.player.getPosition().getX() == this.approachX
                 && this.player.getPosition().getY() == this.approachY
                 && this.player.getPosition().getPlane() == this.objectPlane;
-    }
-
-    private Position getApproachPosition(WorldObject worldObject) {
-        int playerX = this.player.getPosition().getX();
-        int playerY = this.player.getPosition().getY();
-        switch (worldObject.getOrientation() & 3) {
-            case 0:
-                return new Position(playerX < this.objectX
-                        ? this.objectX - 1 : this.objectX,
-                        this.objectY, this.objectPlane);
-            case 1:
-                return new Position(this.objectX,
-                        playerY > this.objectY
-                                ? this.objectY + 1 : this.objectY,
-                        this.objectPlane);
-            case 2:
-                return new Position(playerX > this.objectX
-                        ? this.objectX + 1 : this.objectX,
-                        this.objectY, this.objectPlane);
-            default:
-                return new Position(this.objectX,
-                        playerY < this.objectY
-                                ? this.objectY - 1 : this.objectY,
-                        this.objectPlane);
-        }
     }
 }
