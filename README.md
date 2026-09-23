@@ -35,7 +35,7 @@ The revision 377 cache and the server's content data are also included in the
 From File Explorer, double-click `Build.bat`. From Command Prompt, run:
 
 ```bat
-cd /d "C:\Users\Callum\Downloads\New folder\2006sp-Server"
+cd /d "location of server"
 Build.bat
 ```
 
@@ -54,7 +54,7 @@ running the server.
 Start the compiled server control panel with:
 
 ```bat
-cd /d "C:\Users\Callum\Downloads\New folder\2006sp-Server"
+cd /d "location of server"
 Run.bat
 ```
 
