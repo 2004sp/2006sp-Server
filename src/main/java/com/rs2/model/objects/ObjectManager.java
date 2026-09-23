@@ -291,6 +291,11 @@ public final class ObjectManager {
         player.interactionObjectSizeX = 0;
         player.interactionApproachY = 0;
         player.interactionApproachX = 0;
+        player.interactionOffsetX = 0;
+        player.interactionOffsetY = 0;
+        player.interactionExitX = 0;
+        player.interactionExitY = 0;
+        player.interactionExitPlane = 0;
         switch (objectId) {
             case 4493: 
             case 4494: 

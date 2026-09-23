@@ -76,7 +76,7 @@ public final class StileInteractionTask extends TickTask {
             }
         }
 
-        if (this.player.isMoving()) {
+        if (this.player.isMoving() || this.player.hasMovedWithinTicks(1)) {
             return;
         }
 

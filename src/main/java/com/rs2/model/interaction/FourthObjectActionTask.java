@@ -34,7 +34,9 @@ extends TickTask {
             this.stop();
             return;
         }
-        if (this.player.isMoving() || this.player.isStunned()) {
+        if (this.player.isMoving()
+                || this.player.hasMovedWithinTicks(1)
+                || this.player.isStunned()) {
             return;
         }
         Object worldObjectById = SkillActionHelper.findWorldObjectById(this.objectId, this.objectX, this.objectY, this.objectPlane);

@@ -208,6 +208,20 @@ public final class InteractionDispatcher {
             return true;
         }
 
+        boolean exactApproachConfigured =
+                player.getInteractionTargetId() == worldObject.getObjectId()
+                && player.getInteractionTargetX() == worldObject.getPosition().getX()
+                && player.getInteractionTargetY() == worldObject.getPosition().getY()
+                && player.getInteractionTargetPlane() == worldObject.getPosition().getPlane()
+                && (player.interactionApproachX != 0
+                    || player.interactionApproachY != 0);
+        if (exactApproachConfigured) {
+            return player.getPosition().getPlane()
+                        == worldObject.getPosition().getPlane()
+                    && player.getPosition().getX() == player.interactionApproachX
+                    && player.getPosition().getY() == player.interactionApproachY;
+        }
+
         ObjectDefinition definition = ObjectDefinition.forId(worldObject.getObjectId());
         if (definition == null) {
             return false;

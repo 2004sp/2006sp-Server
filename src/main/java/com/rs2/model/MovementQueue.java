@@ -117,6 +117,7 @@ public final class MovementQueue {
                             ((Npc)entity).lastStepDeltaY = value2;
                         }
                         this.entity.getPosition().translate(value3, value2);
+                        this.entity.recordMovementTick();
                         this.entity.setWalkDirection(((MovementStep)value4).getDirection());
                         this.stepHistory.add(value4);
                     }
@@ -153,6 +154,7 @@ public final class MovementQueue {
                 }
             }
             this.entity.getPosition().translate(value3, value2);
+            this.entity.recordMovementTick();
             this.entity.setRunDirection(movementStep.getDirection());
             this.stepHistory.add(movementStep);
         }
