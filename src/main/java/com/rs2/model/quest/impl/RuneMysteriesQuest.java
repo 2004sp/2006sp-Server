@@ -124,6 +124,25 @@ extends QuestScript {
                 return false;
             }
         }
+        if (npcId == 741 && value42 == 2 && !player.ownsItem(1438)) {
+            if (value2 == 1) {
+                player.getDialogueManager().showPlayerOneLineDialogue("I lost the air talisman you gave me.", 591);
+                return true;
+            }
+            if (value2 == 2) {
+                player.getDialogueManager().showNpcTwoLineDialogue("Fortunately, I have another one.", "Try not to lose it this time.", 591);
+                return true;
+            }
+            if (value2 == 3) {
+                player.getDialogueManager().showOneLineStatement("The Duke hands you an @dbl@air talisman.");
+                return true;
+            }
+            if (value2 == 4) {
+                player.getInventoryManager().addOrDropItem(new ItemStack(1438, 1));
+                player.getDialogueManager().finishDialogue();
+                return true;
+            }
+        }
         if (npcId == 300) {
             if (value42 == 2) {
                 if (!player.getInventoryManager().containsItem(1438)) {
