@@ -75,7 +75,7 @@ public final class StileInteractionTask extends TickTask {
             return;
         }
 
-        int deltaX = this.approachX < this.objectX ? 2 : -2;
+        int deltaX = this.approachX <= this.objectX ? 1 : -1;
         Position stilePosition = new Position(
                 this.objectX, this.objectY, this.objectPlane);
         this.player.getUpdateState().setFacePosition(stilePosition);
@@ -86,7 +86,7 @@ public final class StileInteractionTask extends TickTask {
     }
 
     private boolean selectApproach() {
-        int westX = this.objectX - 1;
+        int westX = this.objectX;
         int eastX = this.objectX + 1;
         int playerX = this.player.getPosition().getX();
         int playerY = this.player.getPosition().getY();
