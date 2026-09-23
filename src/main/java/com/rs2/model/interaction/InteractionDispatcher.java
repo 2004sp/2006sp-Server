@@ -58,7 +58,8 @@ public final class InteractionDispatcher {
                 if (GameplayTrace.enabled()) {
                     GameplayTrace.log("schedule first-object task player=" + GameplayTrace.describe(player) + " seq=" + value2 + " objectId=" + interactionTargetId + " name=" + value + " x=" + interactionTargetX + " y=" + interactionTargetY + " plane=" + interactionTargetPlane);
                 }
-                if (interactionTargetId == 7527 || ((String)value).contains("stile")) {
+                if (interactionTargetId == 7527 || interactionTargetId == 12982
+                        || ((String)value).contains("stile")) {
                     World.scheduleTickTask(new StileInteractionTask(player, value2, interactionTargetId, interactionTargetX, interactionTargetY, interactionTargetPlane));
                 } else {
                     World.scheduleTickTask(new FirstObjectActionTask(1, true, player, value2, interactionTargetId, interactionTargetX, interactionTargetY, interactionTargetPlane, (String)value));

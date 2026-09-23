@@ -294,6 +294,7 @@ public final class MovementQueue {
 
         ObjectDefinition definition = ObjectDefinition.forId(objectId);
         boolean isStile = objectId == 7527
+                || objectId == 12982
                 || definition != null
                 && definition.getName() != null
                 && definition.getName().toLowerCase().contains("stile");
@@ -310,7 +311,8 @@ public final class MovementQueue {
         int objectY = player.getInteractionTargetY();
         LoadedWorldObject stile = WorldObjectLookup.findObjectByIdAt(
                 objectId, objectX, objectY, plane);
-        if (stile == null || stile.getType() != 10) {
+        if (stile == null
+                || stile.getType() != 10 && !(objectId == 12982 && stile.getType() == 0)) {
             return false;
         }
 

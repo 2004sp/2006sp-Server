@@ -19,7 +19,6 @@ public final class StileInteractionTask extends TickTask {
 
     private boolean routeSelected;
     private boolean entryStepQueued;
-    private boolean settledAtEntry;
     private int approachX;
     private int approachY;
     private int entryX;
@@ -52,7 +51,8 @@ public final class StileInteractionTask extends TickTask {
 
         WorldObject worldObject = SkillActionHelper.findWorldObjectById(
                 this.objectId, this.objectX, this.objectY, this.objectPlane);
-        if (worldObject == null || worldObject.getType() != 10) {
+        if (worldObject == null
+                || worldObject.getType() != 10 && !(this.objectId == 12982 && worldObject.getType() == 0)) {
             this.stop();
             return;
         }
@@ -71,37 +71,28 @@ public final class StileInteractionTask extends TickTask {
                         this.approachX, this.approachY,
                         false, 0, 0)) {
                     this.stop();
+                    return;
                 }
-                return;
-            }
-        }
-
-        if (this.player.isMoving() || this.player.hasMovedWithinTicks(1)) {
-            return;
-        }
-
-        if (!this.entryStepQueued) {
-            if (!isAtApproach()) {
-                this.stop();
-                return;
             }
 
-            this.player.getMovementQueue().clear();
+            // Keep the final step onto the stile in the same movement route.
+            // This lets the client visibly walk/run onto the exact stile tile
+            // instead of clearing the route beside it and starting a new step.
             this.player.getMovementQueue().addStep(new Position(
                     this.entryX, this.entryY, this.objectPlane));
             this.entryStepQueued = true;
             return;
         }
 
-        if (!isAtEntry()) {
+        boolean continuingIntoClimb = this.entryStepQueued && isAtEntry();
+        if (this.player.isMoving() && !continuingIntoClimb) {
+            return;
+        }
+        if (this.player.hasMovedWithinTicks(1) && !continuingIntoClimb) {
             return;
         }
 
-        // The entry tile is part of the stile's blocked footprint. Let the
-        // normal one-tile walk finish visually before beginning the climb.
-        if (!this.settledAtEntry) {
-            this.player.getMovementQueue().clear();
-            this.settledAtEntry = true;
+        if (!isAtEntry()) {
             return;
         }
 
@@ -110,8 +101,9 @@ public final class StileInteractionTask extends TickTask {
 
         this.player.getUpdateState().setFacePosition(new Position(
                 this.objectX, this.objectY, this.objectPlane));
+        this.player.getUpdateState().setAnimation(839);
         AgilityObstacleHandler.startForcedMovement(
-                this.player, deltaX, deltaY, 1, 80, 2, true, 0, 0, 839);
+                this.player, deltaX, deltaY, 1, 80, 2, true, 0, 0);
         this.player.setInteractionTargetId(-1);
         this.stop();
     }
