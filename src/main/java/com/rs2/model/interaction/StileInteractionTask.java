@@ -50,10 +50,10 @@ public final class StileInteractionTask extends TickTask {
         }
 
         if (!this.approachQueued) {
-            this.approachX = this.player.getPosition().getX() < this.objectX
-                    ? this.objectX - 1
-                    : this.objectX + 1;
-            this.approachY = this.objectY;
+            if (!selectApproach()) {
+                this.stop();
+                return;
+            }
             this.approachQueued = true;
 
             this.player.getMovementQueue().clear();
@@ -83,6 +83,41 @@ public final class StileInteractionTask extends TickTask {
         AgilityObstacleHandler.startForcedMovement(
                 this.player, deltaX, 0, 1, 80, 2, true, 0, 0);
         this.stop();
+    }
+
+    private boolean selectApproach() {
+        int westX = this.objectX - 1;
+        int eastX = this.objectX + 1;
+        int playerX = this.player.getPosition().getX();
+        int playerY = this.player.getPosition().getY();
+
+        if (playerY == this.objectY) {
+            if (playerX == westX) {
+                setApproach(westX);
+                return true;
+            }
+            if (playerX == eastX) {
+                setApproach(eastX);
+                return true;
+            }
+        }
+
+        int preferredX = playerX <= this.objectX ? westX : eastX;
+        int fallbackX = preferredX == westX ? eastX : westX;
+        if (PathFinder.isReachable(this.player, preferredX, this.objectY)) {
+            setApproach(preferredX);
+            return true;
+        }
+        if (PathFinder.isReachable(this.player, fallbackX, this.objectY)) {
+            setApproach(fallbackX);
+            return true;
+        }
+        return false;
+    }
+
+    private void setApproach(int x) {
+        this.approachX = x;
+        this.approachY = this.objectY;
     }
 
     private boolean isAtApproach() {
