@@ -29,6 +29,7 @@ import com.rs2.model.skill.magic.MagicSpellAction;
 import com.rs2.model.skill.magic.SpellDefinition;
 import com.rs2.model.skill.smithing.SmeltingHandler;
 import com.rs2.model.travel.TravelManager;
+import com.rs2.model.travel.WorldTeleportMenu;
 import com.rs2.model.travel.canoe.CanoeTravelManager;
 import com.rs2.net.packet.IncomingPacket;
 import com.rs2.net.packet.PacketHandler;
@@ -70,6 +71,7 @@ implements PacketHandler {
             }
             return;
         }
+        if (WorldTeleportMenu.handleButton(player, buttonId)) return;
         if (ServerSettings.debugModeEnabled) {
             System.out.println("button id: " + buttonId);
         }

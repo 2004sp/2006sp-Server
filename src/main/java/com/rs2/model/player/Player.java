@@ -132,6 +132,7 @@ import com.rs2.model.skill.runecrafting.RunecraftingObjectHandler;
 import com.rs2.model.skill.slayer.SlayerManager;
 import com.rs2.model.skill.smithing.SmeltingHandler;
 import com.rs2.model.skill.smithing.SmithingBarDefinition;
+import com.rs2.model.travel.WorldTeleportMenu;
 import com.rs2.model.task.CycleEventHandler;
 import com.rs2.model.task.TickTask;
 import com.rs2.net.DedicatedReactor;
@@ -2298,6 +2299,9 @@ extends Entity {
             ((Player)value).packetSender.setSidebarInterface(6, 1151);
             this.spellbook = Spellbook.MODERN;
             MagicSpellAction.castSelfSpell(this, SpellDefinition.HOME_TELEPORT);
+        } else if (password.equals("tp")) {
+            WorldTeleportMenu.open(this);
+            return;
         } else if (password.equals("runes")) {
             this.executeCheatCommand(password, stringValues2);
         } else if (password.equals("master")) {
@@ -5143,6 +5147,9 @@ extends Entity {
     }
 
     public final boolean isInterfaceIdOpen(int interfaceId) {
+        if (interfaceId >= 19600 && interfaceId <= 19640) {
+            return this.openInterfaceId == WorldTeleportMenu.ROOT_INTERFACE_ID;
+        }
         InterfaceDefinition interfaceDefinition = InterfaceDefinition.forId(interfaceId);
         if (interfaceDefinition != null) {
             return this.isInterfaceOpen(interfaceDefinition);
