@@ -44,7 +44,8 @@ public final class PacketSender {
         return interfaceId >= 0
                 && (interfaceId < InterfaceDefinition.interfaceCount
                 || interfaceId >= 18890 && interfaceId <= 19102
-                || interfaceId >= 19508 && interfaceId <= 19540);
+                || interfaceId >= 19508 && interfaceId <= 19540
+                || interfaceId >= 19600 && interfaceId <= 19640);
     }
 
     public PacketSender(Player player) {
