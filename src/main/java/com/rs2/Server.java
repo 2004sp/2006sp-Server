@@ -805,7 +805,7 @@ implements Runnable {
     }
 
     public static void setElapsedMinutes(long elapsedMinutes) {
-        elapsedMinutes = elapsedMinutes;
+        Server.elapsedMinutes = elapsedMinutes;
         try {
             BufferedWriter bufferedWriter = new BufferedWriter(new FileWriter("./data/minutes.log"));
             bufferedWriter.write(Long.toString(elapsedMinutes));
