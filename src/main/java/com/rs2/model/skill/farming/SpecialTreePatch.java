@@ -39,6 +39,10 @@ public enum SpecialTreePatch {
         return this.index;
     }
 
+    public final Position[] getInteractionBounds() {
+        return this.bounds;
+    }
+
     public final int getObjectId() {
         return this.objectId;
     }

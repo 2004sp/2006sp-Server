@@ -14,6 +14,7 @@ import com.rs2.model.objects.ObjectManager;
 import com.rs2.model.objects.WorldObject;
 import com.rs2.model.player.Player;
 import com.rs2.model.skill.SkillActionHelper;
+import com.rs2.model.skill.farming.FarmingPatchUtils;
 import com.rs2.net.packet.ByteOrder;
 import com.rs2.net.packet.ByteTransform;
 import com.rs2.net.packet.IncomingPacket;
@@ -282,6 +283,21 @@ implements PacketHandler {
                         + " steps=" + player.getMovementQueue().getSteps().size());
             }
             return foundPath;
+        }
+
+        Position[] farmingPatchBounds = FarmingPatchUtils.getInteractionBounds(
+                worldObject.getPosition());
+        if (farmingPatchBounds != null) {
+            Position southWest = farmingPatchBounds[0];
+            Position northEast = farmingPatchBounds[1];
+            return PathFinder.findPathToObject(
+                    player,
+                    southWest.getX(), southWest.getY(),
+                    northEast.getX() - southWest.getX() + 1,
+                    northEast.getY() - southWest.getY() + 1,
+                    10, 0,
+                    0,
+                    false);
         }
 
         ObjectDefinition definition = ObjectDefinition.forId(objectId);

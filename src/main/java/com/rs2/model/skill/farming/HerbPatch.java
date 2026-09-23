@@ -35,5 +35,9 @@ public enum HerbPatch {
     public final int getIndex() {
         return this.index;
     }
+
+    public final Position[] getInteractionBounds() {
+        return this.bounds;
+    }
 }
 

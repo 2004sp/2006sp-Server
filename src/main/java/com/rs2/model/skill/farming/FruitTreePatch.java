@@ -9,7 +9,7 @@ public enum FruitTreePatch {
     BRIMHAVEN(0, new Position[]{new Position(2764, 3212), new Position(2765, 3213)}, 2330),
     CATHERBY(1, new Position[]{new Position(2860, 3433), new Position(2861, 3434)}, 2331),
     GNOME_STRONGHOLD(2, new Position[]{new Position(2475, 3445), new Position(2476, 3446)}, 2343),
-    TREE_GNOME_VILLAGE(3, new Position[]{new Position(2489, 3179), new Position(2890, 3180)}, 2344);
+    TREE_GNOME_VILLAGE(3, new Position[]{new Position(2489, 3179), new Position(2490, 3180)}, 2344);
 
     private int index;
     private Position[] bounds;
@@ -56,6 +56,10 @@ public enum FruitTreePatch {
 
     public final int getIndex() {
         return this.index;
+    }
+
+    public final Position[] getInteractionBounds() {
+        return this.bounds;
     }
 }
 

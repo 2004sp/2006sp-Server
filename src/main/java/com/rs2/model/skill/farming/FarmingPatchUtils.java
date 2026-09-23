@@ -12,5 +12,26 @@ public final class FarmingPatchUtils {
         int y2 = position2.getY();
         return position3.getX() >= x && position3.getY() >= y && position3.getX() <= x2 && position3.getY() <= y2;
     }
+
+    public static Position[] getInteractionBounds(Position position) {
+        AllotmentPatch allotmentPatch = AllotmentPatch.forPosition(position);
+        if (allotmentPatch != null) return allotmentPatch.getInteractionBounds(position);
+        FlowerPatch flowerPatch = FlowerPatch.forPosition(position);
+        if (flowerPatch != null) return flowerPatch.getInteractionBounds();
+        HerbPatch herbPatch = HerbPatch.forPosition(position);
+        if (herbPatch != null) return herbPatch.getInteractionBounds();
+        HopsPatch hopsPatch = HopsPatch.forPosition(position);
+        if (hopsPatch != null) return hopsPatch.getInteractionBounds();
+        BushPatch bushPatch = BushPatch.forPosition(position);
+        if (bushPatch != null) return bushPatch.getInteractionBounds();
+        TreePatch treePatch = TreePatch.forPosition(position);
+        if (treePatch != null) return treePatch.getInteractionBounds();
+        FruitTreePatch fruitTreePatch = FruitTreePatch.forPosition(position);
+        if (fruitTreePatch != null) return fruitTreePatch.getInteractionBounds();
+        SpecialTreePatch specialTreePatch = SpecialTreePatch.forPosition(position);
+        if (specialTreePatch != null) return specialTreePatch.getInteractionBounds();
+        SpecialCropPatch specialCropPatch = SpecialCropPatch.forPosition(position);
+        return specialCropPatch == null ? null : specialCropPatch.getInteractionBounds();
+    }
 }
 

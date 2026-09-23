@@ -26,6 +26,7 @@ import com.rs2.model.objects.WorldObject;
 import com.rs2.model.objects.WorldObjectLookup;
 import com.rs2.model.player.PetManager;
 import com.rs2.model.player.Player;
+import com.rs2.model.skill.farming.FarmingPatchUtils;
 import com.rs2.model.skill.magic.SpellDefinition;
 import com.rs2.util.GameUtil;
 import com.rs2.util.GameplayTrace;
@@ -221,6 +222,20 @@ public final class InteractionDispatcher {
                         == worldObject.getPosition().getPlane()
                     && player.getPosition().getX() == player.interactionApproachX
                     && player.getPosition().getY() == player.interactionApproachY;
+        }
+
+        Position[] farmingPatchBounds = FarmingPatchUtils.getInteractionBounds(
+                worldObject.getPosition());
+        if (farmingPatchBounds != null) {
+            Position southWest = farmingPatchBounds[0];
+            Position northEast = farmingPatchBounds[1];
+            return PathFinder.hasReachedObject(
+                    player,
+                    southWest.getX(), southWest.getY(),
+                    northEast.getX() - southWest.getX() + 1,
+                    northEast.getY() - southWest.getY() + 1,
+                    10, 0,
+                    0);
         }
 
         ObjectDefinition definition = ObjectDefinition.forId(worldObject.getObjectId());

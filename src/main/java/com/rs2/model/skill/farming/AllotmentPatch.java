@@ -66,5 +66,12 @@ public enum AllotmentPatch {
     public final int getIndex() {
         return this.index;
     }
+
+    public final Position[] getInteractionBounds(Position position) {
+        if (FarmingPatchUtils.containsPosition(this.bounds[0], this.bounds[1], position)) {
+            return new Position[]{this.bounds[0], this.bounds[1]};
+        }
+        return new Position[]{this.bounds[2], this.bounds[3]};
+    }
 }
 
