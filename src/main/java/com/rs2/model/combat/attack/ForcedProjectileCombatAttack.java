@@ -77,9 +77,9 @@ extends BaseCombatAttack {
         ProjectileDefinition projectileDefinition;
         ProjectileDefinition projectileDefinition2 = projectileDefinition = this.projectileTiming != null && this.projectileId != -1 ? new ProjectileDefinition(this.projectileId, this.projectileTiming) : null;
         if (this.alwaysHits) {
-            this.setHitDefinitions(new HitDefinition[]{new HitDefinition(new AttackStyleDefinition(this.combatType, this.xpMode, this.combatType == CombatType.RANGED ? AttackBonusType.RANGED : AttackBonusType.MAGIC), HitType.NORMAL, this.maxHit).setProjectile(projectileDefinition).setDelay(this.hitDelay).setGraphic(this.hitGraphic).enableRandomDamage().setAlwaysHits(this.alwaysHits)});
+            this.setHitDefinitions(new HitDefinition[]{new HitDefinition(new AttackStyleDefinition(this.combatType, this.xpMode, this.combatType == CombatType.RANGED ? AttackBonusType.RANGED : AttackBonusType.MAGIC), HitType.NORMAL, this.maxHit, true).setProjectile(projectileDefinition).setDelay(this.hitDelay).setGraphic(this.hitGraphic).enableRandomDamage().setAlwaysHits(this.alwaysHits)});
         } else {
-            this.setHitDefinitions(new HitDefinition[]{new HitDefinition(new AttackStyleDefinition(this.combatType, this.xpMode, this.combatType == CombatType.RANGED ? AttackBonusType.RANGED : AttackBonusType.MAGIC), HitType.NORMAL, this.maxHit).setProjectile(projectileDefinition).setDelay(this.hitDelay).setGraphic(this.hitGraphic).enableAccuracyCheck().enableRandomDamage().setAlwaysHits(this.alwaysHits)});
+            this.setHitDefinitions(new HitDefinition[]{new HitDefinition(new AttackStyleDefinition(this.combatType, this.xpMode, this.combatType == CombatType.RANGED ? AttackBonusType.RANGED : AttackBonusType.MAGIC), HitType.NORMAL, this.maxHit, true).setProjectile(projectileDefinition).setDelay(this.hitDelay).setGraphic(this.hitGraphic).enableAccuracyCheck().enableRandomDamage().setAlwaysHits(this.alwaysHits)});
         }
         if (this.combatEffect != null) {
             this.addEffect(this.combatEffect);
