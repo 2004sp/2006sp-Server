@@ -101,7 +101,9 @@ implements Runnable {
                             --value;
                             continue runControlLoop1;
                         }
-                        if (groundItem.getTimer().elapsed() < privateItemRevealDelayTicks) break;
+                        int revealDelayTicks = groundItem.getPrivateRevealDelayTicks() > 0
+                                ? groundItem.getPrivateRevealDelayTicks() : privateItemRevealDelayTicks;
+                        if (groundItem.getTimer().elapsed() < revealDelayTicks) break;
                         groundItem.getTimer().reset();
                         groundItem.setVisibility(GroundItemVisibility.PUBLIC);
                         if (groundItem.getItem().getDefinition().isStackable()) {
@@ -242,9 +244,7 @@ implements Runnable {
         int index = 0;
         while (index < length) {
             entity = playerArray2[index];
-            if (entity != null && groundItem.isVisibleTo((Player)entity)) {
-                ((Player)entity).getVisibleGroundItems().contains(groundItem);
-                ((Player)entity).getVisibleGroundItems().remove(groundItem);
+            if (entity != null && ((Player)entity).getVisibleGroundItems().remove(groundItem)) {
                 ((Player)entity).packetSender.sendGroundItemRemove(groundItem);
             }
             ++index;

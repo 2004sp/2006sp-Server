@@ -4977,6 +4977,9 @@ extends Entity {
                 groundStack = new ItemStack(barrowsRepairHandler.getFullyDegradedItemId(), 1);
             }
             GroundItem groundItem = new GroundItem(groundStack, (Entity)this, lootOwner, this.getDeathPosition());
+            if (entity.isPlayer() && entity != this) {
+                groundItem.setPrivateRevealDelayTicks((int)GameUtil.secondsToTicks(60L));
+            }
             GroundItemManager.getInstance().spawn(groundItem);
             if (!entity.isPlayer() || entity == this) continue;
             Player killer = (Player)entity;
@@ -5007,6 +5010,9 @@ extends Entity {
         }
         if (entity != null && this.getDeathPosition() != null) {
             GroundItem groundItem = new GroundItem(new ItemStack(526, 1), (Entity)this, entity, this.getDeathPosition());
+            if (entity.isPlayer() && entity != this) {
+                groundItem.setPrivateRevealDelayTicks((int)GameUtil.secondsToTicks(60L));
+            }
             GroundItemManager.getInstance().spawn(groundItem);
         }
         this.equipmentManager.refresh();

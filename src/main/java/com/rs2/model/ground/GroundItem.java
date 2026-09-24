@@ -17,6 +17,7 @@ public final class GroundItem {
     private Position position;
     private boolean respawning;
     private int respawnDelayTicks;
+    private int privateRevealDelayTicks;
     private boolean restrictedModePickupAllowed = false;
 
     public GroundItem(ItemStack itemStack, Position position, int respawnDelayTicks, boolean enabled2) {
@@ -104,6 +105,14 @@ public final class GroundItem {
         return this.respawnDelayTicks;
     }
 
+    public final int getPrivateRevealDelayTicks() {
+        return this.privateRevealDelayTicks;
+    }
+
+    public final void setPrivateRevealDelayTicks(int ticks) {
+        this.privateRevealDelayTicks = ticks;
+    }
+
     public final GroundItemVisibility getVisibility() {
         return this.visibility;
     }
@@ -157,8 +166,13 @@ public final class GroundItem {
     }
 
     public final boolean isVisibleTo(Player player) {
-        boolean enabled;
-        boolean plane = enabled = this.position.getPlane() == player.getPosition().getPlane() && player.getLocalViewArea().containsExclusive(this.position);
+        boolean enabled = this.position.getPlane() == player.getPosition().getPlane()
+                && player.getLocalViewArea().containsExclusive(this.position);
+        if (this.visibility == GroundItemVisibility.HIDDEN
+                || this.visibility == GroundItemVisibility.PRIVATE
+                && (this.owner == null || !this.owner.equals(player))) {
+            return false;
+        }
         if (player.gameMode == 0) {
             return enabled;
         }
