@@ -4,15 +4,17 @@ import java.util.HashMap;
 import java.util.Map;
 
 public enum SpecialCropDefinition {
-    BELLADONNA(5281, 2398, 1, 63, 320, 0.15, 91.0, 512.0, 4, 8, -1, 0.0, 5, 8),
-    CACTUS(5280, 6016, 1, 55, 560, 0.15, 66.5, 25.0, 8, 18, 31, 374.0, 11, 17),
-    MUSHROOM(5282, 6004, 1, 53, 240, 0.15, 61.5, 57.7, 4, 15, -1, 0.0, 12, 17);
+    BELLADONNA(5281, 2398, 1, 63, 80, new int[]{4, 5, 6, 7, 8}, 0.15, 91.0, 512.0, -1, 0.0, 5, 8),
+    CACTUS(5280, 6016, 1, 55, 80, new int[]{8, 9, 10, 12, 13, 15, 16, 18}, 0.15, 66.5, 25.0, 31, 374.0, 11, 17),
+    MUSHROOM(5282, 6004, 1, 53, 40, new int[]{4, 5, 7, 9, 11, 13, 15}, 0.15, 61.5, 57.7, -1, 0.0, 12, 17);
 
     private int seedId;
     private int produceItemId;
     private int seedAmount;
     private int requiredLevel;
     private int totalGrowthTicks;
+    private int growthCycleTicks;
+    private int[] healthyConfigStages;
     private double diseaseChance;
     private double plantingExperience;
     private double harvestExperience;
@@ -36,17 +38,19 @@ public enum SpecialCropDefinition {
         }
     }
 
-    private SpecialCropDefinition(int seedId, int produceItemId, int value33, int requiredLevel, int totalGrowthTicks, double value11, double plantingExperience, double harvestExperience, int configStartStage, int configEndStage, int healthCheckConfigStage, double healthCheckExperience, int diseasedConfigOffset, int deadConfigOffset) {
+    private SpecialCropDefinition(int seedId, int produceItemId, int value33, int requiredLevel, int growthCycleTicks, int[] healthyConfigStages, double value11, double plantingExperience, double harvestExperience, int healthCheckConfigStage, double healthCheckExperience, int diseasedConfigOffset, int deadConfigOffset) {
         this.seedId = seedId;
         this.produceItemId = produceItemId;
         this.seedAmount = 1;
         this.requiredLevel = requiredLevel;
-        this.totalGrowthTicks = totalGrowthTicks;
+        this.growthCycleTicks = growthCycleTicks;
+        this.healthyConfigStages = healthyConfigStages;
+        this.totalGrowthTicks = growthCycleTicks * (healthyConfigStages.length - 1);
         this.diseaseChance = 0.15;
         this.plantingExperience = plantingExperience;
         this.harvestExperience = harvestExperience;
-        this.configStartStage = configStartStage;
-        this.configEndStage = configEndStage;
+        this.configStartStage = healthyConfigStages[0];
+        this.configEndStage = healthyConfigStages[healthyConfigStages.length - 1];
         this.healthCheckConfigStage = healthCheckConfigStage;
         this.healthCheckExperience = healthCheckExperience;
         this.diseasedConfigOffset = diseasedConfigOffset;
@@ -101,8 +105,19 @@ public enum SpecialCropDefinition {
     }
 
     public final int getGrowthCycleTicks() {
-        SpecialCropDefinition specialCropDefinition = this;
-        return specialCropDefinition.totalGrowthTicks / this.getGrowthStageCount();
+        return this.growthCycleTicks;
+    }
+
+    public final int getGrowthCycleCount() {
+        return this.healthyConfigStages.length - 1;
+    }
+
+    public final int getConfigStageOffset(int completedCycles) {
+        int cycleCount = this.getGrowthCycleCount();
+        if (completedCycles <= cycleCount) {
+            return this.healthyConfigStages[Math.max(0, completedCycles)] - this.configStartStage;
+        }
+        return this.getGrowthStageCount() + completedCycles - cycleCount;
     }
 
     public final int getHealthCheckConfigStage() {

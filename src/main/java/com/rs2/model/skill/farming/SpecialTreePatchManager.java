@@ -71,8 +71,7 @@ public final class SpecialTreePatchManager {
     }
 
     private static int getConfigStageForPatchState(int state, SpecialTreeDefinition specialTreeDefinition, int value22) {
-        value22 -= 4;
-        value22 = specialTreeDefinition.getConfigStartStage() + value22;
+        value22 = specialTreeDefinition.getConfigStartStage() + specialTreeDefinition.getConfigStageOffset(value22 - 4);
         switch (state) {
             case 0: {
                 return value22;
@@ -115,8 +114,8 @@ public final class SpecialTreePatchManager {
                             int value3 = index;
                             this.growthStages[value3] = this.growthStages[value3] + 1;
                         } else {
-                            int growthCycleTicks = (int)(elapsedMinutes / (long)specialTreeDefinition.getGrowthCycleTicks());
                             int value4 = this.growthStages[index] - 4;
+                            int growthCycleTicks = FarmingPatchUtils.getGrowthCycleTarget(this.player, this.lastUpdateTicks[index], specialTreeDefinition.getGrowthCycleTicks(), value4);
                             if ((growthCycleTicks -= value4) > 0) {
                                 value4 = 0;
                                 while (value4 < growthCycleTicks) {
@@ -149,8 +148,8 @@ public final class SpecialTreePatchManager {
                                             this.growthStages[value9] = this.growthStages[value9] + 1;
                                         }
                                         if (this.shouldStopGrowthCycle(index)) break;
-                                        if (this.growthStages[index] <= specialTreeDefinition.getGrowthStageCount() + (specialTreeDefinition == SpecialTreeDefinition.SPIRIT_TREE ? 3 : -2) && this.growthStages[index] == specialTreeDefinition.getGrowthStageCount() + (specialTreeDefinition == SpecialTreeDefinition.SPIRIT_TREE ? 3 : -2)) {
-                                            this.growthStages[index] = specialTreeDefinition.getGrowthStageCount() + 7;
+                                        if (this.growthStages[index] >= specialTreeDefinition.getGrowthCycleCount() + 4) {
+                                            this.growthStages[index] = specialTreeDefinition.getGrowthCycleCount() + 4;
                                             this.patchStates[index] = 3;
                                             break;
                                         }
@@ -178,7 +177,7 @@ public final class SpecialTreePatchManager {
         }
         long elapsedMinutes = Server.getElapsedMinutes() - this.lastUpdateTicks[value2];
         int growthCycleTicks = (int)(elapsedMinutes / (long)specialTreeDefinition.getGrowthCycleTicks());
-        this.growthStages[value2] = growthCycleTicks + 4;
+        this.growthStages[value2] = Math.min(growthCycleTicks, specialTreeDefinition.getGrowthCycleCount()) + 4;
         this.refreshConfig();
     }
 

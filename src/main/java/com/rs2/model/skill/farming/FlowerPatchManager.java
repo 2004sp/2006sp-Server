@@ -127,8 +127,8 @@ public final class FlowerPatchManager {
                 } else {
                     Object value5 = FlowerDefinition.forSeedId(this.cropIds[index]);
                     if (value5 != null && this.cropIds[index] != 33 && !this.shouldStopGrowthCycle(index)) {
-                        value = (int)(elapsedMinutes / (long)((FlowerDefinition)value5).getGrowthCycleTicks());
                         int value6 = this.growthStages[index] - 4;
+                        value = FarmingPatchUtils.getGrowthCycleTarget(this.player, this.lastUpdateTicks[index], ((FlowerDefinition)value5).getGrowthCycleTicks(), value6);
                         if ((value6 = value - value6) > 0) {
                             int index2 = 0;
                             while (index2 < value6) {

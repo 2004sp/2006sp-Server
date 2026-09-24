@@ -2,6 +2,7 @@ package com.rs2.model.skill.farming;
 
 import com.rs2.Server;
 import com.rs2.model.Position;
+import com.rs2.model.player.Player;
 
 public final class FarmingPatchUtils {
     public static final int[] wateredSeedlingItemIds = new int[]{5364, 5365, 5366, 5367, 5368, 5369, 5488, 5489, 5490, 5491, 5492, 5493, 5494, 5495};
@@ -19,7 +20,30 @@ public final class FarmingPatchUtils {
             throw new IllegalArgumentException("Growth cycle must be positive.");
         }
         long elapsedMinutes = Math.max(1L, Server.getElapsedMinutes());
-        return elapsedMinutes - (elapsedMinutes - 1L) % growthCycleMinutes;
+        long utcMinutes = System.currentTimeMillis() / 60000L;
+        return elapsedMinutes - Math.floorMod(utcMinutes, (long)growthCycleMinutes);
+    }
+
+    /**
+     * Returns the total number of logical cycles a patch should have been offered.
+     * Login processing catches up elapsed cycles. During a session only one cycle is
+     * offered, and only when the player's five-minute farm tick lands in the first
+     * five-minute window of the globally aligned crop-family cycle.
+     */
+    public static int getGrowthCycleTarget(Player player, long lastUpdateMinute, int growthCycleMinutes, int completedCycles) {
+        if (player.isFarmingLoginCatchUp()) {
+            long elapsedMinutes = Server.getElapsedMinutes() - lastUpdateMinute;
+            return (int)Math.max(0L, elapsedMinutes / (long)growthCycleMinutes);
+        }
+        if (!isGrowthWindowOpen(growthCycleMinutes)) {
+            return completedCycles;
+        }
+        return completedCycles + 1;
+    }
+
+    private static boolean isGrowthWindowOpen(int growthCycleMinutes) {
+        long utcMinutes = System.currentTimeMillis() / 60000L;
+        return Math.floorMod(utcMinutes, (long)growthCycleMinutes) < 5L;
     }
 
     public static Position[] getInteractionBounds(Position position) {

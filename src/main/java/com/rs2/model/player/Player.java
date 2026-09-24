@@ -258,6 +258,7 @@ extends Entity {
     private SpecialTreePatchManager specialTreePatchManager = new SpecialTreePatchManager(this);
     private SpecialCropPatchManager specialCropPatchManager = new SpecialCropPatchManager(this);
     private FarmingToolStore farmingToolStore = new FarmingToolStore(this);
+    private boolean farmingLoginCatchUp = true;
     private FiremakingHandler firemakingHandler = new FiremakingHandler(this);
     private BoneBuryingHandler boneBuryingHandler = new BoneBuryingHandler(this);
     private PetManager petManager;
@@ -4119,6 +4120,14 @@ extends Entity {
 
     public final CompostBinManager getCompostBinManager() {
         return this.compostBinManager;
+    }
+
+    public final boolean isFarmingLoginCatchUp() {
+        return this.farmingLoginCatchUp;
+    }
+
+    public final void finishFarmingLoginCatchUp() {
+        this.farmingLoginCatchUp = false;
     }
 
     public final AllotmentPatchManager getAllotmentPatchManager() {

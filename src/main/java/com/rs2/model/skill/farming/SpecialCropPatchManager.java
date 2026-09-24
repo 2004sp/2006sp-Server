@@ -69,8 +69,7 @@ public final class SpecialCropPatchManager {
     }
 
     private static int getConfigStageForPatchState(int state, SpecialCropDefinition specialCropDefinition, int value22) {
-        value22 -= 4;
-        value22 = specialCropDefinition.getConfigStartStage() + value22;
+        value22 = specialCropDefinition.getConfigStartStage() + specialCropDefinition.getConfigStageOffset(value22 - 4);
         switch (state) {
             case 0: {
                 return value22;
@@ -109,8 +108,8 @@ public final class SpecialCropPatchManager {
                 } else {
                     SpecialCropDefinition specialCropDefinition = SpecialCropDefinition.forSeedId(this.cropIds[index]);
                     if (specialCropDefinition != null && !this.shouldStopGrowthCycle(index)) {
-                        int growthCycleTicks = (int)(elapsedMinutes / (long)specialCropDefinition.getGrowthCycleTicks());
                         int value3 = this.growthStages[index] - 4;
+                        int growthCycleTicks = FarmingPatchUtils.getGrowthCycleTarget(this.player, this.lastUpdateTicks[index], specialCropDefinition.getGrowthCycleTicks(), value3);
                         if ((growthCycleTicks -= value3) > 0) {
                             value3 = 0;
                             while (value3 < growthCycleTicks) {
@@ -142,12 +141,14 @@ public final class SpecialCropPatchManager {
                                         int value8 = index;
                                         this.growthStages[value8] = this.growthStages[value8] + 1;
                                     }
-                                    if (this.shouldStopGrowthCycle(index)) break;
-                                    if (this.growthStages[index] <= specialCropDefinition.getGrowthStageCount() + (specialCropDefinition == SpecialCropDefinition.BELLADONNA ? 3 : -2) && this.growthStages[index] == specialCropDefinition.getGrowthStageCount() - 2 && specialCropDefinition.getHealthCheckConfigStage() != -1) {
-                                        this.growthStages[index] = specialCropDefinition.getGrowthStageCount() + 4;
-                                        this.patchStates[index] = 3;
+                                    if (this.growthStages[index] >= specialCropDefinition.getGrowthCycleCount() + 4) {
+                                        this.growthStages[index] = specialCropDefinition.getGrowthCycleCount() + 4;
+                                        if (specialCropDefinition.getHealthCheckConfigStage() != -1) {
+                                            this.patchStates[index] = 3;
+                                        }
                                         break;
                                     }
+                                    if (this.shouldStopGrowthCycle(index)) break;
                                 }
                                 ++value3;
                             }
@@ -161,7 +162,9 @@ public final class SpecialCropPatchManager {
     }
 
     private boolean shouldStopGrowthCycle(int value2) {
-        return this.lastUpdateTicks[value2] == 0L || this.patchStates[value2] == 2 || this.patchStates[value2] == 3;
+        SpecialCropDefinition definition = SpecialCropDefinition.forSeedId(this.cropIds[value2]);
+        return this.lastUpdateTicks[value2] == 0L || this.patchStates[value2] == 2 || this.patchStates[value2] == 3
+                || definition != null && this.growthStages[value2] >= definition.getGrowthCycleCount() + 4;
     }
 
     public final void recalculateRegrowthStage(int value2) {
@@ -171,7 +174,7 @@ public final class SpecialCropPatchManager {
         }
         long elapsedMinutes = Server.getElapsedMinutes() - this.lastUpdateTicks[value2];
         int growthCycleTicks = (int)(elapsedMinutes / (long)specialCropDefinition.getGrowthCycleTicks());
-        this.growthStages[value2] = growthCycleTicks + 4;
+        this.growthStages[value2] = Math.min(growthCycleTicks, specialCropDefinition.getGrowthCycleCount()) + 4;
         this.refreshConfig();
     }
 

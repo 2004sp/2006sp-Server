@@ -131,8 +131,8 @@ public final class HerbPatchManager {
                     }
                 }
                 if ((value = HerbDefinition.forSeedId(this.cropIds[index])) != null && !this.shouldStopGrowthCycle(index)) {
-                    value2 = (int)(elapsedMinutes / (long)((HerbDefinition)((Object)value)).getGrowthCycleTicks());
                     int value5 = this.growthStages[index] - 4;
+                    value2 = FarmingPatchUtils.getGrowthCycleTarget(this.player, this.lastUpdateTicks[index], ((HerbDefinition)((Object)value)).getGrowthCycleTicks(), value5);
                     if ((value5 = value2 - value5) > 0) {
                         int index2 = 0;
                         while (index2 < value5) {

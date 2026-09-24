@@ -4,12 +4,12 @@ import java.util.HashMap;
 import java.util.Map;
 
 public enum BushDefinition {
-    REDBERRY(5101, 1951, 1, 10, new int[]{5478, 4}, 100, 0.2, 11.5, 4.5, 5, 14, 9, 58, 64.0),
-    CADAVABERRY(5102, 753, 1, 22, new int[]{5968, 3}, 120, 0.2, 18.0, 7.0, 15, 25, 20, 59, 102.5),
-    DWELLBERRY(5103, 2126, 1, 36, new int[]{5406, 3}, 140, 0.2, 31.5, 12.0, 26, 37, 32, 60, 177.5),
-    JANGERBERRY(5104, 247, 1, 48, new int[]{5982, 6}, 160, 0.2, 50.5, 19.0, 38, 50, 45, 61, 284.5),
-    WHITEBERRY(5105, 239, 1, 59, new int[]{6004, 8}, 160, 0.2, 78.0, 29.0, 51, 63, 58, 62, 437.5),
-    POISON_IVY(5106, 6018, 1, 70, null, 160, 0.2, 120.0, 45.0, 197, 209, 204, 63, 674.0);
+    REDBERRY(5101, 1951, 1, 10, new int[]{5478, 4}, 20, new int[]{5, 6, 8, 10, 12, 14}, 0.2, 11.5, 4.5, 58, 64.0),
+    CADAVABERRY(5102, 753, 1, 22, new int[]{5968, 3}, 20, new int[]{15, 16, 18, 20, 21, 23, 25}, 0.2, 18.0, 7.0, 59, 102.5),
+    DWELLBERRY(5103, 2126, 1, 36, new int[]{5406, 3}, 20, new int[]{26, 27, 29, 30, 32, 33, 35, 37}, 0.2, 31.5, 12.0, 60, 177.5),
+    JANGERBERRY(5104, 247, 1, 48, new int[]{5982, 6}, 20, new int[]{38, 39, 41, 42, 44, 45, 47, 48, 50}, 0.2, 50.5, 19.0, 61, 284.5),
+    WHITEBERRY(5105, 239, 1, 59, new int[]{6004, 8}, 20, new int[]{51, 52, 54, 55, 57, 58, 60, 61, 63}, 0.2, 78.0, 29.0, 62, 437.5),
+    POISON_IVY(5106, 6018, 1, 70, null, 20, new int[]{197, 198, 200, 201, 203, 204, 206, 207, 209}, 0.2, 120.0, 45.0, 63, 674.0);
 
     private int seedId;
     private int produceItemId;
@@ -17,6 +17,8 @@ public enum BushDefinition {
     private int requiredLevel;
     private int[] protectionPayment;
     private int totalGrowthTicks;
+    private int growthCycleTicks;
+    private int[] healthyConfigStages;
     private double diseaseChance;
     private double plantingExperience;
     private double harvestExperience;
@@ -38,18 +40,20 @@ public enum BushDefinition {
         }
     }
 
-    private BushDefinition(int seedId, int produceItemId, int value33, int requiredLevel, int[] protectionPayment, int totalGrowthTicks, double value10, double plantingExperience, double harvestExperience, int configStartStage, int configEndStage, int value82, int healthCheckConfigStage, double healthCheckExperience) {
+    private BushDefinition(int seedId, int produceItemId, int value33, int requiredLevel, int[] protectionPayment, int growthCycleTicks, int[] healthyConfigStages, double value10, double plantingExperience, double harvestExperience, int healthCheckConfigStage, double healthCheckExperience) {
         this.seedId = seedId;
         this.produceItemId = produceItemId;
         this.seedAmount = 1;
         this.requiredLevel = requiredLevel;
         this.protectionPayment = protectionPayment;
-        this.totalGrowthTicks = totalGrowthTicks;
+        this.growthCycleTicks = growthCycleTicks;
+        this.healthyConfigStages = healthyConfigStages;
+        this.totalGrowthTicks = growthCycleTicks * (healthyConfigStages.length - 1);
         this.diseaseChance = 0.2;
         this.plantingExperience = plantingExperience;
         this.harvestExperience = harvestExperience;
-        this.configStartStage = configStartStage;
-        this.configEndStage = configEndStage;
+        this.configStartStage = healthyConfigStages[0];
+        this.configEndStage = healthyConfigStages[healthyConfigStages.length - 1];
         this.healthCheckConfigStage = healthCheckConfigStage;
         this.healthCheckExperience = healthCheckExperience;
     }
@@ -106,8 +110,19 @@ public enum BushDefinition {
     }
 
     public final int getGrowthCycleTicks() {
-        BushDefinition bushDefinition = this;
-        return bushDefinition.totalGrowthTicks / this.getGrowthStageCount();
+        return this.growthCycleTicks;
+    }
+
+    public final int getGrowthCycleCount() {
+        return this.healthyConfigStages.length - 1;
+    }
+
+    public final int getConfigStageOffset(int completedCycles) {
+        int cycleCount = this.getGrowthCycleCount();
+        if (completedCycles <= cycleCount) {
+            return this.healthyConfigStages[Math.max(0, completedCycles)] - this.configStartStage;
+        }
+        return this.getGrowthStageCount() + completedCycles - cycleCount;
     }
 
     public final int getHealthCheckConfigStage() {

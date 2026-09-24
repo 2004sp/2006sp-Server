@@ -20,6 +20,7 @@ import com.rs2.model.player.Player;
 import com.rs2.model.quest.QuestDefinition;
 import com.rs2.model.quest.QuestHook;
 import com.rs2.model.quest.QuestScript;
+import com.rs2.model.skill.farming.FarmingTickTask;
 import com.rs2.model.skill.magic.Spellbook;
 import com.rs2.model.task.CycleEventHandler;
 import com.rs2.net.packet.AgilityMovementCompletionEvent;
@@ -240,11 +241,12 @@ public final class PacketSender {
         this.player.getHerbPatchManager().processGrowth();
         this.player.getHopsPatchManager().processGrowth();
         this.player.getBushPatchManager().processGrowth();
-        this.player.getAllotmentPatchManager().processGrowth();
         this.player.getTreePatchManager().processGrowth();
         this.player.getFruitTreePatchManager().processGrowth();
         this.player.getSpecialTreePatchManager().processGrowth();
         this.player.getSpecialCropPatchManager().processGrowth();
+        this.player.finishFarmingLoginCatchUp();
+        CycleEventHandler.getInstance().schedule(this.player, new FarmingTickTask(this.player), FarmingTickTask.getInitialTickDelay());
         int index = 0;
         while (index < this.player.getQueuedLoginItemIds().length) {
             this.player.getInventoryManager().addItem(new ItemStack(this.player.getQueuedLoginItemIds()[index], this.player.getQueuedLoginItemAmounts()[index]));

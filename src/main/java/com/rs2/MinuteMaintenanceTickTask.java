@@ -25,15 +25,6 @@ extends TickTask {
             if (value != null) {
                 int value2;
                 ((Player)value).getCompostBinManager().processRotting();
-                ((Player)value).getAllotmentPatchManager().processGrowth();
-                ((Player)value).getFlowerPatchManager().processGrowth();
-                ((Player)value).getHerbPatchManager().processGrowth();
-                ((Player)value).getHopsPatchManager().processGrowth();
-                ((Player)value).getBushPatchManager().processGrowth();
-                ((Player)value).getTreePatchManager().processGrowth();
-                ((Player)value).getFruitTreePatchManager().processGrowth();
-                ((Player)value).getSpecialTreePatchManager().processGrowth();
-                ((Player)value).getSpecialCropPatchManager().processGrowth();
                 Player player = (Player)value;
                 value = ItemService.getInstance();
                 int index2 = 0;

@@ -79,7 +79,7 @@ public final class TreePatchManager {
                         value = ((FarmedTreeDefinition)((Object)value5)).getStumpConfigStage();
                         break;
                     }
-                    value4 -= 4;
+                    value4 = ((FarmedTreeDefinition)((Object)value5)).getConfigStageOffset(value4 - 4);
                     value3 = value2;
                     switch (value3) {
                         case 0: {
@@ -134,8 +134,8 @@ public final class TreePatchManager {
                 }
                 Object value4 = FarmedTreeDefinition.forSaplingId(this.treeIds[index]);
                 if (value4 == null || this.shouldStopGrowthCycle(index)) break processGrowthControlExit1;
-                int growthCycleTicks = (int)(value / (long)((FarmedTreeDefinition)value4).getGrowthCycleTicks());
                 int value5 = this.growthStages[index] - 4;
+                int growthCycleTicks = FarmingPatchUtils.getGrowthCycleTarget(this.player, this.lastUpdateTicks[index], ((FarmedTreeDefinition)value4).getGrowthCycleTicks(), value5);
                 if ((growthCycleTicks -= value5) <= 0) break processGrowthControlExit1;
                 value5 = 0;
                 while (value5 < growthCycleTicks) {
@@ -207,7 +207,7 @@ public final class TreePatchManager {
         FarmedTreeDefinition farmedTreeDefinition = FarmedTreeDefinition.forSaplingId(treePatchManager.treeIds[value2]);
         if (farmedTreeDefinition == null) return false;
         int value3 = treePatchManager.growthStages[value2] - 4;
-        if (farmedTreeDefinition.getConfigStartStage() + value3 != farmedTreeDefinition.getConfigEndStage()) return false;
+        if (value3 < farmedTreeDefinition.getGrowthCycleCount()) return false;
         treePatchManager.fullyGrownFlags[value2] = true;
         return true;
     }

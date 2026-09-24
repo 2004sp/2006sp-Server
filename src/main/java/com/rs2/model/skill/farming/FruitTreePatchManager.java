@@ -72,8 +72,7 @@ public final class FruitTreePatchManager {
     }
 
     private static int getConfigStageForPatchState(int state, FruitTreeDefinition fruitTreeDefinition, int value22) {
-        value22 -= 4;
-        value22 = fruitTreeDefinition.getConfigStartStage() + value22;
+        value22 = fruitTreeDefinition.getConfigStartStage() + fruitTreeDefinition.getConfigStageOffset(value22 - 4);
         switch (state) {
             case 0: {
                 return value22;
@@ -116,8 +115,8 @@ public final class FruitTreePatchManager {
                 }
                 FruitTreeDefinition fruitTreeDefinition = FruitTreeDefinition.forSaplingId(this.treeIds[index]);
                 if (fruitTreeDefinition == null || this.shouldStopGrowthCycle(index)) break processGrowthControlExit1;
-                int growthCycleTicks = (int)(value / (long)fruitTreeDefinition.getGrowthCycleTicks());
                 int value4 = this.growthStages[index] - 4;
+                int growthCycleTicks = FarmingPatchUtils.getGrowthCycleTarget(this.player, this.lastUpdateTicks[index], fruitTreeDefinition.getGrowthCycleTicks(), value4);
                 if ((growthCycleTicks -= value4) <= 0) break processGrowthControlExit1;
                 value4 = 0;
                 while (value4 < growthCycleTicks) {
@@ -169,8 +168,8 @@ public final class FruitTreePatchManager {
                             this.growthStages[value10] = this.growthStages[value10] + 1;
                         }
                         if (this.shouldStopGrowthCycle(index)) break processGrowthControlExit1;
-                        if (this.growthStages[index] + fruitTreeDefinition.getConfigStartStage() == fruitTreeDefinition.getMatureConfigStage() + 3) {
-                            this.growthStages[index] = fruitTreeDefinition.getGrowthStageCount() + 7;
+                        if (this.growthStages[index] >= fruitTreeDefinition.getGrowthCycleCount() + 4) {
+                            this.growthStages[index] = fruitTreeDefinition.getGrowthCycleCount() + 4;
                             this.patchStates[index] = 3;
                             break;
                         }
@@ -194,7 +193,7 @@ public final class FruitTreePatchManager {
         }
         long elapsedMinutes = Server.getElapsedMinutes() - this.lastUpdateTicks[value2];
         int growthCycleTicks = (int)(elapsedMinutes / (long)fruitTreeDefinition.getGrowthCycleTicks());
-        this.growthStages[value2] = growthCycleTicks + 4;
+        this.growthStages[value2] = Math.min(growthCycleTicks, fruitTreeDefinition.getGrowthCycleCount()) + 4;
         this.refreshConfig();
     }
 

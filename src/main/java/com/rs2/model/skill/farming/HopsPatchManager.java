@@ -125,8 +125,8 @@ public final class HopsPatchManager {
                 }
                 Object value4 = HopsDefinition.forSeedId(this.cropIds[index]);
                 if (value4 == null || this.shouldStopGrowthCycle(index)) break processGrowthControlExit1;
-                int growthCycleTicks = (int)(value / (long)((HopsDefinition)value4).getGrowthCycleTicks());
                 int value5 = this.growthStages[index] - 4;
+                int growthCycleTicks = FarmingPatchUtils.getGrowthCycleTarget(this.player, this.lastUpdateTicks[index], ((HopsDefinition)value4).getGrowthCycleTicks(), value5);
                 if ((growthCycleTicks -= value5) <= 0) break processGrowthControlExit1;
                 value5 = 0;
                 while (value5 < growthCycleTicks) {

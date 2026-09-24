@@ -20,7 +20,9 @@ extends CycleEvent {
 
     @Override
     public final void execute(CycleEventContainer cycleEventContainer) {
-        int index = this.manager.growthStages[this.patch.getIndex()] - 4;
+        SpecialTreeDefinition definition = SpecialTreeDefinition.forSaplingId(this.manager.treeIds[this.patch.getIndex()]);
+        int completedCycles = this.manager.growthStages[this.patch.getIndex()] - 4;
+        int index = definition == null ? completedCycles : definition.getGrowthMessageStage(completedCycles);
         if (this.growthDefinition.getGrowthMessages().length > index) {
             SpecialTreePatchManager.getPlayer(this.manager).getDialogueManager().showStatement(this.growthDefinition.getGrowthMessages()[index]);
         } else {

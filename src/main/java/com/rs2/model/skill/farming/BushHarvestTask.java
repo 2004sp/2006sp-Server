@@ -43,7 +43,7 @@ extends CycleEvent {
         BushPatchManager.getPlayer(this.manager).getInventoryManager().addItem(new ItemStack(this.definition.getProduceItemId()));
         BushPatchManager.getPlayer(this.manager).getSkillManager().addExperience(19, this.definition.getHarvestExperience());
         this.manager.lastUpdateTicks[this.patch.getIndex()] = FarmingPatchUtils.getCurrentGrowthCycleStart(this.definition.getGrowthCycleTicks());
-        int totalGrowthTicks = this.definition.getTotalGrowthTicks() - this.definition.getGrowthCycleTicks() * (this.definition.getGrowthStageCount() + 5 - this.manager.growthStages[this.patch.getIndex()]);
+        int totalGrowthTicks = this.definition.getTotalGrowthTicks() - this.definition.getGrowthCycleTicks() * (this.definition.getGrowthCycleCount() + 5 - this.manager.growthStages[this.patch.getIndex()]);
         int index = this.patch.getIndex();
         player2 = this.manager;
         int value = index;

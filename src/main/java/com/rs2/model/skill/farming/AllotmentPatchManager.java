@@ -125,8 +125,8 @@ public class AllotmentPatchManager {
                     }
                 }
                 if ((value = AllotmentCropDefinition.forSeedId(this.cropIds[index])) == null || this.shouldStopGrowthCycle(index)) break processGrowthControlExit1;
-                value2 = (int)(elapsedMinutes / (long)((AllotmentCropDefinition)value).getGrowthCycleTicks());
                 int value5 = this.growthStages[index] - 4;
+                value2 = FarmingPatchUtils.getGrowthCycleTarget(this.player, this.lastUpdateTicks[index], ((AllotmentCropDefinition)value).getGrowthCycleTicks(), value5);
                 if ((value5 = value2 - value5) <= 0) break processGrowthControlExit1;
                 int index2 = 0;
                 while (index2 < value5) {

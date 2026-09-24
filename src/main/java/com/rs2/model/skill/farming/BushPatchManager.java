@@ -59,11 +59,11 @@ public final class BushPatchManager {
                     if (stateConfig == 3) {
                         configStage = (stateConfig << 6) + bushDefinition.getHealthCheckConfigStage();
                     } else if (cropId == 5106 && stateConfig == 1) {
-                        configStage = bushDefinition.getConfigStartStage() + growthStage - 4 + 12;
+                        configStage = bushDefinition.getConfigStartStage() + bushDefinition.getConfigStageOffset(growthStage - 4) + 12;
                     } else if (cropId == 5106 && stateConfig == 2) {
-                        configStage = bushDefinition.getConfigStartStage() + growthStage - 4 + 20;
+                        configStage = bushDefinition.getConfigStartStage() + bushDefinition.getConfigStageOffset(growthStage - 4) + 20;
                     } else {
-                        configStage = (stateConfig << 6) + bushDefinition.getConfigStartStage() + (growthStage - 4) + (stateConfig == 2 ? -1 : 0);
+                        configStage = (stateConfig << 6) + bushDefinition.getConfigStartStage() + bushDefinition.getConfigStageOffset(growthStage - 4) + (stateConfig == 2 ? -1 : 0);
                     }
                 }
             }
@@ -112,8 +112,8 @@ public final class BushPatchManager {
                 } else {
                     BushDefinition bushDefinition = BushDefinition.forSeedId(this.cropIds[index]);
                     if (bushDefinition != null && !this.shouldStopGrowthCycle(index)) {
-                        int cycles = (int)(elapsedMinutes / (long)bushDefinition.getGrowthCycleTicks());
                         int existingGrowthCycles = this.growthStages[index] - 4;
+                        int cycles = FarmingPatchUtils.getGrowthCycleTarget(this.player, this.lastUpdateTicks[index], bushDefinition.getGrowthCycleTicks(), existingGrowthCycles);
                         if ((cycles -= existingGrowthCycles) > 0) {
                             int cycle = 0;
                             while (cycle < cycles) {
@@ -132,8 +132,8 @@ public final class BushPatchManager {
                                     if (this.shouldStopGrowthCycle(index)) {
                                         break;
                                     }
-                                    if (this.growthStages[index] == bushDefinition.getGrowthStageCount() - 1) {
-                                        this.growthStages[index] = bushDefinition.getGrowthStageCount() + 4;
+                                    if (this.growthStages[index] >= bushDefinition.getGrowthCycleCount() + 4) {
+                                        this.growthStages[index] = bushDefinition.getGrowthCycleCount() + 4;
                                         this.patchStates[index] = 3;
                                         break;
                                     }
@@ -191,7 +191,7 @@ public final class BushPatchManager {
         }
         long elapsedMinutes = Server.getElapsedMinutes() - this.lastUpdateTicks[value2];
         int cycles = (int)(elapsedMinutes / (long)bushDefinition.getGrowthCycleTicks());
-        this.growthStages[value2] = cycles + 4;
+        this.growthStages[value2] = Math.min(cycles, bushDefinition.getGrowthCycleCount()) + 4;
         this.refreshConfig();
     }
 
