@@ -4,7 +4,7 @@ import com.rs2.model.item.ItemStack;
 
 public enum StallDefinition {
     VEGETABLE_STALL(new int[]{4706, 4708}, new ItemStack[]{new ItemStack(1956), new ItemStack(1965), new ItemStack(1942), new ItemStack(1982), new ItemStack(1550)}, 2, 10, 3),
-    CAKE_STALL(new int[]{2561, 6163, 630, 6569}, new ItemStack[]{new ItemStack(2309), new ItemStack(1891), new ItemStack(1893), new ItemStack(1895), new ItemStack(1897), new ItemStack(1899), new ItemStack(1901)}, 5, 16, 8),
+    CAKE_STALL(new int[]{2561, 6163, 630, 6569}, new ItemStack[]{new ItemStack(2309), new ItemStack(1891), new ItemStack(1901)}, 5, 16, 8),
     CRAFTING_STALL(new int[]{4874, 6166}, new ItemStack[]{new ItemStack(1755), new ItemStack(1621), new ItemStack(1592), new ItemStack(1597)}, 5, 16, 11),
     MONKEY_FOOD_STALL(new int[]{4875}, new ItemStack[]{new ItemStack(1963)}, 5, 16, 11),
     GENERAL_STORE_STALL(new int[]{4876}, new ItemStack[]{new ItemStack(1931), new ItemStack(2347), new ItemStack(590)}, 5, 16, 11),
@@ -53,6 +53,33 @@ public enum StallDefinition {
 
     public final int getRespawnTicks() {
         return this.respawnTicks;
+    }
+
+    public final boolean isProtectingNpc(String name) {
+        if (name == null) {
+            return false;
+        }
+        // Market guards can protect stalls, but unrelated combat NPCs such as
+        // Heroes must not react merely because they happen to be nearby.
+        if (name.equalsIgnoreCase("Guard")) {
+            return true;
+        }
+        switch (this) {
+            case CAKE_STALL:
+                return name.equalsIgnoreCase("Baker");
+            case SILK_STALL:
+                return name.equalsIgnoreCase("Silk merchant");
+            case FUR_STALL:
+                return name.equalsIgnoreCase("Fur trader");
+            case SILVER_STALL:
+                return name.equalsIgnoreCase("Silver merchant");
+            case SPICE_STALL:
+                return name.equalsIgnoreCase("Spice seller");
+            case GEM_STALL:
+                return name.equalsIgnoreCase("Gem merchant");
+            default:
+                return false;
+        }
     }
 }
 

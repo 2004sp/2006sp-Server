@@ -1,6 +1,7 @@
 package com.rs2.model.shop;
 
 import com.rs2.ServerSettings;
+import com.rs2.model.GameplayHelper;
 import com.rs2.model.World;
 import com.rs2.model.item.ItemContainer;
 import com.rs2.model.item.ItemContainerType;
@@ -12,6 +13,7 @@ import com.rs2.model.player.Player;
 import com.rs2.model.shop.ShopCurrency;
 import com.rs2.model.shop.ShopDefinition;
 import com.rs2.model.shop.ShopRestockTask;
+import com.rs2.model.skill.thieving.StallThievingHandler;
 import com.rs2.model.task.TickTask;
 import com.rs2.net.packet.PacketSender;
 import com.rs2.util.ByteArrayReader;
@@ -69,6 +71,12 @@ public final class ShopManager {
 
     public static void openShop(Player player, int value2) {
         Player player2;
+        int npcId = player.getInteractionTargetId();
+        if (npcId >= 0 && GameplayHelper.getNpcShopId(npcId) == value2
+                && StallThievingHandler.hasRecentlyStolenFromOwner(player, npcId)) {
+            player.packetSender.sendGameMessage("I won't trade with a thief. Come back later.");
+            return;
+        }
         if (value2 >= shopDefinitions.toArray().length) {
             if (GameplayTrace.enabled()) {
                 GameplayTrace.log("shop open invalid-id player=" + GameplayTrace.describe(player) + " shopId=" + value2 + " loaded=" + shopDefinitions.size());

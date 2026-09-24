@@ -41,6 +41,7 @@ extends CycleEvent {
             return;
         }
         this.player.getInventoryManager().addOrDropItem(this.reward);
+        StallThievingHandler.recordSuccessfulTheft(this.player, this.stallDefinition);
         Player player = this.player;
         player.packetSender.sendGameMessage("You successfully stole a " + this.reward.getDefinition().getName().toLowerCase() + ".");
         this.player.getSkillManager().addExperience(17, this.stallDefinition.getExperience());

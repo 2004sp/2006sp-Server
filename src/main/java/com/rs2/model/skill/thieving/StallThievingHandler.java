@@ -13,10 +13,41 @@ import com.rs2.model.skill.thieving.StallDefinition;
 import com.rs2.model.skill.thieving.StallThievingTask;
 import com.rs2.model.task.CycleEventHandler;
 import com.rs2.util.GameUtil;
+import java.util.EnumMap;
+import java.util.Map;
 import java.util.Random;
+import java.util.WeakHashMap;
 
 public final class StallThievingHandler {
     private static final Random random = new Random();
+    private static final int OWNER_MEMORY_TICKS = (int)GameUtil.secondsToTicks(20L * 60L);
+    private static final Map<Player, EnumMap<StallDefinition, Integer>> recentThefts =
+            new WeakHashMap<Player, EnumMap<StallDefinition, Integer>>();
+
+    public static void recordSuccessfulTheft(Player player, StallDefinition stall) {
+        EnumMap<StallDefinition, Integer> thefts = recentThefts.get(player);
+        if (thefts == null) {
+            thefts = new EnumMap<StallDefinition, Integer>(StallDefinition.class);
+            recentThefts.put(player, thefts);
+        }
+        thefts.put(stall, World.tickCount);
+    }
+
+    public static boolean hasRecentlyStolenFromOwner(Player player, int npcId) {
+        StallDefinition stall;
+        switch (npcId) {
+            case 571: stall = StallDefinition.CAKE_STALL; break;
+            case 574: stall = StallDefinition.SILK_STALL; break;
+            case 573: stall = StallDefinition.FUR_STALL; break;
+            case 569: stall = StallDefinition.SILVER_STALL; break;
+            case 572: stall = StallDefinition.SPICE_STALL; break;
+            case 570: stall = StallDefinition.GEM_STALL; break;
+            default: return false;
+        }
+        EnumMap<StallDefinition, Integer> thefts = recentThefts.get(player);
+        Integer theftTick = thefts == null ? null : thefts.get(stall);
+        return theftTick != null && World.tickCount - theftTick < OWNER_MEMORY_TICKS;
+    }
 
     public static int getEmptyStallObjectId(int objectId) {
         if (objectId >= 4874 && objectId <= 4878) {
@@ -91,7 +122,10 @@ public final class StallThievingHandler {
         value5 = 0;
         while (value5 < length2) {
             entity = npcArray[value5];
-            if (entity != null && !entity.isDead() && ((Npc)entity).getMaxHitpoints() > 0 && !entity.hasCombatTarget() && GameUtil.isWithinDistance(entity.getPosition().getX(), entity.getPosition().getY(), player.getPosition().getX(), player.getPosition().getY(), 4)) {
+            if (entity != null && !entity.isDead() && !entity.hasCombatTarget()
+                    && entity.getPosition().getPlane() == player.getPosition().getPlane()
+                    && stallDefinition.isProtectingNpc(((Npc)entity).getDefinition().getName())
+                    && GameUtil.isWithinDistance(entity.getPosition().getX(), entity.getPosition().getY(), value22, value32, 4)) {
                 entity.getUpdateState().setForcedTextAndMarkUpdated("Hey! Get away from there!");
                 if (((Npc)entity).getDefinition().isAttackable()) {
                     CombatManager.startCombat(entity, player);
