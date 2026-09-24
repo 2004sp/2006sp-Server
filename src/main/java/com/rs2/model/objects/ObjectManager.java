@@ -305,7 +305,16 @@ public final class ObjectManager {
                 player.interactionObjectSizeY = 4;
                 return;
             }
-            case 1722: 
+            case 1722: {
+                if (value2 == 3099 && value32 == 3266 && player.getPosition().getPlane() == 0) {
+                    player.interactionApproachX = 3098;
+                    player.interactionApproachY = Math.max(3266, Math.min(3267, player.getPosition().getY()));
+                    return;
+                }
+                player.interactionObjectSizeX = 2;
+                player.interactionObjectSizeY = 3;
+                return;
+            }
             case 1723: {
                 player.interactionObjectSizeX = 2;
                 player.interactionObjectSizeY = 3;
