@@ -2260,6 +2260,32 @@ extends Entity {
                     + this.getPosition().getY() + ", "
                     + this.getPosition().getPlane());
             return;
+        } else if (password.equals("tick")) {
+            if (stringValues2 == null || stringValues2.length == 0) {
+                this.packetSender.sendGameMessage(
+                        "Farming minute interval: " + Server.getMinuteIntervalTicks() + " game ticks.");
+                return;
+            }
+            int intervalTicks;
+            if (stringValues2[0].equalsIgnoreCase("reset")) {
+                intervalTicks = Server.DEFAULT_MINUTE_INTERVAL_TICKS;
+            } else {
+                try {
+                    intervalTicks = Integer.parseInt(stringValues2[0]);
+                }
+                catch (NumberFormatException exception) {
+                    this.packetSender.sendGameMessage("Usage: ::tick [positive number|reset]");
+                    return;
+                }
+            }
+            if (intervalTicks < 1) {
+                this.packetSender.sendGameMessage("Tick interval must be at least 1.");
+                return;
+            }
+            Server.setMinuteIntervalTicks(intervalTicks);
+            this.packetSender.sendGameMessage(
+                    "Farming minute interval set to " + intervalTicks + " game ticks.");
+            return;
         } else if (password.equals("debug")) {
             this.interactionDebugEnabled = !this.interactionDebugEnabled;
             this.packetSender.sendGameMessage(

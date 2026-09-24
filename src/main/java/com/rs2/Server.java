@@ -98,6 +98,8 @@ implements Runnable {
     private final int port;
     private final int cycleMillis;
     private static long elapsedMinutes;
+    public static final int DEFAULT_MINUTE_INTERVAL_TICKS = 100;
+    private static MinuteMaintenanceTickTask minuteMaintenanceTickTask;
     private static ArrayList startingRareItems;
     public static ArrayList trackedRareItems;
     private Selector selector;
@@ -327,7 +329,8 @@ implements Runnable {
                 value = exception;
                 exception.printStackTrace();
             }
-            World.scheduleTickTask(new MinuteMaintenanceTickTask((Server)value8, 100));
+            minuteMaintenanceTickTask = new MinuteMaintenanceTickTask((Server)value8, DEFAULT_MINUTE_INTERVAL_TICKS);
+            World.scheduleTickTask(minuteMaintenanceTickTask);
             GameplayHelper.loadGroundItemSpawns();
             FishingSpotManager.spawnFishingSpots();
             MusicTrackDefinition.loadDefinitions();
@@ -821,6 +824,23 @@ implements Runnable {
 
     public static long getElapsedMinutes() {
         return elapsedMinutes;
+    }
+
+    public static int getMinuteIntervalTicks() {
+        return minuteMaintenanceTickTask == null
+                ? DEFAULT_MINUTE_INTERVAL_TICKS
+                : minuteMaintenanceTickTask.getIntervalTicks();
+    }
+
+    public static void setMinuteIntervalTicks(int intervalTicks) {
+        if (intervalTicks < 1) {
+            throw new IllegalArgumentException("Tick interval must be at least 1.");
+        }
+        if (minuteMaintenanceTickTask == null) {
+            throw new IllegalStateException("Minute maintenance task has not started.");
+        }
+        minuteMaintenanceTickTask.setIntervalTicks(intervalTicks);
+        minuteMaintenanceTickTask.setRemainingTicks(intervalTicks);
     }
 
     public static Server getInstance() {

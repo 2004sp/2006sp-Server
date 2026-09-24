@@ -10,8 +10,8 @@ import com.rs2.model.task.TickTask;
 
 public final class MinuteMaintenanceTickTask
 extends TickTask {
-    public MinuteMaintenanceTickTask(Server server, int value2) {
-        super(100);
+    public MinuteMaintenanceTickTask(Server server, int intervalTicks) {
+        super(intervalTicks);
     }
 
     @Override
