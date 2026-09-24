@@ -44,6 +44,25 @@ public enum CompostBin {
         return null;
     }
 
+    public static CompostBin forInteractionPosition(Position position) {
+        CompostBin exactMatch = CompostBin.forPosition(position);
+        if (exactMatch != null) {
+            return exactMatch;
+        }
+        CompostBin[] compostBinArray = CompostBin.values();
+        int index = 0;
+        while (index < compostBinArray.length) {
+            CompostBin compostBin = compostBinArray[index];
+            if (compostBin.position.getPlane() == position.getPlane()
+                    && Math.abs(compostBin.position.getX() - position.getX()) <= 1
+                    && Math.abs(compostBin.position.getY() - position.getY()) <= 1) {
+                return compostBin;
+            }
+            ++index;
+        }
+        return null;
+    }
+
     public final int getIndex() {
         return this.index;
     }
