@@ -17,8 +17,37 @@ public final class CompostBinManager {
     public int[] states = new int[4];
     public int[] itemIds = new int[4];
     public long[] lastUpdateTicks = new long[4];
-    private static int[] compostableItemIds = new int[]{239, 249, 251, 253, 255, 257, 259, 261, 263, 265, 267, 269, 753, 1942, 1951, 1957, 1965, 2126, 2481, 2998, 3000, 5504, 5986, 6018, 6055};
-    private static int[] supercompostableItemIds = new int[]{247, 2114, 5978, 5980, 5982, 6004, 6469};
+    // 2006-era regular compost ingredients: weeds, low-level crops/fruit/berries,
+    // hops, flowers, snape grass, and herbs below the supercompost threshold.
+    private static final int[] compostableItemIds = new int[]{
+        6055, // Weeds
+        1947, // Grain
+        1779, // Flax
+        231,  // Snape grass (regular compost in 2006)
+        1951, 753, 2126, // Redberries, cadava berries, dwellberries
+        1942, 1957, 1965, 5986, 5504, // Potato, onion, cabbage, sweetcorn, strawberry
+        1955, 1963, 2102, 2108, 2120, 5970, // Apple, banana, lemon, orange, lime, curry leaf
+        6006, 5994, 5996, 5931, 5998, 6000, 6002, // Barley/jute/hops
+        6010, 6014, 6012, 1793, 225, // Marigold, rosemary, nasturtium, woad, limpwurt
+        199, 249, 201, 251, 203, 253, 205, 255, 207, 257, 209, 259 // Grimy/clean guam through irit
+    };
+
+    // 2006-era supercompost ingredients. All 15 items must remain supercompostable;
+    // adding any regular-compost item downgrades the whole bin to normal compost.
+    private static final int[] supercompostableItemIds = new int[]{
+        247, 239, 6018, // Jangerberries, white berries, poison ivy berries
+        2114, 5972, 5974, 5978, // Pineapple, papaya, coconut, coconut shell
+        5980, 5982, 6004, 6016, 6469, // Calquat, watermelon, mushroom, cactus spine, white tree fruit
+        6043, 6045, 6047, 6049, 6051, // Oak, willow, maple, yew, magic roots
+        3049, 2998, // Grimy/clean toadflax
+        211, 261,   // Grimy/clean avantoe
+        213, 263,   // Grimy/clean kwuarm
+        3051, 3000, // Grimy/clean snapdragon
+        215, 265,   // Grimy/clean cadantine
+        2485, 2481, // Grimy/clean lantadyme
+        217, 267,   // Grimy/clean dwarf weed
+        219, 269    // Grimy/clean torstol
+    };
 
     public CompostBinManager(Player player) {
         this.player = player;
@@ -82,7 +111,7 @@ public final class CompostBinManager {
                     int index2 = 0;
                     int[] integerValues = compostableItemIds;
                     int index3 = 0;
-                    while (index3 < 25) {
+                    while (index3 < integerValues.length) {
                         value6 = integerValues[index3];
                         if (value32 == value6) {
                             ((CompostBinManager)value5).itemIds[index] = 6032;
@@ -92,7 +121,7 @@ public final class CompostBinManager {
                     }
                     integerValues = supercompostableItemIds;
                     index3 = 0;
-                    while (index3 < 7) {
+                    while (index3 < integerValues.length) {
                         value6 = integerValues[index3];
                         if (value32 == value6) {
                             if (((CompostBinManager)value5).states[index] == 0) {
