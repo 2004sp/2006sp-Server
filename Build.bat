@@ -1,18 +1,20 @@
 @echo off
 setlocal EnableExtensions EnableDelayedExpansion
 cd /d "%~dp0"
+set "NO_PAUSE=0"
+if /I "%~1"=="--no-pause" set "NO_PAUSE=1"
 
 where javac >nul 2>&1
 if errorlevel 1 (
     echo ERROR: javac was not found. Install a JDK and add its bin folder to PATH.
-    pause
+    if "%NO_PAUSE%"=="0" pause
     exit /b 1
 )
 
 where jar >nul 2>&1
 if errorlevel 1 (
     echo ERROR: jar was not found. Install a JDK and add its bin folder to PATH.
-    pause
+    if "%NO_PAUSE%"=="0" pause
     exit /b 1
 )
 
@@ -55,15 +57,15 @@ if errorlevel 1 goto :build_failed
 move /y "%TEMP_JAR%" "%OUTPUT_JAR%" >nul
 if errorlevel 1 goto :build_failed
 
-ping 127.0.0.1 -n 2 >nul
+if "%NO_PAUSE%"=="0" ping 127.0.0.1 -n 2 >nul
 rmdir /s /q "%BUILD_DIR%"
 echo.
 echo Build complete: %OUTPUT_JAR%
-pause
+if "%NO_PAUSE%"=="0" pause
 exit /b 0
 
 :build_failed
 echo.
 echo ERROR: Build failed. Temporary output was left in "%BUILD_DIR%".
-pause
+if "%NO_PAUSE%"=="0" pause
 exit /b 1

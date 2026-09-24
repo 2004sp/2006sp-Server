@@ -68,6 +68,7 @@ import com.rs2.util.TimestampedPrintStream;
 import com.rs2.util.path.ProjectileCollisionMap;
 import com.rs2.util.path.WalkingCollisionMap;
 import com.rs2.util.plugin.PluginManager;
+import java.awt.GraphicsEnvironment;
 import java.io.BufferedReader;
 import java.io.BufferedWriter;
 import java.io.File;
@@ -613,7 +614,9 @@ implements Runnable {
         onlinePlayerCount = World.getPlayerCount();
         adminPlayerCount = World.getAdminCount();
         moderatorPlayerCount = World.getModeratorCount();
-        ControlPanel.refreshStatusDisplay();
+        if (!GraphicsEnvironment.isHeadless()) {
+            ControlPanel.refreshStatusDisplay();
+        }
     }
 
     public static void broadcastServerMessage(String text2) {

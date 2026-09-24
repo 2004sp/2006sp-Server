@@ -49,6 +49,23 @@ dist/server.jar
 The dependencies remain in `lib/`; keep that directory next to `dist/` when
 running the server.
 
+For a build that exits without waiting for a keypress, run `Build.bat --no-pause`.
+This is useful for terminals and automation; it returns a nonzero exit code when
+compilation or packaging fails.
+
+## Smoke checks
+
+From PowerShell, run:
+
+```powershell
+powershell -NoProfile -ExecutionPolicy Bypass -File .\Smoke.ps1
+```
+
+The script builds the server and checks bundled item and quest definitions,
+chat encoding, and headless server startup on a temporary local port. It runs
+against a temporary copy of the required data and cache, then removes that
+copy. Normal saves and settings are not changed.
+
 ## Run
 
 Start the compiled server control panel with:
