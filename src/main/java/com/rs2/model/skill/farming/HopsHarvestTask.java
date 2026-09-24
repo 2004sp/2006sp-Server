@@ -1,6 +1,5 @@
 package com.rs2.model.skill.farming;
 
-import com.rs2.Server;
 import com.rs2.model.item.ItemStack;
 import com.rs2.model.player.Player;
 import com.rs2.model.skill.farming.HopsDefinition;
@@ -42,7 +41,7 @@ extends CycleEvent {
         if (this.manager.harvestAmounts[this.patch.getIndex()] <= 0) {
             HopsPatchManager.resetPatch(this.manager, this.patch.getIndex());
             this.manager.growthStages[this.patch.getIndex()] = 3;
-            this.manager.lastUpdateTicks[this.patch.getIndex()] = Server.getElapsedMinutes();
+            this.manager.lastUpdateTicks[this.patch.getIndex()] = FarmingPatchUtils.getCurrentGrowthCycleStart(5);
             cycleEventContainer.stop();
             return;
         }

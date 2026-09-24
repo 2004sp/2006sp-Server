@@ -1,6 +1,5 @@
 package com.rs2.model.skill.farming;
 
-import com.rs2.Server;
 import com.rs2.model.item.ItemStack;
 import com.rs2.model.player.Player;
 import com.rs2.model.skill.farming.FruitTreeDefinition;
@@ -34,7 +33,7 @@ extends CycleEvent {
             player.packetSender.sendGameMessage("You examine the tree for signs of disease and find that it's in perfect health.");
             FruitTreePatchManager.getPlayer(this.manager).getSkillManager().addExperience(19, this.definition.getHealthCheckExperience());
             this.manager.patchStates[this.patch.getIndex()] = 0;
-            this.manager.lastUpdateTicks[this.patch.getIndex()] = Server.getElapsedMinutes() - (long)this.definition.getTotalGrowthTicks();
+            this.manager.lastUpdateTicks[this.patch.getIndex()] = FarmingPatchUtils.getCurrentGrowthCycleStart(this.definition.getGrowthCycleTicks()) - (long)this.definition.getTotalGrowthTicks();
             this.manager.recalculateRegrowthStage(this.patch.getIndex());
             cycleEventContainer.stop();
             return;
@@ -43,7 +42,7 @@ extends CycleEvent {
         ((Player)player2).packetSender.sendGameMessage("You harvest the crop, and pick a fruit.");
         FruitTreePatchManager.getPlayer(this.manager).getInventoryManager().addItem(new ItemStack(this.definition.getProduceItemId()));
         FruitTreePatchManager.getPlayer(this.manager).getSkillManager().addExperience(19, this.definition.getHarvestExperience());
-        this.manager.lastUpdateTicks[this.patch.getIndex()] = Server.getElapsedMinutes();
+        this.manager.lastUpdateTicks[this.patch.getIndex()] = FarmingPatchUtils.getCurrentGrowthCycleStart(this.definition.getGrowthCycleTicks());
         int totalGrowthTicks = this.definition.getTotalGrowthTicks() - this.definition.getGrowthCycleTicks() * (this.definition.getGrowthStageCount() + 5 - this.manager.growthStages[this.patch.getIndex()]);
         int index = this.patch.getIndex();
         player2 = this.manager;

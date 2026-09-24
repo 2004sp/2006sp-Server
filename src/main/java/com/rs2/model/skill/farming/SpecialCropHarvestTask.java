@@ -1,6 +1,5 @@
 package com.rs2.model.skill.farming;
 
-import com.rs2.Server;
 import com.rs2.model.item.ItemDefinition;
 import com.rs2.model.item.ItemStack;
 import com.rs2.model.player.Player;
@@ -35,7 +34,7 @@ extends CycleEvent {
             player.packetSender.sendGameMessage("You examine the plant for signs of disease and find that it's in perfect health.");
             SpecialCropPatchManager.getPlayer(this.manager).getSkillManager().addExperience(19, this.definition.getHealthCheckExperience());
             this.manager.patchStates[this.patch.getIndex()] = 0;
-            this.manager.lastUpdateTicks[this.patch.getIndex()] = Server.getElapsedMinutes() - (long)this.definition.getTotalGrowthTicks();
+            this.manager.lastUpdateTicks[this.patch.getIndex()] = FarmingPatchUtils.getCurrentGrowthCycleStart(this.definition.getGrowthCycleTicks()) - (long)this.definition.getTotalGrowthTicks();
             this.manager.recalculateRegrowthStage(this.patch.getIndex());
             cycleEventContainer.stop();
             return;
@@ -48,7 +47,7 @@ extends CycleEvent {
             case BELLADONNA: {
                 SpecialCropPatchManager.resetPatch(this.manager, this.patch.getIndex());
                 this.manager.growthStages[this.patch.getIndex()] = 3;
-                this.manager.lastUpdateTicks[this.patch.getIndex()] = Server.getElapsedMinutes();
+                this.manager.lastUpdateTicks[this.patch.getIndex()] = FarmingPatchUtils.getCurrentGrowthCycleStart(5);
                 break;
             }
             case CACTUS: {
@@ -62,7 +61,7 @@ extends CycleEvent {
                 if (this.manager.growthStages[this.patch.getIndex()] != 16) break;
                 SpecialCropPatchManager.resetPatch(this.manager, this.patch.getIndex());
                 this.manager.growthStages[this.patch.getIndex()] = 3;
-                this.manager.lastUpdateTicks[this.patch.getIndex()] = Server.getElapsedMinutes();
+                this.manager.lastUpdateTicks[this.patch.getIndex()] = FarmingPatchUtils.getCurrentGrowthCycleStart(5);
             }
         }
         this.manager.refreshConfig();

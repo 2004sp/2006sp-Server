@@ -1,6 +1,5 @@
 package com.rs2.model.skill.farming;
 
-import com.rs2.Server;
 import com.rs2.model.skill.farming.SpecialCropDefinition;
 import com.rs2.model.skill.farming.SpecialCropPatch;
 import com.rs2.model.skill.farming.SpecialCropPatchManager;
@@ -25,7 +24,7 @@ extends CycleEvent {
     public final void execute(CycleEventContainer cycleEventContainer) {
         this.manager.patchStates[this.patch.getIndex()] = 0;
         this.manager.cropIds[this.patch.getIndex()] = this.seedId;
-        this.manager.lastUpdateTicks[this.patch.getIndex()] = Server.getElapsedMinutes();
+        this.manager.lastUpdateTicks[this.patch.getIndex()] = FarmingPatchUtils.getCurrentGrowthCycleStart(this.definition.getGrowthCycleTicks());
         SpecialCropPatchManager.getPlayer(this.manager).getSkillManager().addExperience(19, this.definition.getPlantingExperience());
         cycleEventContainer.stop();
     }

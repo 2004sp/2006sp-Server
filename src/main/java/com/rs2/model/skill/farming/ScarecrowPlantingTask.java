@@ -1,6 +1,5 @@
 package com.rs2.model.skill.farming;
 
-import com.rs2.Server;
 import com.rs2.model.player.Player;
 import com.rs2.model.skill.farming.FlowerPatch;
 import com.rs2.model.skill.farming.FlowerPatchManager;
@@ -23,7 +22,7 @@ extends CycleEvent {
         player.packetSender.sendGameMessage("You put a scarecrow on the flower patch, and some weeds start to grow around it.");
         this.manager.cropIds[this.patch.getIndex()] = 36;
         this.manager.growthStages[this.patch.getIndex()] = 4;
-        this.manager.lastUpdateTicks[this.patch.getIndex()] = Server.getElapsedMinutes();
+        this.manager.lastUpdateTicks[this.patch.getIndex()] = FarmingPatchUtils.getCurrentGrowthCycleStart(5);
         cycleEventContainer.stop();
     }
 

@@ -1,5 +1,6 @@
 package com.rs2.model.skill.farming;
 
+import com.rs2.Server;
 import com.rs2.model.Position;
 
 public final class FarmingPatchUtils {
@@ -11,6 +12,14 @@ public final class FarmingPatchUtils {
         int x2 = position2.getX();
         int y2 = position2.getY();
         return position3.getX() >= x && position3.getY() >= y && position3.getX() <= x2 && position3.getY() <= y2;
+    }
+
+    public static long getCurrentGrowthCycleStart(int growthCycleMinutes) {
+        if (growthCycleMinutes <= 0) {
+            throw new IllegalArgumentException("Growth cycle must be positive.");
+        }
+        long elapsedMinutes = Math.max(1L, Server.getElapsedMinutes());
+        return elapsedMinutes - (elapsedMinutes - 1L) % growthCycleMinutes;
     }
 
     public static Position[] getInteractionBounds(Position position) {

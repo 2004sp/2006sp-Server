@@ -1,6 +1,5 @@
 package com.rs2.model.skill.farming;
 
-import com.rs2.Server;
 import com.rs2.model.skill.farming.HerbDefinition;
 import com.rs2.model.skill.farming.HerbPatch;
 import com.rs2.model.skill.farming.HerbPatchManager;
@@ -26,7 +25,7 @@ extends CycleEvent {
         this.manager.patchStates[this.patch.getIndex()] = 0;
         this.manager.growthStages[this.patch.getIndex()] = 4;
         this.manager.cropIds[this.patch.getIndex()] = this.seedId;
-        this.manager.lastUpdateTicks[this.patch.getIndex()] = Server.getElapsedMinutes();
+        this.manager.lastUpdateTicks[this.patch.getIndex()] = FarmingPatchUtils.getCurrentGrowthCycleStart(this.definition.getGrowthCycleTicks());
         HerbPatchManager.getPlayer(this.manager).getSkillManager().addExperience(19, this.definition.getPlantingExperience());
         cycleEventContainer.stop();
     }
