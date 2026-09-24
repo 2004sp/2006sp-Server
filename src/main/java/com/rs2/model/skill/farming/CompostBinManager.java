@@ -3,7 +3,6 @@ package com.rs2.model.skill.farming;
 import com.rs2.Server;
 import com.rs2.ServerSettings;
 import com.rs2.model.Position;
-import com.rs2.model.objects.ObjectDefinition;
 import com.rs2.model.player.Player;
 import com.rs2.model.skill.farming.CompostBin;
 import com.rs2.model.skill.farming.CompostBinCloseTask;
@@ -90,22 +89,19 @@ public final class CompostBinManager {
         CycleEventHandler.getInstance().schedule(this.player, this.player.getActiveCycleEvent(), 2);
     }
 
-    public final boolean fillBin(int value7, int objectId, int value22, int value32) {
-        ObjectDefinition objectDefinition = ObjectDefinition.forId(objectId);
-        if (objectDefinition == null || objectDefinition.name == null
-                || !objectDefinition.name.toLowerCase().contains("compost bin")) {
-            return false;
-        }
-        CompostBin compostBin = CompostBin.forInteractionPosition(new Position(value22, value32));
+    public final boolean fillBin(int value7, int value22, int value32) {
+        CompostBin compostBin = CompostBin.forPosition(new Position(value22, value32));
         if (compostBin == null) {
             return false;
         }
         int index = compostBin.getIndex();
         if (this.states[index] < 15) {
+            Position position = new Position(value22, value32);
             value32 = value7;
-            Object value4 = compostBin;
+            Object value4 = position;
             Object value5 = this;
-            index = compostBin.getIndex();
+            value4 = CompostBin.forPosition((Position)value4);
+            index = ((CompostBin)((Object)value4)).getIndex();
             if (value4 != null) {
                 if (!ServerSettings.farmingEnabled) {
                     value5 = ((CompostBinManager)value5).player;

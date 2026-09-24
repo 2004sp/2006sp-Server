@@ -20,8 +20,7 @@ public final class FarmingPatchUtils {
             throw new IllegalArgumentException("Growth cycle must be positive.");
         }
         long elapsedMinutes = Math.max(1L, Server.getElapsedMinutes());
-        long utcMinutes = System.currentTimeMillis() / 60000L;
-        return elapsedMinutes - Math.floorMod(utcMinutes, (long)growthCycleMinutes);
+        return elapsedMinutes - Math.floorMod(elapsedMinutes, (long)growthCycleMinutes);
     }
 
     /**
@@ -42,8 +41,8 @@ public final class FarmingPatchUtils {
     }
 
     private static boolean isGrowthWindowOpen(int growthCycleMinutes) {
-        long utcMinutes = System.currentTimeMillis() / 60000L;
-        return Math.floorMod(utcMinutes, (long)growthCycleMinutes) < 5L;
+        long elapsedMinutes = Math.max(1L, Server.getElapsedMinutes());
+        return Math.floorMod(elapsedMinutes, (long)growthCycleMinutes) < 5L;
     }
 
     public static Position[] getInteractionBounds(Position position) {

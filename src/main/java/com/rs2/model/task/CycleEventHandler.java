@@ -3,6 +3,7 @@ package com.rs2.model.task;
 import com.rs2.model.Entity;
 import com.rs2.model.task.CycleEvent;
 import com.rs2.model.task.CycleEventContainer;
+import com.rs2.model.skill.farming.FarmingTickTask;
 import com.rs2.util.ProfilerRegistry;
 import com.rs2.util.ProfilerTimer;
 import java.util.Iterator;
@@ -28,6 +29,25 @@ public final class CycleEventHandler {
         }
         this.pendingEvents.add(cycleEventContainer);
         return cycleEventContainer;
+    }
+
+    public final void retimeFarmingEvents(int minuteIntervalTicks) {
+        long requestedDelay = (long)minuteIntervalTicks * 5L;
+        int farmingDelay = requestedDelay > Integer.MAX_VALUE ? Integer.MAX_VALUE : (int)requestedDelay;
+        this.retimeFarmingEvents(this.activeEvents, farmingDelay);
+        this.retimeFarmingEvents(this.pendingEvents, farmingDelay);
+    }
+
+    private void retimeFarmingEvents(Queue events, int farmingDelay) {
+        Iterator iterator = events.iterator();
+        while (iterator.hasNext()) {
+            CycleEventContainer container = (CycleEventContainer)iterator.next();
+            if (container == null || !(container.getEvent() instanceof FarmingTickTask)) {
+                continue;
+            }
+            container.setTickDelay(farmingDelay);
+            container.resetElapsedTicks();
+        }
     }
 
     public final void process() {

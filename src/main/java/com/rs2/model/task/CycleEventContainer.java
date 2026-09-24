@@ -46,5 +46,13 @@ public final class CycleEventContainer {
     public final void setTickDelay(int delayTicks) {
         this.tickDelay = delayTicks;
     }
+
+    public final void resetElapsedTicks() {
+        this.elapsedTicks = 0;
+    }
+
+    public final CycleEvent getEvent() {
+        return this.event;
+    }
 }
 

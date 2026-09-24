@@ -841,6 +841,7 @@ implements Runnable {
         }
         minuteMaintenanceTickTask.setIntervalTicks(intervalTicks);
         minuteMaintenanceTickTask.setRemainingTicks(intervalTicks);
+        com.rs2.model.task.CycleEventHandler.getInstance().retimeFarmingEvents(intervalTicks);
     }
 
     public static Server getInstance() {
