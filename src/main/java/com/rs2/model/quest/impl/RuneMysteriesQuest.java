@@ -121,6 +121,7 @@ extends QuestScript {
                 player.getInventoryManager().addOrDropItem(new ItemStack(1438, 1));
                 this.startQuest(player);
                 player.getDialogueManager().finishDialogue();
+                player.packetSender.closeInterfaces();
                 return false;
             }
         }
