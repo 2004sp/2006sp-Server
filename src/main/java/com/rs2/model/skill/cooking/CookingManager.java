@@ -107,7 +107,7 @@ public final class CookingManager {
         if (GameplayTrace.enabled()) {
             GameplayTrace.log("cooking item-on-object no-object player=" + GameplayTrace.describe(this.player) + " rawItemId=" + objectId + " objectId=" + value5 + " x=" + value32 + " y=" + value42 + " plane=" + this.player.getPosition().getPlane());
         }
-        return true;
+        return false;
     }
 
     public static void startCookingTask(Player player, int value3) {

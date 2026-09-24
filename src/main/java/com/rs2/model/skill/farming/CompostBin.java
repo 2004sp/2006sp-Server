@@ -44,6 +44,20 @@ public enum CompostBin {
         return null;
     }
 
+    public static CompostBin forInteractionPosition(Position position) {
+        CompostBin exact = forPosition(position);
+        if (exact != null) {
+            return exact;
+        }
+        for (CompostBin compostBin : CompostBin.values()) {
+            if (Math.abs(compostBin.position.getX() - position.getX()) <= 2
+                    && Math.abs(compostBin.position.getY() - position.getY()) <= 2) {
+                return compostBin;
+            }
+        }
+        return null;
+    }
+
     public final int getIndex() {
         return this.index;
     }

@@ -89,73 +89,71 @@ public final class CompostBinManager {
         CycleEventHandler.getInstance().schedule(this.player, this.player.getActiveCycleEvent(), 2);
     }
 
-    public final boolean fillBin(int value7, int value22, int value32) {
-        CompostBin compostBin = CompostBin.forPosition(new Position(value22, value32));
+    public final boolean fillBin(int itemId, int objectId, int objectX, int objectY) {
+        Position position = new Position(objectX, objectY);
+        CompostBin compostBin = CompostBin.forPosition(position);
+
+        // Object 7809 is the compost-bin object used by the Falador interaction.
+        // Its clickable tile can differ from the farming anchor, so only this
+        // known compost object gets the small nearby-position fallback.
+        if (compostBin == null && objectId == 7809) {
+            compostBin = CompostBin.forInteractionPosition(position);
+        }
         if (compostBin == null) {
             return false;
         }
+
         int index = compostBin.getIndex();
         if (this.states[index] < 15) {
-            Position position = new Position(value22, value32);
-            value32 = value7;
-            Object value4 = position;
-            Object value5 = this;
-            value4 = CompostBin.forPosition((Position)value4);
-            index = ((CompostBin)((Object)value4)).getIndex();
-            if (value4 != null) {
-                if (!ServerSettings.farmingEnabled) {
-                    value5 = ((CompostBinManager)value5).player;
-                    ((Player)value5).packetSender.sendGameMessage("This skill is currently disabled.");
-                } else if (((CompostBinManager)value5).states[index] < 15) {
-                    int value6;
-                    int index2 = 0;
-                    int[] integerValues = compostableItemIds;
-                    int index3 = 0;
-                    while (index3 < integerValues.length) {
-                        value6 = integerValues[index3];
-                        if (value32 == value6) {
-                            ((CompostBinManager)value5).itemIds[index] = 6032;
-                            index2 = 1;
+            if (!ServerSettings.farmingEnabled) {
+                this.player.packetSender.sendGameMessage("This skill is currently disabled.");
+                return true;
+            }
+
+            boolean compostable = false;
+            for (int compostableItemId : compostableItemIds) {
+                if (itemId == compostableItemId) {
+                    this.itemIds[index] = 6032;
+                    compostable = true;
+                    break;
+                }
+            }
+
+            if (!compostable) {
+                for (int supercompostableItemId : supercompostableItemIds) {
+                    if (itemId == supercompostableItemId) {
+                        if (this.states[index] == 0) {
+                            this.itemIds[index] = 6034;
                         }
-                        ++index3;
-                    }
-                    integerValues = supercompostableItemIds;
-                    index3 = 0;
-                    while (index3 < integerValues.length) {
-                        value6 = integerValues[index3];
-                        if (value32 == value6) {
-                            if (((CompostBinManager)value5).states[index] == 0) {
-                                ((CompostBinManager)value5).itemIds[index] = 6034;
-                            }
-                            index2 = 1;
-                        }
-                        ++index3;
-                    }
-                    if (value32 == 1982) {
-                        if (((CompostBinManager)value5).states[index] == 0) {
-                            ((CompostBinManager)value5).itemIds[index] = 2518;
-                        }
-                        index2 = 1;
-                    }
-                    if (index2 == 0) {
-                        value5 = ((CompostBinManager)value5).player;
-                        ((Player)value5).packetSender.sendGameMessage("You need to put organic items into the compost bin in order to make compost.");
-                    } else {
-                        value6 = index2;
-                        index3 = ((CompostBinManager)value5).player.nextActionSequence();
-                        ((CompostBinManager)value5).player.setActiveCycleEvent(new CompostBinFillTask((CompostBinManager)value5, index3, value32, index, value6));
-                        CycleEventHandler.getInstance().schedule(((CompostBinManager)value5).player, ((CompostBinManager)value5).player.getActiveCycleEvent(), 2);
+                        compostable = true;
+                        break;
                     }
                 }
             }
+
+            if (itemId == 1982) {
+                if (this.states[index] == 0) {
+                    this.itemIds[index] = 2518;
+                }
+                compostable = true;
+            }
+
+            if (!compostable) {
+                this.player.packetSender.sendGameMessage("You need to put organic items into the compost bin in order to make compost.");
+                return true;
+            }
+
+            int actionSequence = this.player.nextActionSequence();
+            this.player.setActiveCycleEvent(new CompostBinFillTask(this, actionSequence, itemId, index, 1));
+            CycleEventHandler.getInstance().schedule(this.player, this.player.getActiveCycleEvent(), 2);
             return true;
         }
+
         if (this.states[index] >= 16 && this.states[index] <= 30) {
-            if (value7 == 1925) {
+            if (itemId == 1925) {
                 this.startEmptyBin(index);
             } else {
-                Player player = this.player;
-                player.packetSender.sendGameMessage("You might need some buckets to gather the compost.");
+                this.player.packetSender.sendGameMessage("You might need some buckets to gather the compost.");
             }
             return true;
         }
