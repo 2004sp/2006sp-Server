@@ -119,20 +119,40 @@ public final class StallThievingHandler {
         ((Player)entity).packetSender.sendGameMessage("You attempt to steal from the stall..");
         Npc[] npcArray = World.getNpcs();
         int length2 = npcArray.length;
+        Npc ownerWitness = null;
         value5 = 0;
         while (value5 < length2) {
             entity = npcArray[value5];
             if (entity != null && !entity.isDead() && !entity.hasCombatTarget()
                     && entity.getPosition().getPlane() == player.getPosition().getPlane()
                     && stallDefinition.isProtectingNpc(((Npc)entity).getDefinition().getName())
-                    && GameUtil.isWithinDistance(entity.getPosition().getX(), entity.getPosition().getY(), value22, value32, 4)) {
-                entity.getUpdateState().setForcedTextAndMarkUpdated("Hey! Get away from there!");
+                    && GameUtil.isWithinDistance(entity.getPosition().getX(), entity.getPosition().getY(), value22, value32, 4)
+                    && GameUtil.hasClearPath(player.getPosition(), entity.getPosition(), false)) {
                 if (((Npc)entity).getDefinition().isAttackable()) {
+                    entity.getUpdateState().setForcedTextAndMarkUpdated("Hey! Get away from there!");
                     CombatManager.startCombat(entity, player);
+                    return true;
                 }
-                return true;
+                ownerWitness = (Npc)entity;
             }
             ++value5;
+        }
+        if (ownerWitness != null) {
+            ownerWitness.getUpdateState().setForcedTextAndMarkUpdated("Hey! Get away from there!");
+            value5 = 0;
+            while (value5 < length2) {
+                entity = npcArray[value5];
+                if (entity != null && !entity.isDead() && !entity.hasCombatTarget()
+                        && entity.getPosition().getPlane() == player.getPosition().getPlane()
+                        && ((Npc)entity).getDefinition().isAttackable()
+                        && "Guard".equalsIgnoreCase(((Npc)entity).getDefinition().getName())
+                        && GameUtil.isWithinDistance(entity.getPosition().getX(), entity.getPosition().getY(), value22, value32, 4)) {
+                    CombatManager.startCombat(entity, player);
+                    break;
+                }
+                ++value5;
+            }
+            return true;
         }
         int value8 = player.nextActionSequence();
         player.setActionLocked(false);
