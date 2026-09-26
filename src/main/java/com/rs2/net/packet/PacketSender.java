@@ -769,7 +769,7 @@ public final class PacketSender {
             return this;
         }
         if (ServerSettings.clientBuild == 443) {
-            return this.sendRevision443InterfaceSlotItem(interfaceId, value2,
+            return this.sendRevision443InterfaceSlotItem(value2, interfaceId,
                     itemStack == null || itemStack.getId() == 0 ? null : itemStack,
                     itemStack == null ? 0 : itemStack.getAmount());
         }

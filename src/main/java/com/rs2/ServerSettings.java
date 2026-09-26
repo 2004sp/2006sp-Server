@@ -40,7 +40,7 @@ public final class ServerSettings {
     public static int dropRateCap = 512;
     public static boolean customDropRatesEnabled = false;
     public static String launcherJarPath = "";
-    public static boolean cacheVerificationShutdownPending = true;
+    public static boolean cacheVerificationShutdownPending = false;
     public static int progressiveXpMode = 0;
     public static int groundItemLifetimeSeconds = 200;
     public static double shopRestockTimeMultiplier = 1.0;
