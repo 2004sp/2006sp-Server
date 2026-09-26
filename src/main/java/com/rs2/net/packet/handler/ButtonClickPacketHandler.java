@@ -40,6 +40,10 @@ implements PacketHandler {
     @Override
     public final void handle(Player player, IncomingPacket packet) {
         int buttonId = packet.getReader().readSignedShort();
+        handleButton(player, buttonId);
+    }
+
+    public void handleButton(Player player, int buttonId) {
         InterfaceDefinition interfaceDefinition = InterfaceDefinition.forId(buttonId);
         boolean interfaceOpen = player.isInterfaceIdOpen(buttonId);
         boolean bankControl = player.getOpenInterfaceId() == 5292
@@ -340,18 +344,22 @@ implements PacketHandler {
             }
             case 906: {
                 player.setBrightness(1);
+                player.packetSender.sendConfig(166, player.getBrightness());
                 return;
             }
             case 908: {
                 player.setBrightness(2);
+                player.packetSender.sendConfig(166, player.getBrightness());
                 return;
             }
             case 910: {
                 player.setBrightness(3);
+                player.packetSender.sendConfig(166, player.getBrightness());
                 return;
             }
             case 912: {
                 player.setBrightness(4);
+                player.packetSender.sendConfig(166, player.getBrightness());
                 return;
             }
             case 914: {
@@ -388,42 +396,59 @@ implements PacketHandler {
             }
             case 930: {
                 player.setMusicVolume(4);
+                player.packetSender.sendConfig(168, player.getMusicVolume());
                 return;
             }
             case 931: {
                 player.setMusicVolume(3);
+                player.packetSender.sendConfig(168, player.getMusicVolume());
                 return;
             }
             case 932: {
                 player.setMusicVolume(2);
+                player.packetSender.sendConfig(168, player.getMusicVolume());
                 return;
             }
             case 933: {
                 player.setMusicVolume(1);
+                player.packetSender.sendConfig(168, player.getMusicVolume());
                 return;
             }
             case 934: {
                 player.setMusicVolume(0);
+                player.packetSender.sendConfig(168, player.getMusicVolume());
                 return;
             }
             case 941: {
                 player.setEffectVolume(4);
+                player.packetSender.sendConfig(169, player.getEffectVolume());
                 return;
             }
             case 942: {
                 player.setEffectVolume(3);
+                player.packetSender.sendConfig(169, player.getEffectVolume());
                 return;
             }
             case 943: {
                 player.setEffectVolume(2);
+                player.packetSender.sendConfig(169, player.getEffectVolume());
                 return;
             }
             case 944: {
                 player.setEffectVolume(1);
+                player.packetSender.sendConfig(169, player.getEffectVolume());
                 return;
             }
             case 945: {
                 player.setEffectVolume(0);
+                player.packetSender.sendConfig(169, player.getEffectVolume());
+                return;
+            }
+            case 946: case 947: case 948: case 949: case 950: {
+                int volume = 950 - buttonId;
+                int configId = ServerSettings.clientBuild == 443 ? 872 : 170;
+                player.configStates[configId] = volume;
+                player.packetSender.sendConfig(configId, volume);
                 return;
             }
             case 5386: {

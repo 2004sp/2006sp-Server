@@ -20,6 +20,8 @@ import com.rs2.net.packet.ByteTransform;
 import com.rs2.net.packet.IncomingPacket;
 import com.rs2.net.packet.PacketHandler;
 import com.rs2.net.packet.PacketReader;
+import com.rs2.net.packet.ClientPackets;
+import com.rs2.net.packet.SpellWidgets;
 import com.rs2.util.GameplayTrace;
 import com.rs2.util.path.PathFinder;
 
@@ -28,6 +30,16 @@ implements PacketHandler {
     @Override
     public final void handle(Player player, IncomingPacket incomingPacket) {
         if (player.isActionLocked()) {
+            return;
+        }
+        if (ServerSettings.clientBuild == 443
+                && ClientPackets.getLength(incomingPacket.getOpcode())
+                != ClientPackets.UNMAPPED
+                && (ClientPackets.isObjectOption(incomingPacket.getOpcode())
+                || incomingPacket.getOpcode() == ClientPackets.OBJECT_EXAMINE
+                || incomingPacket.getOpcode() == ClientPackets.ITEM_ON_OBJECT
+                || incomingPacket.getOpcode() == ClientPackets.SPELL_ON_OBJECT)) {
+            handleRevision443(player, incomingPacket);
             return;
         }
         Player player2 = player;
@@ -166,6 +178,146 @@ implements PacketHandler {
                 InteractionDispatcher.setCurrentInteractionType(InteractionType.SPELL_ON_OBJECT);
                 InteractionDispatcher.dispatchCurrentInteraction(player);
             }
+        }
+    }
+
+    private static void handleRevision443(Player player, IncomingPacket packet) {
+        int opcode = packet.getOpcode();
+        int option = ClientPackets.getObjectOption(opcode);
+        if (option != -1) {
+            int objectId;
+            int x;
+            int y;
+            switch (option) {
+                case 1:
+                    y = packet.getReader().readSignedShort(ByteTransform.ADD);
+                    objectId = packet.getReader().readSignedShort(ByteTransform.ADD, ByteOrder.LITTLE);
+                    x = packet.getReader().readSignedShort(ByteTransform.ADD);
+                    break;
+                case 2:
+                    x = packet.getReader().readSignedShort();
+                    objectId = packet.getReader().readSignedShort();
+                    y = packet.getReader().readSignedShort(ByteTransform.ADD);
+                    break;
+                case 3:
+                    objectId = packet.getReader().readSignedShort(ByteOrder.LITTLE);
+                    y = packet.getReader().readSignedShort();
+                    x = packet.getReader().readSignedShort();
+                    break;
+                case 4:
+                    objectId = packet.getReader().readSignedShort();
+                    x = packet.getReader().readSignedShort(ByteTransform.ADD);
+                    y = packet.getReader().readSignedShort(ByteTransform.ADD, ByteOrder.LITTLE);
+                    break;
+                default:
+                    y = packet.getReader().readSignedShort();
+                    x = packet.getReader().readSignedShort();
+                    objectId = packet.getReader().readSignedShort();
+                    break;
+            }
+            player.packetSender.closeInterfaces();
+            player.resetInteractionState();
+            player.setInteractionTargetId(objectId & 0xFFFF);
+            player.setInteractionTargetX(x & 0xFFFF);
+            player.setInteractionTargetY(y & 0xFFFF);
+            player.setInteractionTargetPlane(player.getPosition().getPlane());
+            if (GameplayTrace.enabled()) {
+                GameplayTrace.log("443 object-option-" + option + " decoded player="
+                        + GameplayTrace.describe(player) + " objectId=" + (objectId & 0xFFFF)
+                        + " x=" + (x & 0xFFFF) + " y=" + (y & 0xFFFF));
+            }
+            EntityTargetMovement.clearMovementTarget(player);
+            ObjectManager.prepareObjectInteractionMovement(player, player.getInteractionTargetId(),
+                    player.getInteractionTargetX(), player.getInteractionTargetY());
+            queueObjectInteractionMovement(player);
+            InteractionType type = option == 1 ? InteractionType.FIRST_OBJECT
+                    : option == 2 ? InteractionType.SECOND_OBJECT
+                    : option == 3 ? InteractionType.THIRD_OBJECT
+                    : option == 4 ? InteractionType.FOURTH_OBJECT : null;
+            if (type != null) {
+                InteractionDispatcher.setCurrentInteractionType(type);
+                InteractionDispatcher.dispatchCurrentInteraction(player);
+            } else if (player.isInteractionDebugEnabled()) {
+                player.packetSender.sendGameMessage("443 object option 5 decoded: id="
+                        + player.getInteractionTargetId());
+            }
+            return;
+        }
+
+        if (opcode == ClientPackets.OBJECT_EXAMINE) {
+            int objectId = packet.getReader().readSignedShort(ByteOrder.LITTLE) & 0xFFFF;
+            if (GameplayTrace.enabled()) {
+                GameplayTrace.log("443 object examine player=" + GameplayTrace.describe(player)
+                        + " objectId=" + objectId);
+            }
+            if (player.isInteractionDebugEnabled()) {
+                player.packetSender.sendGameMessage("443 examine object: " + objectId);
+            }
+            return;
+        }
+
+        if (opcode == ClientPackets.ITEM_ON_OBJECT) {
+            int y = packet.getReader().readSignedShort(ByteTransform.ADD, ByteOrder.LITTLE) & 0xFFFF;
+            int objectId = packet.getReader().readSignedShort(ByteOrder.LITTLE) & 0xFFFF;
+            int itemId = packet.getReader().readSignedShort(ByteTransform.ADD) & 0xFFFF;
+            int slot = packet.getReader().readSignedShort(ByteOrder.LITTLE) & 0xFFFF;
+            int x = packet.getReader().readSignedShort(ByteTransform.ADD, ByteOrder.LITTLE) & 0xFFFF;
+            int packedInterface = ClientPackets.readIntLittle(packet.getReader());
+            if (slot >= 28) return;
+            ItemStack item = player.getInventoryManager().getContainer().getItemAt(slot);
+            if (item == null || item.getId() != itemId) return;
+            player.packetSender.closeInterfaces();
+            player.resetInteractionState();
+            player.setSelectedItemInterfaceId(packedInterface);
+            player.setSelectedItemSlot(slot);
+            player.setSelectedItemId(itemId);
+            player.setInteractionTargetId(objectId);
+            player.setInteractionTargetX(x);
+            player.setInteractionTargetY(y);
+            player.setInteractionTargetPlane(player.getPosition().getPlane());
+            if (GameplayTrace.enabled()) {
+                GameplayTrace.log("443 item-on-object decoded player=" + GameplayTrace.describe(player)
+                        + " interface=" + packedInterface + " slot=" + slot + " itemId=" + itemId
+                        + " objectId=" + objectId + " x=" + x + " y=" + y);
+            }
+            EntityTargetMovement.clearMovementTarget(player);
+            ObjectManager.prepareObjectInteractionMovement(player, objectId, x, y);
+            queueObjectInteractionMovement(player);
+            InteractionDispatcher.setCurrentInteractionType(InteractionType.ITEM_ON_OBJECT);
+            InteractionDispatcher.dispatchCurrentInteraction(player);
+            return;
+        }
+
+        if (opcode == ClientPackets.SPELL_ON_OBJECT) {
+            int spellInterface = ClientPackets.readIntInverseMiddle(packet.getReader());
+            int x = packet.getReader().readSignedShort() & 0xFFFF;
+            int spellChild = packet.getReader().readSignedShort() & 0xFFFF;
+            int y = packet.getReader().readSignedShort(ByteOrder.LITTLE) & 0xFFFF;
+            int objectId = packet.getReader().readSignedShort(ByteTransform.ADD) & 0xFFFF;
+            if (GameplayTrace.enabled()) {
+                GameplayTrace.log("443 spell-on-object decoded player=" + GameplayTrace.describe(player)
+                        + " spell=" + spellInterface + ":" + spellChild
+                        + " objectId=" + objectId + " x=" + x + " y=" + y);
+            }
+            if (player.isInteractionDebugEnabled()) {
+                player.packetSender.sendGameMessage("443 spell-on-object decoded: spell="
+                        + spellInterface + ":" + spellChild + " object=" + objectId);
+            }
+            if (!SpellWidgets.isSpellWidget(spellInterface)
+                    || !SkillActionHelper.isObjectPresent(objectId, x, y,
+                    player.getPosition().getPlane())) return;
+            player.packetSender.closeInterfaces();
+            player.resetInteractionState();
+            player.setInteractionTargetX(x);
+            player.setInteractionTargetY(y);
+            player.setInteractionTargetId(objectId);
+            player.setInteractionTargetPlane(player.getPosition().getPlane());
+            player.setInteractionSpellButtonId(spellChild);
+            EntityTargetMovement.clearMovementTarget(player);
+            ObjectManager.prepareObjectInteractionMovement(player, objectId, x, y);
+            queueObjectInteractionMovement(player);
+            InteractionDispatcher.setCurrentInteractionType(InteractionType.SPELL_ON_OBJECT);
+            InteractionDispatcher.dispatchCurrentInteraction(player);
         }
     }
 

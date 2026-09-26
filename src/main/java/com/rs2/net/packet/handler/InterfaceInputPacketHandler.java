@@ -34,25 +34,23 @@ implements PacketHandler {
     @Override
     public final void handle(Player player, IncomingPacket incomingPacket) {
         switch (incomingPacket.getOpcode()) {
+            case 22: {
+                long nameHash = incomingPacket.getReader().readLong();
+                if (GameplayTrace.enabled()) {
+                    GameplayTrace.log("443 name input player=" + GameplayTrace.describe(player)
+                            + " nameHash=" + nameHash);
+                }
+                if (player.isInteractionDebugEnabled()) {
+                    player.packetSender.sendGameMessage("443 name input: " + nameHash);
+                }
+                return;
+            }
             case 40: {
                 if (ServerSettings.debugModeEnabled) {
                     player.packetSender.sendGameMessage("dialogue: " + player.getDialogueManager().getDialogueId() + " chat: " + player.getDialogueManager().getDialogueStep());
                 }
                 if (player.getDialogueManager().isDialogueInactive()) {
-                    if (player.currentLevelUpSkillId != -1 && player.getQuestState(0) == 1 && ServerSettings.showSkillUnlocks) {
-                        boolean showedUnlock = BankPinManager.showSkillUnlockMessage(player, player.currentLevelUpSkillId);
-                        player.currentLevelUpSkillId = -1;
-                        if (showedUnlock) {
-                            return;
-                        }
-                    }
-                    if (player.queuedLevelUpSkillIds.size() > 0) {
-                        player.getSkillManager().showLevelUpInterface(((Integer)player.queuedLevelUpSkillIds.get(0)).intValue());
-                        player.queuedLevelUpSkillIds.remove(0);
-                        break;
-                    }
-                    player.packetSender.closeInterfaces();
-                    player.getDialogueManager().resetDialogueState();
+                    continueLevelUp(player);
                     break;
                 }
                 if (player.getDialogueManager().getDialogueType() == 1) {
@@ -86,6 +84,7 @@ implements PacketHandler {
                 player.writePacketBuffer(packetWriter.getBuffer());
                 return;
             }
+            case 74:
             case 208: {
                 int amount = incomingPacket.getReader().readInt();
                 if (amount <= 0) {
@@ -104,6 +103,12 @@ implements PacketHandler {
                 }
                 if (player.getSelectedInterfaceId() == 2274 && player.getOpenInterfaceId() == 2156) {
                     PartyRoomManager.withdrawStagedChestItem(player, player.getSelectedInterfaceSlot(), player.getSelectedInterfaceItemId(), amount);
+                    return;
+                }
+                if (ServerSettings.clientBuild == 443 && player.getSelectedInterfaceId() == 5382
+                        && player.getOpenInterfaceId() == 5292) {
+                    BankManager.withdrawRevision443Item(player, player.getSelectedInterfaceSlot(),
+                            player.getSelectedInterfaceItemId(), amount);
                     return;
                 }
                 if (InterfaceInputPacketHandler.isBankTabInterface(player.getSelectedInterfaceId()) && player.getOpenInterfaceId() == 5292) {
@@ -170,6 +175,23 @@ implements PacketHandler {
                 }
             }
         }
+    }
+
+    public static void continueLevelUp(Player player) {
+        if (player.currentLevelUpSkillId != -1 && player.getQuestState(0) == 1 && ServerSettings.showSkillUnlocks) {
+            boolean showedUnlock = BankPinManager.showSkillUnlockMessage(player, player.currentLevelUpSkillId);
+            player.currentLevelUpSkillId = -1;
+            if (showedUnlock) {
+                return;
+            }
+        }
+        if (player.queuedLevelUpSkillIds.size() > 0) {
+            player.getSkillManager().showLevelUpInterface(((Integer)player.queuedLevelUpSkillIds.get(0)).intValue());
+            player.queuedLevelUpSkillIds.remove(0);
+            return;
+        }
+        player.packetSender.closeInterfaces();
+        player.getDialogueManager().resetDialogueState();
     }
 
     private static boolean isBankTabInterface(int interfaceId) {

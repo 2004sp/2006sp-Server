@@ -617,6 +617,14 @@ public class GameplayHelper {
     }
 
     public static void loadObjectDefinitions() {
+        if (ServerSettings.cacheVersion == 443) {
+            try {
+                GameplayHelper.objectDefinitionCount = ObjectDefinition.loadRevision443();
+                return;
+            } catch (IOException exception) {
+                throw new IllegalStateException("Unable to load revision 443 object definitions", exception);
+            }
+        }
         CacheStore cacheStore = CacheStore.getInstance();
         ByteArrayReader reader = null;
         try {

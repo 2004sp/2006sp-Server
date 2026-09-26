@@ -144,6 +144,7 @@ import com.rs2.net.packet.PacketDispatcher;
 import com.rs2.net.packet.PacketReader;
 import com.rs2.net.packet.PacketSender;
 import com.rs2.net.packet.PacketWriter;
+import com.rs2.net.packet.InitialVarps;
 import com.rs2.util.CharacterFileManager;
 import com.rs2.util.ChatTextCodec;
 import com.rs2.util.ElapsedTimer;
@@ -200,7 +201,7 @@ extends Entity {
     private int combatLevel;
     private final SelectionKey selectionKey;
     private final ByteBuffer inboundBuffer;
-    private final ByteBuffer outboundBuffer;
+    private ByteBuffer outboundBuffer;
     private SocketChannel socketChannel;
     private PlayerConnectionState connectionState = PlayerConnectionState.HANDSHAKE;
     private IsaacCipher outboundCipher;
@@ -414,7 +415,7 @@ extends Entity {
     public ItemStack[] sliderPuzzlePieces;
     private int selectedSkillItemId;
     public boolean forcedMovementActive;
-    public int currentMusicTrackId;
+    public int currentMusicTrackId = -1;
     private int runAnimationOverride;
     private int standAnimationOverride;
     private int walkAnimationOverride;
@@ -814,7 +815,9 @@ extends Entity {
             value2 = BotTaskDefinition.getTaskByTypeAndIndex(this.currentBotTaskTypeId, this.currentBotTaskIndex);
             player = this;
             this.currentBotTask = (BotTaskDefinition)value2;
-            this.currentBotTask.configureTaskInteractionTargets(this);
+            if (this.currentBotTask != null) {
+                this.currentBotTask.configureTaskInteractionTargets(this);
+            }
         }
         if (this.deferredBotTaskIndex != -1 && this.deferredBotTaskTypeId != -1) {
             this.deferredBotTask = BotTaskDefinition.getTaskByTypeAndIndex(this.deferredBotTaskTypeId, this.deferredBotTaskIndex);
@@ -897,7 +900,19 @@ extends Entity {
                 this.botUseTaskItemOnTarget = true;
             }
         }
+        if (this.currentBotTask == null) {
+            System.out.println("Resetting " + this.username
+                    + " because its bot task disappeared while resuming state.");
+            this.resetBotToLumbridge();
+            return;
+        }
         if (this.botTaskState.equals("empty inventory") && this.currentBotTaskTypeId != 14 && (value = GameUtil.getDistance(this.getPosition(), this.currentBotTask.getStartPosition())) >= 60 && !this.recoverBotTaskStall(enabled)) {
+            return;
+        }
+        if (this.currentBotTask == null) {
+            System.out.println("Resetting " + this.username
+                    + " because its bot task disappeared during route recovery.");
+            this.resetBotToLumbridge();
             return;
         }
         if (!(this.botTaskState.equals("walk to task") || this.botTaskState.equals("walk to bank") || this.botTaskState.equals("walk towards task"))) {
@@ -1800,39 +1815,45 @@ extends Entity {
         this.getUpdateState().setUpdateRequired(true);
     }
     public final void writePacketBuffer(ByteBuffer byteBuffer) {
-        isMemberControlExit2: {
-            if (!this.socketChannel.isOpen()) {
-                return;
-            }
-            byteBuffer.flip();
-            try {
-                int loginDebugAttempted = byteBuffer.remaining();
-            int loginDebugWritten = this.socketChannel.write(byteBuffer);
-            if (this.connectionState == PlayerConnectionState.HANDSHAKE) {
-                System.out.println("[login-debug] handshake response direct write attempted=" + loginDebugAttempted + " wrote=" + loginDebugWritten + " remaining=" + byteBuffer.remaining());
-            }
-                if (!byteBuffer.hasRemaining()) break isMemberControlExit2;
-                Player player = this;
-                Object value = player.outboundBuffer;
-                synchronized (value) {
-                    player = this;
-                    int loginDebugQueuedBytes = byteBuffer.remaining();
-            player.outboundBuffer.put(byteBuffer);
-            if (this.connectionState.compareTo(PlayerConnectionState.IN_GAME) < 0) {
-                System.out.println("[login-debug] queued response bytes=" + loginDebugQueuedBytes + " outboundBuffered=" + this.outboundBuffer.position() + " state=" + this.connectionState);
-            }
+        if (!this.socketChannel.isOpen()) {
+            return;
+        }
+        byteBuffer.flip();
+        try {
+            synchronized (this) {
+                if (this.outboundBuffer.position() == 0) {
+                    this.socketChannel.write(byteBuffer);
                 }
-                value = DedicatedReactor.getInstance();
-                synchronized (value) {
-                    DedicatedReactor.getInstance().getSelector().wakeup();
-                    this.selectionKey.interestOps(this.selectionKey.interestOps() | 4);
+                if (!byteBuffer.hasRemaining()) {
                     return;
                 }
+                this.ensureOutboundCapacity(byteBuffer.remaining());
+                this.outboundBuffer.put(byteBuffer);
+                DedicatedReactor reactor = DedicatedReactor.getInstance();
+                synchronized (reactor) {
+                    reactor.getSelector().wakeup();
+                    this.selectionKey.interestOps(this.selectionKey.interestOps() | 4);
+                }
             }
-            catch (Exception exception) {
-                this.disconnect();
-            }
+        } catch (Exception exception) {
+            this.disconnect();
         }
+    }
+
+    private void ensureOutboundCapacity(int additionalBytes) {
+        if (additionalBytes <= this.outboundBuffer.remaining()) {
+            return;
+        }
+        int required = this.outboundBuffer.position() + additionalBytes;
+        int capacity = this.outboundBuffer.capacity();
+        while (capacity < required) {
+            int doubled = capacity << 1;
+            capacity = doubled > capacity ? doubled : required;
+        }
+        ByteBuffer replacement = ByteBuffer.allocateDirect(capacity);
+        this.outboundBuffer.flip();
+        replacement.put(this.outboundBuffer);
+        this.outboundBuffer = replacement;
     }
     public final void disconnect() {
         disconnectControlExit1: {
@@ -2289,6 +2310,8 @@ extends Entity {
             return;
         } else if (password.equals("debug")) {
             this.interactionDebugEnabled = !this.interactionDebugEnabled;
+            System.out.println("[interaction-debug] player=" + this.username + " enabled="
+                    + this.interactionDebugEnabled);
             this.packetSender.sendGameMessage(
                     "Debug is " + (this.interactionDebugEnabled ? "on" : "off") + ".");
             return;
@@ -3340,12 +3363,18 @@ extends Entity {
             this.writePacketBuffer(packetWriter.getBuffer());
             return;
         }
-        PacketWriter packetWriter = PacketBuffer.allocateWriter(5);
+        PacketWriter packetWriter = PacketBuffer.allocateWriter(6);
         Player player = this;
         packetWriter.writeByte(player.loginResponseCode);
         if (player.loginResponseCode == 2) {
             packetWriter.writeByte(player.playerRights);
             packetWriter.writeByte(0);
+            if (ServerSettings.clientBuild == 443) {
+                packetWriter.writeShort(player.getIndex());
+                packetWriter.writeByte(player.isMember() ? 1 : 0);
+                this.writePacketBuffer(packetWriter.getBuffer());
+                return;
+            }
             packetWriter.writeByte(0);
             int loginGameMode = player.gameMode;
             if (loginGameMode < 0 || loginGameMode > 3) {
@@ -3381,10 +3410,22 @@ extends Entity {
     public final void processPostLogin() {
         Player player;
         boolean enabled = this.validateLocalLogin();
+        if (enabled && ServerSettings.clientBuild == 443) {
+            World.registerPlayer(this);
+        }
         this.sendLoginResponse();
         if (!enabled) {
             this.disconnect();
             return;
+        }
+        if (ServerSettings.clientBuild == 443) {
+            this.actionLocked = false;
+            this.teleporting = true;
+            this.setAppearanceUpdateRequired(true);
+            this.getUpdateState().setUpdateRequired(true);
+            this.registered = true;
+            this.packetSender.sendMapRegion();
+            InitialVarps.send(this);
         }
         if (this.expiredMembershipRelocationRequired) {
             Player player2 = this;
@@ -3394,18 +3435,22 @@ extends Entity {
         boolean relocatedFromCastleWars = CastleWarsManager.relocatePlayerOnLogin(this);
         Player player3 = this;
         int index = 0;
-        while (index < player3.configStates.length) {
-            if (player3.configStates[index] != 0) {
-                player = player3;
-                player.packetSender.sendConfig(index, player3.configStates[index]);
+        if (ServerSettings.clientBuild != 443) {
+            while (index < player3.configStates.length) {
+                if (player3.configStates[index] != 0) {
+                    player = player3;
+                    player.packetSender.sendConfig(index, player3.configStates[index]);
+                }
+                ++index;
             }
-            ++index;
+            ErnestTheChickenQuest.refreshBasementLeverDoorConfig(player3);
+            player3.refreshEnterTheAbyssConfig();
         }
-        ErnestTheChickenQuest.refreshBasementLeverDoorConfig(player3);
-        player3.refreshEnterTheAbyssConfig();
         player = this;
         this.actionLocked = true;
-        World.registerPlayer(this);
+        if (ServerSettings.clientBuild != 443) {
+            World.registerPlayer(this);
+        }
         if (relocatedFromCastleWars) {
             this.packetSender.sendGameMessage("You logged out during Castle Wars and have been returned to the lobby.");
         }
@@ -3490,8 +3535,10 @@ extends Entity {
         }
         CacheDefinitionIndex.scheduleRandomEventRoll(this);
         this.setAppearanceUpdateRequired(true);
-        player = this;
-        player.packetSender.sendInterfaceText("Total Lvl: " + this.skillManager.getTotalLevel(), 3984);
+        if (ServerSettings.clientBuild != 443) {
+            player = this;
+            player.packetSender.sendInterfaceText("Total Lvl: " + this.skillManager.getTotalLevel(), 3984);
+        }
         if (this.getPoisonDamage() > 0.0) {
             value = new HitDefinition(null, HitType.POISON, Math.ceil(this.getPoisonDamage())).setDelay(30);
             value = new CombatAction(this, this, (HitDefinition)value);
@@ -5030,6 +5077,11 @@ extends Entity {
     }
 
     public final void setAutocastEnabled(boolean autocastEnabled) {
+        if (ServerSettings.clientBuild == 443) {
+            this.autocastEnabled = autocastEnabled && this.autocastSpell != null;
+            this.packetSender.refreshAutocastConfig();
+            return;
+        }
         if (autocastEnabled) {
             Player player = this;
             player.packetSender.sendConfig(108, 3);
@@ -5043,6 +5095,17 @@ extends Entity {
     }
 
     public final void setAutocastSpell(SpellDefinition spellDefinition) {
+        if (ServerSettings.clientBuild == 443) {
+            this.autocastSpell = spellDefinition;
+            this.autocastEnabled = spellDefinition != null;
+            if (spellDefinition != null) {
+                this.packetSender.setSidebarInterface(0, 328);
+            }
+            this.packetSender.sendInterfaceText(spellDefinition == null ? "Spell"
+                    : TextUtil.capitalizeFirst(spellDefinition.name().toLowerCase().replaceAll("_", " ")), 352);
+            this.packetSender.refreshAutocastConfig();
+            return;
+        }
         if (spellDefinition == null) {
             Player player = this;
             player.packetSender.refreshAutocastConfig();
@@ -5063,6 +5126,11 @@ extends Entity {
     }
 
     public final void disableAutocast() {
+        if (ServerSettings.clientBuild == 443) {
+            this.autocastEnabled = false;
+            this.packetSender.refreshAutocastConfig();
+            return;
+        }
         Player player = this;
         player.packetSender.sendConfig(108, 2);
         this.autocastEnabled = false;

@@ -15,6 +15,8 @@ import com.rs2.model.objects.WorldObjectRegionIndex;
 import com.rs2.model.player.Player;
 import com.rs2.model.player.PlayerConnectionState;
 import com.rs2.model.player.PlayerUpdateTask;
+import com.rs2.model.player.ModernPlayerUpdateTask;
+import com.rs2.model.npc.NpcUpdateTask;
 import com.rs2.model.task.CycleEventHandler;
 import com.rs2.model.task.TaskScheduler;
 import com.rs2.model.task.TickTask;
@@ -109,7 +111,9 @@ public final class World {
                 } else {
                     ((java.util.HashSet)value3).add(((Player)value2).getUsername());
                     try {
-                        ((Player)value2).process();
+                        if (ServerSettings.clientBuild != 443 || ((Player)value2).isBot) {
+                            ((Player)value2).process();
+                        }
                     }
                     catch (Exception exception) {
                         value = exception;
@@ -174,8 +178,26 @@ public final class World {
             value2 = entityArray[index];
             if (value2 != null) {
                 try {
-                    PlayerUpdateTask.updatePlayer((Player)value2);
-                    GameplayHelper.sendNpcUpdatePacket((Player)value2);
+                    if (ServerSettings.clientBuild == 443 && !((Player)value2).isBot) {
+                        ProfilerTimer modernPlayerTimer = ProfilerRegistry.getTimer("modernPlayerUpdate");
+                        modernPlayerTimer.start();
+                        try {
+                            ModernPlayerUpdateTask.updatePlayer((Player)value2);
+                        } finally {
+                            modernPlayerTimer.stop();
+                        }
+
+                        ProfilerTimer modernNpcTimer = ProfilerRegistry.getTimer("modernNpcUpdate");
+                        modernNpcTimer.start();
+                        try {
+                            NpcUpdateTask.updatePlayer((Player)value2);
+                        } finally {
+                            modernNpcTimer.stop();
+                        }
+                    } else {
+                        PlayerUpdateTask.updatePlayer((Player)value2);
+                        GameplayHelper.sendNpcUpdatePacket((Player)value2);
+                    }
                 }
                 catch (Exception exception) {
                     value = exception;

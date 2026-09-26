@@ -5,6 +5,8 @@ import com.rs2.model.Position;
 import com.rs2.model.music.MusicAreaDefinition;
 import com.rs2.model.music.MusicTrackDefinition;
 import com.rs2.model.player.Player;
+import com.rs2.ServerSettings;
+import com.rs2.net.packet.AudioIds443;
 import com.rs2.util.CharacterFileManager;
 import com.rs2.util.GameUtil;
 import java.util.Arrays;
@@ -86,8 +88,12 @@ public final class MusicManager {
             }
             player.musicManagerTrackId = trackId;
             MusicTrackDefinition musicTrackDefinition = MusicTrackDefinition.forTrackId(trackId);
-            if (musicTrackDefinition.getButtonId() != -1 || buttonlessTrackIds.contains(trackId)) {
+            if (ServerSettings.clientBuild == 443 || musicTrackDefinition.getButtonId() != -1 || buttonlessTrackIds.contains(trackId)) {
                 player.packetSender.sendMusicTrack(musicTrackDefinition);
+                if (ServerSettings.clientBuild == 443 && AudioIds443.track(trackId) < 0
+                        && AudioIds443.jingle(trackId) >= 0) {
+                    player.packetSender.sendMusicJingle(trackId, 0);
+                }
             }
         }
     }

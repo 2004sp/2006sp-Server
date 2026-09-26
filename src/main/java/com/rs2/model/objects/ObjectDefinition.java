@@ -1,5 +1,9 @@
 package com.rs2.model.objects;
 
+import com.rs2.cache.js5.Definitions;
+import com.rs2.util.ByteArrayReader;
+import java.io.IOException;
+import java.util.Map;
 import java.util.logging.Logger;
 
 public class ObjectDefinition {
@@ -16,6 +20,134 @@ public class ObjectDefinition {
 
     static {
         Logger.getLogger(ObjectDefinition.class.getName());
+    }
+
+    public static int loadRevision443() throws IOException {
+        Map<Integer, byte[]> files = Definitions.readGroup(6);
+        int maxId = -1;
+        for (Integer id : files.keySet()) {
+            maxId = Math.max(maxId, id);
+        }
+        definitionsById = new ObjectDefinition[maxId + 1];
+        for (Map.Entry<Integer, byte[]> entry : files.entrySet()) {
+            int id = entry.getKey();
+            ObjectDefinition definition = forId(id);
+            definition.name = "";
+            definition.width = 1;
+            definition.length = 1;
+            definition.solid = true;
+            definition.blocksProjectiles = true;
+            definition.interactive = false;
+            decodeRevision443(definition, entry.getValue());
+            definition.projectileCollisionIgnored = definition.isProjectileCollisionIgnored();
+        }
+        return definitionsById.length;
+    }
+
+    private static void decodeRevision443(ObjectDefinition definition, byte[] data) throws IOException {
+        ByteArrayReader reader = new ByteArrayReader(data);
+        int actionFlag = -1;
+        boolean hasActions = false;
+        while (reader.position < data.length) {
+            int opcode = reader.readUnsignedByte();
+            if (opcode == 0) {
+                if (reader.position != data.length) {
+                    throw new IOException("Trailing bytes in 443 object " + definition.objectId);
+                }
+                definition.interactive = actionFlag == 1 || (actionFlag == -1 && hasActions);
+                return;
+            }
+            if (opcode == 1) {
+                int count = reader.readUnsignedByte();
+                for (int i = 0; i < count; i++) {
+                    reader.readUnsignedShort();
+                    reader.readUnsignedByte();
+                }
+            } else if (opcode == 2) {
+                definition.name = readRevision443String(reader, data);
+            } else if (opcode == 3) {
+                definition.description = readRevision443String(reader, data);
+            } else if (opcode == 5) {
+                int count = reader.readUnsignedByte();
+                for (int i = 0; i < count; i++) reader.readUnsignedShort();
+            } else if (opcode == 14) {
+                definition.width = reader.readUnsignedByte();
+            } else if (opcode == 15) {
+                definition.length = reader.readUnsignedByte();
+            } else if (opcode == 17) {
+                definition.solid = false;
+            } else if (opcode == 18) {
+                // Separate walking and projectile collision in the 443 format.
+                definition.blocksProjectiles = false;
+            } else if (opcode == 19) {
+                actionFlag = reader.readUnsignedByte();
+            } else if (opcode == 21 || opcode == 22 || opcode == 23 || opcode == 27
+                    || opcode == 62 || opcode == 64 || opcode == 73 || opcode == 74) {
+                if (opcode == 27) definition.solid = true;
+            } else if (opcode == 24 || opcode == 60 || opcode == 65 || opcode == 66
+                    || opcode == 67 || opcode == 68 || opcode == 82) {
+                reader.readUnsignedShort();
+            } else if (opcode == 28 || opcode == 69 || opcode == 75 || opcode == 81) {
+                reader.readUnsignedByte();
+            } else if (opcode == 29 || opcode == 39) {
+                reader.readByte();
+            } else if (opcode >= 30 && opcode < 35) {
+                String action = readRevision443String(reader, data);
+                if (!"hidden".equalsIgnoreCase(action)) hasActions = true;
+            } else if (opcode == 40 || opcode == 41) {
+                int count = reader.readUnsignedByte();
+                for (int i = 0; i < count; i++) {
+                    reader.readUnsignedShort();
+                    reader.readUnsignedShort();
+                }
+            } else if (opcode == 70 || opcode == 71 || opcode == 72) {
+                reader.readShort();
+            } else if (opcode == 77 || opcode == 92) {
+                reader.readUnsignedShort();
+                reader.readUnsignedShort();
+                if (opcode == 92) reader.readUnsignedShort();
+                int count = reader.readUnsignedByte();
+                for (int i = 0; i <= count; i++) reader.readUnsignedShort();
+            } else if (opcode == 78) {
+                reader.readUnsignedShort();
+                reader.readUnsignedByte();
+            } else if (opcode == 79) {
+                reader.readUnsignedShort();
+                reader.readUnsignedShort();
+                reader.readUnsignedByte();
+                int count = reader.readUnsignedByte();
+                for (int i = 0; i < count; i++) reader.readUnsignedShort();
+            } else if (opcode == 249) {
+                int count = reader.readUnsignedByte();
+                for (int i = 0; i < count; i++) {
+                    boolean stringValue = reader.readUnsignedByte() == 1;
+                    reader.readUnsignedByte();
+                    reader.readUnsignedByte();
+                    reader.readUnsignedByte();
+                    if (stringValue) readRevision443String(reader, data);
+                    else reader.readInt();
+                }
+            } else {
+                throw new IOException("Unsupported 443 object opcode " + opcode
+                        + " for object " + definition.objectId);
+            }
+        }
+        throw new IOException("Unterminated 443 object " + definition.objectId);
+    }
+
+    private static String readRevision443String(ByteArrayReader reader, byte[] data)
+            throws IOException {
+        int start = reader.position;
+        while (reader.position < data.length && data[reader.position] != 0) {
+            reader.position++;
+        }
+        if (reader.position == data.length) {
+            throw new IOException("Unterminated 443 string");
+        }
+        String value = new String(data, start, reader.position - start,
+                java.nio.charset.StandardCharsets.ISO_8859_1);
+        reader.position++;
+        return value;
     }
 
     public static ObjectDefinition forId(int value3) {

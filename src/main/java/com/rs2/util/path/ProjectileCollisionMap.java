@@ -1,7 +1,9 @@
 package com.rs2.util.path;
 
+import com.rs2.ServerSettings;
 import com.rs2.cache.CacheArchive;
 import com.rs2.cache.CacheStore;
+import com.rs2.cache.js5.WorldMaps;
 import com.rs2.model.GameplayHelper;
 import com.rs2.model.objects.ObjectDefinition;
 import com.rs2.util.ByteArrayReader;
@@ -486,19 +488,26 @@ public final class ProjectileCollisionMap {
     public static void loadCollisionMaps() {
         try {
             CacheStore cacheStore = CacheStore.getInstance();
-            byte[] fileBytes = new CacheArchive(cacheStore.readFile(0, 5)).getFileBytes("map_index");
-            Object value = new ByteArrayReader(fileBytes);
-            int value2 = fileBytes.length / 7;
+            WorldMaps.Square[] revision443 = ServerSettings.cacheVersion == 443
+                    ? WorldMaps.load() : null;
+            byte[] fileBytes = revision443 == null
+                    ? new CacheArchive(cacheStore.readFile(0, 5)).getFileBytes("map_index") : null;
+            Object value = fileBytes == null ? null : new ByteArrayReader(fileBytes);
+            int value2 = revision443 == null ? fileBytes.length / 7 : revision443.length;
             regions = new ProjectileCollisionMap[value2];
             int[] integerValues = new int[value2];
             int[] integerValues2 = new int[value2];
             int[] integerValues3 = new int[value2];
             int index = 0;
             while (index < value2) {
-                integerValues[index] = ((ByteArrayReader)value).readUnsignedShort();
-                integerValues2[index] = ((ByteArrayReader)value).readUnsignedShort();
-                integerValues3[index] = ((ByteArrayReader)value).readUnsignedShort();
-                ((ByteArrayReader)value).readUnsignedByte();
+                if (revision443 != null) {
+                    integerValues[index] = revision443[index].regionId;
+                } else {
+                    integerValues[index] = ((ByteArrayReader)value).readUnsignedShort();
+                    integerValues2[index] = ((ByteArrayReader)value).readUnsignedShort();
+                    integerValues3[index] = ((ByteArrayReader)value).readUnsignedShort();
+                    ((ByteArrayReader)value).readUnsignedByte();
+                }
                 ++index;
             }
             index = 0;
@@ -508,8 +517,12 @@ public final class ProjectileCollisionMap {
             }
             index = 0;
             while (index < value2) {
-                value = GameplayHelper.inflateGzipCacheFile(cacheStore.readFile(4, integerValues3[index]));
-                Object value3 = GameplayHelper.inflateGzipCacheFile(cacheStore.readFile(4, integerValues2[index]));
+                value = revision443 == null
+                        ? GameplayHelper.inflateGzipCacheFile(cacheStore.readFile(4, integerValues3[index]))
+                        : revision443[index].locations;
+                Object value3 = revision443 == null
+                        ? GameplayHelper.inflateGzipCacheFile(cacheStore.readFile(4, integerValues2[index]))
+                        : revision443[index].terrain;
                 if (value != null && value3 != null) {
                     try {
                         int value4;

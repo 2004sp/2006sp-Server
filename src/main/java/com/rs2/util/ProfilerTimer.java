@@ -1,23 +1,23 @@
 package com.rs2.util;
 
 public final class ProfilerTimer {
-    private long startTimeMillis;
-    private long accumulatedMillis = 0L;
+    private long startTimeNanos;
+    private long accumulatedNanos;
 
     public final void start() {
-        this.startTimeMillis = System.currentTimeMillis();
+        this.startTimeNanos = System.nanoTime();
     }
 
     public final void stop() {
-        this.accumulatedMillis += System.currentTimeMillis() - this.startTimeMillis;
+        this.accumulatedNanos += System.nanoTime() - this.startTimeNanos;
     }
 
     public final void reset() {
-        this.accumulatedMillis = 0L;
+        this.accumulatedNanos = 0L;
     }
 
     public final long getAccumulatedMillis() {
-        return this.accumulatedMillis;
+        return this.accumulatedNanos / 1000000L;
     }
 }
 

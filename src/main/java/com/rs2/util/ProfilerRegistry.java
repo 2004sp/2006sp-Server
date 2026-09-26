@@ -23,4 +23,16 @@ public final class ProfilerRegistry {
         }
     }
 
+    public static String formatSnapshot() {
+        StringBuilder result = new StringBuilder();
+        for (Object entryObject : timers.entrySet()) {
+            Map.Entry entry = (Map.Entry)entryObject;
+            long millis = ((ProfilerTimer)entry.getValue()).getAccumulatedMillis();
+            if (millis <= 0L) continue;
+            if (result.length() > 0) result.append(", ");
+            result.append(entry.getKey()).append('=').append(millis).append("ms");
+        }
+        return result.toString();
+    }
+
 }

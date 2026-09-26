@@ -9,6 +9,7 @@ import com.rs2.model.randomevent.SkillRandomEventNpc;
 import com.rs2.model.skill.SkillActionHelper;
 import com.rs2.model.skill.prayer.BoneDefinition;
 import com.rs2.net.packet.PacketSender;
+import com.rs2.util.GameplayTrace;
 import com.rs2.util.GameUtil;
 
 public final class BoneBuryingHandler {
@@ -48,11 +49,13 @@ public final class BoneBuryingHandler {
             return false;
         }
         if (!ServerSettings.prayerEnabled) {
+            debugBury("blocked", value5, value22, "prayer-disabled");
             Player player = this.player;
             player.packetSender.sendGameMessage("This skill is currently disabled.");
             return true;
         }
         if (!this.player.getSkillManager().tryStartActionDelay(800)) {
+            debugBury("blocked", value5, value22, "action-delay");
             return true;
         }
         if (this.player.getInventoryManager().removeItemFromSlot(new ItemStack(value5), value22)) {
@@ -69,7 +72,16 @@ public final class BoneBuryingHandler {
             if (SkillActionHelper.shouldTriggerRandomEvent(this.player) && !this.player.botEnabled && !this.player.isInTutorialIsland()) {
                 GameplayHelper.spawnSkillRandomEventNpc(this.player, GameUtil.randomInclusive(3) == 0 ? SkillRandomEventNpc.SHADE : SkillRandomEventNpc.ZOMBIE);
             }
+            debugBury("handled", value5, value22, "bone-buried");
+        } else {
+            debugBury("rejected", value5, value22, "inventory-remove-failed");
         }
         return true;
+    }
+
+    private void debugBury(String outcome, int itemId, int slot, String detail) {
+        GameplayTrace.logInteraction(this.player, "[item-debug] outcome=" + outcome + " action=bury-bone player="
+                + GameplayTrace.describe(this.player) + " requested=" + itemId + ":"
+                + ItemService.getItemName(itemId) + " slot=" + slot + " detail=" + detail);
     }
 }

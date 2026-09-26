@@ -1,5 +1,6 @@
 package com.rs2.util;
 
+import com.rs2.ServerSettings;
 import com.rs2.model.Entity;
 import com.rs2.model.Position;
 import com.rs2.model.npc.Npc;
@@ -11,7 +12,7 @@ import java.text.SimpleDateFormat;
 import java.util.Date;
 
 public final class GameplayTrace {
-    private static final boolean ENABLED = Boolean.getBoolean("prs.traceGameplay");
+    private static final boolean TRACE_PROPERTY_ENABLED = Boolean.getBoolean("prs.traceGameplay");
     private static final String FILTER = System.getProperty("prs.traceFilter", "");
     private static final Object LOCK = new Object();
 
@@ -19,24 +20,42 @@ public final class GameplayTrace {
     }
 
     public static boolean enabled() {
-        return ENABLED;
+        // The launcher exposes Debug Mode as a runtime setting. Let it enable
+        // click diagnostics without requiring JVM arguments or a restart.
+        return TRACE_PROPERTY_ENABLED || ServerSettings.debugModeEnabled;
     }
 
     public static void log(String message) {
-        if (!ENABLED) {
+        if (!enabled()) {
             return;
         }
+        write(message, ServerSettings.debugModeEnabled);
+    }
+
+    public static void logInteraction(Player player, String message) {
+        boolean playerDebugEnabled = player != null && player.isInteractionDebugEnabled();
+        if (!enabled() && !playerDebugEnabled) {
+            return;
+        }
+        write(message, ServerSettings.debugModeEnabled || playerDebugEnabled);
+    }
+
+    private static void write(String message, boolean printToTerminal) {
         if (!FILTER.isEmpty() && !message.contains(FILTER)) {
             return;
         }
         synchronized (LOCK) {
+            String line = new SimpleDateFormat("HH:mm:ss.SSS").format(new Date()) + " " + message;
+            if (printToTerminal) {
+                System.out.println("[packet-debug] " + line);
+            }
             try {
                 File directory = new File("qa-output");
                 if (!directory.exists()) {
                     directory.mkdirs();
                 }
                 PrintWriter writer = new PrintWriter(new FileWriter(new File(directory, "gameplay-trace.log"), true));
-                writer.println(new SimpleDateFormat("HH:mm:ss.SSS").format(new Date()) + " " + message);
+                writer.println(line);
                 writer.close();
             }
             catch (Exception exception) {
@@ -47,7 +66,7 @@ public final class GameplayTrace {
     }
 
     public static void logException(String context, Throwable throwable) {
-        if (!ENABLED) {
+        if (!enabled()) {
             return;
         }
         log(context + " exception=" + throwable);

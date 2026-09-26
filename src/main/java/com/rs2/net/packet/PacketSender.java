@@ -34,6 +34,8 @@ import com.rs2.net.packet.QueuedPositionUnlockEvent;
 import com.rs2.net.packet.RelativePositionUnlockEvent;
 import com.rs2.net.packet.YAxisPositionUnlockEvent;
 import com.rs2.util.GameUtil;
+import com.rs2.util.ChatTextCodec;
+import com.rs2.util.ChatCodec;
 import java.awt.Color;
 import java.util.ArrayList;
 import java.util.regex.Pattern;
@@ -59,7 +61,7 @@ public final class PacketSender {
             return this;
         }
         PacketWriter packetWriter = PacketBuffer.allocateWriter(2);
-        packetWriter.writeOpcode(this.player.getOutboundCipher(), 99);
+        packetWriter.writeOpcode(this.player.getOutboundCipher(), ServerSettings.clientBuild == 443 ? 87 : 99);
         packetWriter.writeByte(state);
         this.player.writePacketBuffer(packetWriter.getBuffer());
         return this;
@@ -68,12 +70,19 @@ public final class PacketSender {
     public final void sendMusicTrack(MusicTrackDefinition musicTrackDefinition) {
         this.sendInterfaceText(musicTrackDefinition.getName(), 4439);
         int trackId = musicTrackDefinition.getTrackId();
+        if (ServerSettings.clientBuild == 443) {
+            trackId = AudioIds443.track(trackId);
+        }
         if (!this.player.isBot && this.player.currentMusicTrackId != trackId) {
             this.player.currentMusicTrackId = trackId;
-            if (trackId != -1) {
+            if (trackId != -1 || ServerSettings.clientBuild == 443) {
                 PacketWriter packetWriter = PacketBuffer.allocateWriter(3);
-                packetWriter.writeOpcode(this.player.getOutboundCipher(), 74);
-                packetWriter.writeShort(trackId, ByteOrder.LITTLE);
+                packetWriter.writeOpcode(this.player.getOutboundCipher(), ServerSettings.clientBuild == 443 ? 6 : 74);
+                if (ServerSettings.clientBuild == 443) {
+                    packetWriter.writeShort(trackId, ByteOrder.LITTLE);
+                } else {
+                    packetWriter.writeShort(trackId, ByteOrder.LITTLE);
+                }
                 this.player.writePacketBuffer(packetWriter.getBuffer());
             }
         }
@@ -86,6 +95,13 @@ public final class PacketSender {
 
     public final PacketSender sendSystemUpdateTimer(int systemUpdateTimer) {
         if (this.player.isBot) {
+            return this;
+        }
+        if (ServerSettings.clientBuild == 443) {
+            PacketWriter packetWriter = PacketBuffer.allocateWriter(3);
+            packetWriter.writeOpcode(this.player.getOutboundCipher(), 117);
+            packetWriter.writeShort(systemUpdateTimer, ByteTransform.ADD);
+            this.player.writePacketBuffer(packetWriter.getBuffer());
             return this;
         }
         PacketWriter packetWriter = PacketBuffer.allocateWriter(4);
@@ -103,6 +119,7 @@ public final class PacketSender {
         integerValues[3] = 3213;
         integerValues[4] = 1644;
         integerValues[5] = 5608;
+        integerValues[6] = -1;
         integerValues[7] = -1;
         integerValues[8] = 5065;
         integerValues[9] = 5715;
@@ -189,7 +206,7 @@ public final class PacketSender {
         }
         this.sendPlayerIndex();
         Object value4 = this;
-        if (((PacketSender)value4).player.isBot) {
+        if (((PacketSender)value4).player.isBot || ServerSettings.clientBuild == 443) {
             packetSender2 = (PacketSender)value4;
         } else {
             PacketWriter packetWriter = PacketBuffer.allocateWriter(1);
@@ -197,7 +214,9 @@ public final class PacketSender {
             ((PacketSender)value4).player.writePacketBuffer(packetWriter.getBuffer());
             packetSender2 = (PacketSender)value4;
         }
-        this.sendMapRegion();
+        if (ServerSettings.clientBuild != 443) {
+            this.sendMapRegion();
+        }
         this.sendRunEnergy();
         value4 = this;
         ((PacketSender)value4).updateMissingQuestCompletionStates();
@@ -224,6 +243,14 @@ public final class PacketSender {
         }
         value4 = this;
         if (((PacketSender)value4).player.isBot) {
+            packetSender = (PacketSender)value4;
+        } else if (ServerSettings.clientBuild == 443) {
+            PacketWriter packetWriter = PacketBuffer.allocateWriter(4);
+            packetWriter.writeOpcode(((PacketSender)value4).player.getOutboundCipher(), 91);
+            packetWriter.writeByte(((PacketSender)value4).player.getPublicChatMode());
+            packetWriter.writeByte(((PacketSender)value4).player.getPrivateChatMode());
+            packetWriter.writeByte(((PacketSender)value4).player.getTradeMode());
+            ((PacketSender)value4).player.writePacketBuffer(packetWriter.getBuffer());
             packetSender = (PacketSender)value4;
         } else {
             PacketWriter packetWriter = PacketBuffer.allocateWriter(4);
@@ -260,7 +287,7 @@ public final class PacketSender {
         this.player.getSocialManager().initializePrivateMessaging();
         if (this.player.getQuestState(0) == 1) {
             value4 = this;
-            if (!((PacketSender)value4).player.isBot) {
+            if (!((PacketSender)value4).player.isBot && ServerSettings.clientBuild != 443) {
                 PacketSender packetSender3;
                 int daysBetweenMidnights = GameplayHelper.getDaysBetweenMidnights(((PacketSender)value4).player.lastSavedMillis, System.currentTimeMillis());
                 value3 = MessageOfTheWeek.getMessageForIndex(Server.messageOfTheWeekIndex);
@@ -362,6 +389,9 @@ public final class PacketSender {
         this.sendConfig(168, this.player.getMusicVolume());
         this.sendConfig(169, this.player.getEffectVolume());
         this.sendConfig(170, this.player.getMouseButtons());
+        if (ServerSettings.clientBuild == 443) {
+            this.sendConfig(872, this.player.configStates[872]);
+        }
         this.sendConfig(171, this.player.getPublicChatEffects());
         this.sendConfig(172, this.player.isAutoRetaliate() ? 0 : 1);
         this.sendConfig(173, this.player.getMovementQueue().isRunning() ? 1 : 0);
@@ -375,6 +405,12 @@ public final class PacketSender {
     public final PacketSender sendEnterInputPrompt(int enterInputPrompt) {
         this.player.setSelectedInterfaceId(enterInputPrompt);
         if (this.player.isBot) {
+            return this;
+        }
+        if (ServerSettings.clientBuild == 443) {
+            PacketWriter packetWriter = PacketBuffer.allocateWriter(1);
+            packetWriter.writeOpcode(this.player.getOutboundCipher(), 32);
+            this.player.writePacketBuffer(packetWriter.getBuffer());
             return this;
         }
         PacketWriter packetWriter = PacketBuffer.allocateWriter(1);
@@ -550,6 +586,29 @@ public final class PacketSender {
         if (this.player.isBot) {
             return this;
         }
+        if (ServerSettings.clientBuild == 443) {
+            if (skillId == 21) {
+                PacketAudit.legacySkill(21, 22, "level=" + value2 + " xp=" + (long)skillId2);
+                // The legacy server stores Construction in internal slot 21.
+                // Revision 443 has Hunter at 21 and Construction at 22. Hunter
+                // is not implemented server-side yet, so expose its real base
+                // state (level 1, 0 XP) before sending Construction.
+                PacketWriter hunter = PacketBuffer.allocateWriter(7);
+                hunter.writeOpcode(this.player.getOutboundCipher(), 58);
+                hunter.writeByte(21);
+                hunter.writeByte(1, ByteTransform.ADD);
+                hunter.writeInt(0, ByteOrder.INVERSE_MIDDLE);
+                this.player.writePacketBuffer(hunter.getBuffer());
+                skillId = 22;
+            }
+            PacketWriter packetWriter = PacketBuffer.allocateWriter(7);
+            packetWriter.writeOpcode(this.player.getOutboundCipher(), 58);
+            packetWriter.writeByte(skillId);
+            packetWriter.writeByte(value2, ByteTransform.ADD);
+            packetWriter.writeInt((int)skillId2, ByteOrder.INVERSE_MIDDLE);
+            this.player.writePacketBuffer(packetWriter.getBuffer());
+            return this;
+        }
         PacketWriter packetWriter = PacketBuffer.allocateWriter(7);
         packetWriter.writeOpcode(this.player.getOutboundCipher(), 134);
         packetWriter.writeByte(skillId);
@@ -561,6 +620,18 @@ public final class PacketSender {
 
     public final PacketSender sendInterfaceModelRotation(int interfaceId, int value2, int value32, int value42) {
         if (this.player.isBot) {
+            return this;
+        }
+        if (ServerSettings.clientBuild == 443) {
+            interfaceId = InterfaceBridge.translate(interfaceId, "zoom=" + value2 + " rotation=" + value32 + " angle=" + value42);
+            if (interfaceId == InterfaceBridge.UNMAPPED) return this;
+            PacketWriter packetWriter = PacketBuffer.allocateWriter(11);
+            packetWriter.writeOpcode(this.player.getOutboundCipher(), 147);
+            packetWriter.writeInt(interfaceId, ByteOrder.MIDDLE);
+            packetWriter.writeShort(value42, ByteOrder.LITTLE);
+            packetWriter.writeShort(value2);
+            packetWriter.writeShort(value32, ByteTransform.ADD, ByteOrder.LITTLE);
+            this.player.writePacketBuffer(packetWriter.getBuffer());
             return this;
         }
         PacketWriter packetWriter = PacketBuffer.allocateWriter(10);
@@ -577,6 +648,13 @@ public final class PacketSender {
         if (this.player.isBot) {
             return this;
         }
+        if (ServerSettings.clientBuild == 443) {
+            PacketWriter packetWriter = PacketBuffer.allocateWriter(2);
+            packetWriter.writeOpcode(this.player.getOutboundCipher(), 10);
+            packetWriter.writeByte(6);
+            this.player.writePacketBuffer(packetWriter.getBuffer());
+            return this;
+        }
         PacketWriter packetWriter = PacketBuffer.allocateWriter(2);
         packetWriter.writeOpcode(this.player.getOutboundCipher(), 106);
         packetWriter.writeByte(6, ByteTransform.NEGATE);
@@ -586,6 +664,17 @@ public final class PacketSender {
 
     public final PacketSender sendInterfaceOffset(int interfaceId, int value2, int value32) {
         if (this.player.isBot) {
+            return this;
+        }
+        if (ServerSettings.clientBuild == 443) {
+            interfaceId = InterfaceBridge.translate(interfaceId, "x=" + value2 + " y=" + value32);
+            if (interfaceId == InterfaceBridge.UNMAPPED) return this;
+            PacketWriter packetWriter = PacketBuffer.allocateWriter(9);
+            packetWriter.writeOpcode(this.player.getOutboundCipher(), 232);
+            packetWriter.writeShort(value2, ByteTransform.ADD);
+            packetWriter.writeShort(value32, ByteTransform.ADD, ByteOrder.LITTLE);
+            packetWriter.writeInt(interfaceId, ByteOrder.INVERSE_MIDDLE);
+            this.player.writePacketBuffer(packetWriter.getBuffer());
             return this;
         }
         PacketWriter packetWriter = PacketBuffer.allocateWriter(7);
@@ -600,6 +689,20 @@ public final class PacketSender {
     public final PacketSender sendEntityHintIcon(int value3, int value22) {
         this.player.hintedNpcIndex = value22;
         if (this.player.isBot) {
+            return this;
+        }
+        if (ServerSettings.clientBuild == 443) {
+            PacketWriter packetWriter = PacketBuffer.allocateWriter(7);
+            packetWriter.writeOpcode(this.player.getOutboundCipher(), 96);
+            boolean clearHint = value22 < 0 || value3 == 0;
+            packetWriter.writeByte(clearHint ? 0 : value3 == 10 ? 10 : 1);
+            if (!clearHint) {
+                packetWriter.writeShort(value22);
+            }
+            for (int i = clearHint ? 1 : 3; i < 6; i++) {
+                packetWriter.writeByte(0);
+            }
+            this.player.writePacketBuffer(packetWriter.getBuffer());
             return this;
         }
         PacketWriter packetWriter = PacketBuffer.allocateWriter(7);
@@ -617,6 +720,16 @@ public final class PacketSender {
         if (this.player.isBot) {
             return this;
         }
+        if (ServerSettings.clientBuild == 443) {
+            PacketWriter packetWriter = PacketBuffer.allocateWriter(7);
+            packetWriter.writeOpcode(this.player.getOutboundCipher(), 96);
+            packetWriter.writeByte(value42);
+            packetWriter.writeShort(value5);
+            packetWriter.writeShort(value22);
+            packetWriter.writeByte(value32);
+            this.player.writePacketBuffer(packetWriter.getBuffer());
+            return this;
+        }
         PacketWriter packetWriter = PacketBuffer.allocateWriter(7);
         packetWriter.writeOpcode(this.player.getOutboundCipher(), 254);
         packetWriter.writeByte(value42);
@@ -630,6 +743,10 @@ public final class PacketSender {
     public final PacketSender sendInterfaceSlotItem(ItemStack itemStack, int interfaceId, int value2, int value32) {
         if (this.player.isBot) {
             return this;
+        }
+        if (ServerSettings.clientBuild == 443) {
+            return this.sendRevision443InterfaceSlotItem(value2, interfaceId,
+                    itemStack, value32);
         }
         PacketWriter packetWriter = PacketBuffer.allocateWriter(32);
         packetWriter.startVariableShortPacket(this.player.getOutboundCipher(), 34);
@@ -650,6 +767,11 @@ public final class PacketSender {
     public final PacketSender sendInterfaceSlotItem(int interfaceId, int value2, ItemStack itemStack) {
         if (this.player.isBot) {
             return this;
+        }
+        if (ServerSettings.clientBuild == 443) {
+            return this.sendRevision443InterfaceSlotItem(interfaceId, value2,
+                    itemStack == null || itemStack.getId() == 0 ? null : itemStack,
+                    itemStack == null ? 0 : itemStack.getAmount());
         }
         PacketWriter packetWriter = PacketBuffer.allocateWriter(32);
         packetWriter.startVariableShortPacket(this.player.getOutboundCipher(), 34);
@@ -672,12 +794,47 @@ public final class PacketSender {
         return this;
     }
 
+    private PacketSender sendRevision443InterfaceSlotItem(int componentId, int slot,
+            ItemStack itemStack, int amount) {
+        if (slot < 0 || slot > 32767) {
+            return this;
+        }
+        componentId = InterfaceBridge.translate(componentId, "slot=" + slot + " item=" + (itemStack == null ? -1 : itemStack.getId()) + " amount=" + amount);
+        if (componentId == InterfaceBridge.UNMAPPED) {
+            return this;
+        }
+        PacketWriter packetWriter = PacketBuffer.allocateWriter(16);
+        packetWriter.startVariableShortPacket(this.player.getOutboundCipher(), 213);
+        packetWriter.writeInt(componentId);
+        packetWriter.writeShort(componentId);
+        if (slot < 128) {
+            packetWriter.writeByte(slot);
+        } else {
+            packetWriter.writeShort(slot + 32768);
+        }
+        int itemId = itemStack == null ? 0 : itemStack.getId() + 1;
+        packetWriter.writeShort(itemId);
+        if (itemId != 0) {
+            if (amount >= 255) {
+                packetWriter.writeByte(255);
+                packetWriter.writeInt(amount);
+            } else {
+                packetWriter.writeByte(amount);
+            }
+        }
+        packetWriter.finishVariableShortPacket();
+        this.player.writePacketBuffer(packetWriter.getBuffer());
+        return this;
+    }
+
     public final PacketSender sendSingleItemContainer(int itemId, int value2, int value32) {
         if (this.player.isBot) {
             return this;
         }
-        if (!PacketSender.isClientInterfaceIdSupported(itemId)) {
-            return this;
+        if (ServerSettings.clientBuild == 443) {
+            return this.sendItemContainer(itemId, new ItemStack[] {
+                    value2 > 0 ? new ItemStack(value2, value32) : null
+            });
         }
         PacketWriter packetWriter = PacketBuffer.allocateWriter(8192);
         packetWriter.startVariableShortPacket(this.player.getOutboundCipher(), 53);
@@ -704,9 +861,34 @@ public final class PacketSender {
         if (this.player.isBot) {
             return this;
         }
-        if (!PacketSender.isClientInterfaceIdSupported(itemId)) {
+        if (ServerSettings.clientBuild == 443) {
+            itemId = InterfaceBridge.translate(itemId, "slots=" + itemStackArray.length);
+            if (itemId == InterfaceBridge.UNMAPPED) return this;
+            PacketWriter packetWriter = PacketBuffer.allocateWriter(8192);
+            packetWriter.startVariableShortPacket(this.player.getOutboundCipher(), 228);
+            packetWriter.writeInt(itemId);
+            packetWriter.writeShort(itemId);
+            packetWriter.writeShort(itemStackArray.length);
+            for (ItemStack itemStack : itemStackArray) {
+                if (itemStack == null) {
+                    packetWriter.writeByte(0);
+                    packetWriter.writeShort(0);
+                } else {
+                    int amount = itemStack.getAmount();
+                    if (amount > 254) {
+                        packetWriter.writeByte(255);
+                        packetWriter.writeInt(amount);
+                    } else {
+                        packetWriter.writeByte(amount);
+                    }
+                    packetWriter.writeShort(itemStack.getId() + 1);
+                }
+            }
+            packetWriter.finishVariableShortPacket();
+            this.player.writePacketBuffer(packetWriter.getBuffer());
             return this;
         }
+        if (!PacketSender.isClientInterfaceIdSupported(itemId)) return this;
         PacketWriter packetWriter = PacketBuffer.allocateWriter(8192);
         packetWriter.startVariableShortPacket(this.player.getOutboundCipher(), 53);
         packetWriter.writeShort(itemId);
@@ -739,7 +921,16 @@ public final class PacketSender {
         if (this.player.isBot) {
             return this;
         }
-        this.sendLocalScenePosition(new Position(value2, value32, value42));
+        Position position = new Position(value2, value32, value42);
+        if (ServerSettings.clientBuild == 443) {
+            if (objectId == ServerSettings.placeholderObjectId) {
+                ObjectPacket.sendRemove(this.player, position, value52, value62);
+            } else {
+                ObjectPacket.sendCreate(this.player, objectId, position, value52, value62);
+            }
+            return this;
+        }
+        this.sendLocalScenePosition(position);
         PacketWriter packetWriter = PacketBuffer.allocateWriter(5);
         packetWriter.writeOpcode(this.player.getOutboundCipher(), 151);
         packetWriter.writeByte(0, ByteTransform.SUBTRACT);
@@ -751,6 +942,17 @@ public final class PacketSender {
 
     public final PacketSender closeInterface(int interfaceId) {
         if (this.player.isBot) {
+            return this;
+        }
+        if (ServerSettings.clientBuild == 443) {
+            if (interfaceId != -1) {
+                interfaceId = InterfaceBridge.translateGroup(interfaceId);
+                if (interfaceId == InterfaceBridge.UNMAPPED) return this;
+            }
+            PacketWriter packetWriter = PacketBuffer.allocateWriter(3);
+            packetWriter.writeOpcode(this.player.getOutboundCipher(), 140);
+            packetWriter.writeShort(interfaceId, ByteTransform.ADD);
+            this.player.writePacketBuffer(packetWriter.getBuffer());
             return this;
         }
         if (interfaceId >= InterfaceDefinition.interfaceCount) {
@@ -773,6 +975,14 @@ public final class PacketSender {
         if (this.player.getQuestState(0) != 1) {
             return this;
         }
+        if (ServerSettings.clientBuild == 443) {
+            PacketWriter packetWriter = PacketBuffer.allocateWriter(gameMessage.length() + 3);
+            packetWriter.startVariableBytePacket(this.player.getOutboundCipher(), 157);
+            packetWriter.writeString(gameMessage);
+            packetWriter.finishVariableBytePacket();
+            this.player.writePacketBuffer(packetWriter.getBuffer());
+            return this;
+        }
         PacketWriter packetWriter = PacketBuffer.allocateWriter(gameMessage.length() + 3);
         packetWriter.startVariableBytePacket(this.player.getOutboundCipher(), 253);
         packetWriter.writeString(gameMessage);
@@ -783,6 +993,11 @@ public final class PacketSender {
 
     public final PacketSender sendAccountStatus() {
         if (this.player.isBot) {
+            return this;
+        }
+        if (ServerSettings.clientBuild == 443) {
+            // Rights and the local-player index are part of the 443 login response.
+            this.player.setAppearanceUpdateRequired(true);
             return this;
         }
         int gameMode = this.player.gameMode;
@@ -814,6 +1029,17 @@ public final class PacketSender {
         if (this.player.isBot) {
             return this;
         }
+        if (ServerSettings.clientBuild == 443) {
+            boolean clear = value2 == -1;
+            value2 = InterfaceBridge.translateGroup(value2, "tab=" + interfaceId);
+            if (value2 == InterfaceBridge.UNMAPPED && !clear) return this;
+            PacketWriter packetWriter = PacketBuffer.allocateWriter(4);
+            packetWriter.writeOpcode(this.player.getOutboundCipher(), 90);
+            packetWriter.writeByte(interfaceId);
+            packetWriter.writeShort(value2, ByteTransform.ADD);
+            this.player.writePacketBuffer(packetWriter.getBuffer());
+            return this;
+        }
         PacketWriter packetWriter = PacketBuffer.allocateWriter(4);
         packetWriter.writeOpcode(this.player.getOutboundCipher(), 71);
         packetWriter.writeShort(value2);
@@ -826,6 +1052,9 @@ public final class PacketSender {
         if (this.player.isBot) {
             return this;
         }
+        if (ServerSettings.clientBuild == 443) {
+            return this.sendInterfaceModel(interfaceId, 1, value2);
+        }
         PacketWriter packetWriter = PacketBuffer.allocateWriter(5);
         packetWriter.writeOpcode(this.player.getOutboundCipher(), 16);
         packetWriter.writeShort(interfaceId);
@@ -836,6 +1065,18 @@ public final class PacketSender {
 
     public final PacketSender sendInterfaceProgress(int interfaceId, int value2) {
         if (this.player.isBot) {
+            return this;
+        }
+        if (ServerSettings.clientBuild == 443) {
+            // These bars are flat custom widgets retained by the paired hybrid
+            // client. Opcode 18 is its explicit three-byte progress extension.
+            if (interfaceId != 19011 && (interfaceId < 19049 || interfaceId > 19094
+                    || (interfaceId - 19049) % 9 != 0)) return this;
+            PacketWriter packetWriter = PacketBuffer.allocateWriter(4);
+            packetWriter.writeOpcode(this.player.getOutboundCipher(), 18);
+            packetWriter.writeShort(interfaceId);
+            packetWriter.writeByte(Math.max(0, Math.min(value2, 255)));
+            this.player.writePacketBuffer(packetWriter.getBuffer());
             return this;
         }
         PacketWriter packetWriter = PacketBuffer.allocateWriter(4);
@@ -851,6 +1092,16 @@ public final class PacketSender {
 
     public final PacketSender sendProjectile(Position position, int value9, int value23, byte value10, byte value24, int value33, int value42, int value52, int value62, int value72, int value82) {
         if (this.player.isBot) {
+            return this;
+        }
+        if (ServerSettings.clientBuild == 443) {
+            Position sourcePosition = value9 > 1
+                    ? new Position(position.getX() + value9 / 2,
+                            position.getY() + value9 / 2, position.getPlane())
+                    : position;
+            ZonePacket.sendProjectile(this.player, sourcePosition,
+                    value33, value10, value24, value23, value42, value52,
+                    value62, value72, value82, 64);
             return this;
         }
         if (value9 > 1) {
@@ -899,6 +1150,16 @@ public final class PacketSender {
         if (this.player.isBot) {
             return this;
         }
+        if (ServerSettings.clientBuild == 443) {
+            PacketWriter region = PacketBuffer.allocateWriter(512);
+            RegionPacket.write(region, this.player.getOutboundCipher(),
+                    this.player.getPosition().getRegionX() + 6,
+                    this.player.getPosition().getRegionY() + 6,
+                    this.player.localX, this.player.localY,
+                    this.player.getPosition().getPlane());
+            this.player.writePacketBuffer(region.getBuffer());
+            return this;
+        }
         PacketWriter packetWriter = PacketBuffer.allocateWriter(5);
         packetWriter.writeOpcode(this.player.getOutboundCipher(), 73);
         packetWriter.writeShort(this.player.getPosition().getRegionX() + 6, ByteTransform.ADD);
@@ -912,6 +1173,12 @@ public final class PacketSender {
         if (this.player.isBot) {
             return this;
         }
+        if (ServerSettings.clientBuild == 443) {
+            PacketWriter packetWriter = PacketBuffer.allocateWriter(1);
+            packetWriter.writeOpcode(this.player.getOutboundCipher(), 41);
+            this.player.writePacketBuffer(packetWriter.getBuffer());
+            return this;
+        }
         PacketWriter packetWriter = PacketBuffer.allocateWriter(1);
         packetWriter.writeOpcode(this.player.getOutboundCipher(), 109);
         this.player.writePacketBuffer(packetWriter.getBuffer());
@@ -923,21 +1190,37 @@ public final class PacketSender {
         if (this.player.isBot) {
             return this;
         }
-        if (interfaceId >= InterfaceDefinition.interfaceCount && interfaceId == 12140) {
+        if (ServerSettings.clientBuild == 443) {
+            interfaceId = InterfaceBridge.translateGroup(interfaceId);
+            if (interfaceId == InterfaceBridge.UNMAPPED) return this;
+        }
+        if (ServerSettings.clientBuild != 443 && interfaceId >= InterfaceDefinition.interfaceCount && interfaceId == 12140) {
             interfaceId = 8680;
         }
-        if (!PacketSender.isClientInterfaceIdSupported(interfaceId)) {
-            return this;
-        }
+        if (ServerSettings.clientBuild != 443 && !PacketSender.isClientInterfaceIdSupported(interfaceId)) return this;
         PacketWriter packetWriter = PacketBuffer.allocateWriter(3);
         packetWriter.writeOpcode(this.player.getOutboundCipher(), 97);
-        packetWriter.writeShort(interfaceId);
+        if (ServerSettings.clientBuild == 443) {
+            packetWriter.writeShort(interfaceId, ByteTransform.ADD, ByteOrder.LITTLE);
+        } else {
+            packetWriter.writeShort(interfaceId);
+        }
         this.player.writePacketBuffer(packetWriter.getBuffer());
         return this;
     }
 
     public final PacketSender showWalkableInterface(int interfaceId) {
         if (this.player.isBot) {
+            return this;
+        }
+        if (ServerSettings.clientBuild == 443) {
+            boolean clear = interfaceId == -1;
+            interfaceId = InterfaceBridge.translateGroup(interfaceId);
+            if (interfaceId == InterfaceBridge.UNMAPPED && !clear) return this;
+            PacketWriter packetWriter = PacketBuffer.allocateWriter(3);
+            packetWriter.writeOpcode(this.player.getOutboundCipher(), 219);
+            packetWriter.writeShort(interfaceId);
+            this.player.writePacketBuffer(packetWriter.getBuffer());
             return this;
         }
         if (interfaceId >= InterfaceDefinition.interfaceCount) {
@@ -952,6 +1235,16 @@ public final class PacketSender {
 
     public final PacketSender sendInterfaceScrollPosition(int interfaceId, int value2) {
         if (this.player.isBot) {
+            return this;
+        }
+        if (ServerSettings.clientBuild == 443) {
+            interfaceId = InterfaceBridge.translate(interfaceId, "scroll=" + value2);
+            if (interfaceId == InterfaceBridge.UNMAPPED) return this;
+            PacketWriter packetWriter = PacketBuffer.allocateWriter(7);
+            packetWriter.writeOpcode(this.player.getOutboundCipher(), 88);
+            packetWriter.writeInt(interfaceId, ByteOrder.MIDDLE);
+            packetWriter.writeShort(value2, ByteTransform.ADD);
+            this.player.writePacketBuffer(packetWriter.getBuffer());
             return this;
         }
         PacketWriter packetWriter = PacketBuffer.allocateWriter(6);
@@ -970,6 +1263,13 @@ public final class PacketSender {
         if (this.player.isBot) {
             return this;
         }
+        if (ServerSettings.clientBuild == 443) {
+            PacketWriter packetWriter = PacketBuffer.allocateWriter(2);
+            packetWriter.writeOpcode(this.player.getOutboundCipher(), 236);
+            packetWriter.writeByte(state ? 1 : 0);
+            this.player.writePacketBuffer(packetWriter.getBuffer());
+            return this;
+        }
         PacketWriter packetWriter = PacketBuffer.allocateWriter(5);
         packetWriter.writeOpcode(this.player.getOutboundCipher(), 61);
         packetWriter.writeByte(state ? 1 : 0);
@@ -983,9 +1283,19 @@ public final class PacketSender {
         if (this.player.isBot) {
             return this;
         }
-        if (!PacketSender.isClientInterfaceIdSupported(value2)) {
+        if (ServerSettings.clientBuild == 443) {
+            interfaceId = InterfaceBridge.translateGroup(interfaceId, "role=main");
+            value2 = InterfaceBridge.translateGroup(value2, "role=inventory");
+            if (interfaceId == InterfaceBridge.UNMAPPED
+                    || value2 == InterfaceBridge.UNMAPPED) return this;
+            PacketWriter packetWriter = PacketBuffer.allocateWriter(5);
+            packetWriter.writeOpcode(this.player.getOutboundCipher(), 146);
+            packetWriter.writeShort(interfaceId, ByteTransform.ADD, ByteOrder.LITTLE);
+            packetWriter.writeShort(value2);
+            this.player.writePacketBuffer(packetWriter.getBuffer());
             return this;
         }
+        if (!PacketSender.isClientInterfaceIdSupported(value2)) return this;
         PacketWriter packetWriter = PacketBuffer.allocateWriter(5);
         packetWriter.writeOpcode(this.player.getOutboundCipher(), 248);
         packetWriter.writeShort(interfaceId, ByteTransform.ADD);
@@ -996,6 +1306,13 @@ public final class PacketSender {
 
     public final PacketSender flashSidebarIcon(int value2) {
         if (this.player.isBot) {
+            return this;
+        }
+        if (ServerSettings.clientBuild == 443) {
+            PacketWriter packetWriter = PacketBuffer.allocateWriter(2);
+            packetWriter.writeOpcode(this.player.getOutboundCipher(), 148);
+            packetWriter.writeByte(value2, ByteTransform.NEGATE);
+            this.player.writePacketBuffer(packetWriter.getBuffer());
             return this;
         }
         PacketWriter packetWriter = PacketBuffer.allocateWriter(3);
@@ -1011,6 +1328,12 @@ public final class PacketSender {
         this.player.activeBookItemId = 0;
         this.player.activeBookPageIndex = 0;
         if (this.player.isBot) {
+            return this;
+        }
+        if (ServerSettings.clientBuild == 443) {
+            PacketWriter packetWriter = PacketBuffer.allocateWriter(1);
+            packetWriter.writeOpcode(this.player.getOutboundCipher(), 178);
+            this.player.writePacketBuffer(packetWriter.getBuffer());
             return this;
         }
         PacketWriter packetWriter = PacketBuffer.allocateWriter(2);
@@ -1037,6 +1360,10 @@ public final class PacketSender {
         if (this.player.isBot) {
             return this;
         }
+        if (ServerSettings.clientBuild == 443) {
+            ZonePacket.sendGroundItemCreate(this.player, groundItem);
+            return this;
+        }
         this.sendLocalScenePosition(groundItem.getPosition());
         PacketWriter packetWriter = PacketBuffer.allocateWriter(8);
         packetWriter.writeOpcode(this.player.getOutboundCipher(), 44);
@@ -1051,6 +1378,10 @@ public final class PacketSender {
         if (this.player.isBot) {
             return this;
         }
+        if (ServerSettings.clientBuild == 443) {
+            ZonePacket.sendGroundItemRemove(this.player, groundItem);
+            return this;
+        }
         this.sendLocalScenePosition(groundItem.getPosition());
         PacketWriter packetWriter = PacketBuffer.allocateWriter(4);
         packetWriter.writeOpcode(this.player.getOutboundCipher(), 156);
@@ -1062,6 +1393,16 @@ public final class PacketSender {
 
     public final PacketSender sendConfig(int value3, int value22) {
         if (this.player.isBot) {
+            return this;
+        }
+        if (ServerSettings.clientBuild == 443) {
+            // InitialVarps owns the verified legacy-to-443 varp set.
+            // Other callers still use 377 ids and must not mutate unrelated 443 varps.
+            boolean verified443Varp = InitialVarps.isVerified(value3);
+            PacketAudit.legacyVarp(value3, value22, verified443Varp);
+            if (verified443Varp) {
+                VarpPacket.send(this.player, value3, value22);
+            }
             return this;
         }
         if (value22 < 128 && -128 <= value22) {
@@ -1084,6 +1425,19 @@ public final class PacketSender {
         if (this.player.isBot) {
             return this;
         }
+        if (ServerSettings.clientBuild == 443) {
+            interfaceId = InterfaceBridge.translate(interfaceId, "rgb=" + color.getRGB());
+            if (interfaceId == InterfaceBridge.UNMAPPED) return this;
+            int rgb555 = (color.getRed() >> 3 & 0x1F) << 10
+                    | (color.getGreen() >> 3 & 0x1F) << 5
+                    | color.getBlue() >> 3 & 0x1F;
+            PacketWriter packetWriter = PacketBuffer.allocateWriter(7);
+            packetWriter.writeOpcode(this.player.getOutboundCipher(), 3);
+            packetWriter.writeInt(interfaceId, ByteOrder.MIDDLE);
+            packetWriter.writeShort(rgb555, ByteOrder.LITTLE);
+            this.player.writePacketBuffer(packetWriter.getBuffer());
+            return this;
+        }
         if (interfaceId >= InterfaceDefinition.interfaceCount) {
             return this;
         }
@@ -1100,6 +1454,17 @@ public final class PacketSender {
 
     public final PacketSender sendInterfaceText(String interfaceId, int interfaceId2) {
         if (this.player.isBot) {
+            return this;
+        }
+        if (ServerSettings.clientBuild == 443) {
+            interfaceId2 = InterfaceBridge.translate(interfaceId2, "text=\"" + interfaceId + "\"");
+            if (interfaceId2 == InterfaceBridge.UNMAPPED) return this;
+            PacketWriter packetWriter = PacketBuffer.allocateWriter(interfaceId.length() + 7);
+            packetWriter.startVariableShortPacket(this.player.getOutboundCipher(), 180);
+            packetWriter.writeInt(interfaceId2);
+            packetWriter.writeString(interfaceId);
+            packetWriter.finishVariableShortPacket();
+            this.player.writePacketBuffer(packetWriter.getBuffer());
             return this;
         }
         if (interfaceId2 >= InterfaceDefinition.interfaceCount) {
@@ -1133,6 +1498,16 @@ public final class PacketSender {
     }
 
     public final PacketSender sendFriendStatus(long value3, int value4) {
+        if (ServerSettings.clientBuild == 443) {
+            if (!this.player.isBot) {
+                PacketWriter packetWriter = PacketBuffer.allocateWriter(11);
+                packetWriter.writeOpcode(this.player.getOutboundCipher(), 179);
+                packetWriter.writeLong(value3);
+                packetWriter.writeShort(value4);
+                this.player.writePacketBuffer(packetWriter.getBuffer());
+            }
+            return this;
+        }
         if (this.player.isBot) {
             return this;
         }
@@ -1148,6 +1523,15 @@ public final class PacketSender {
     }
 
     public final PacketSender sendPrivateMessagingStatus(int privateMessagingStatus) {
+        if (ServerSettings.clientBuild == 443) {
+            if (!this.player.isBot) {
+                PacketWriter packetWriter = PacketBuffer.allocateWriter(2);
+                packetWriter.writeOpcode(this.player.getOutboundCipher(), 57);
+                packetWriter.writeByte(privateMessagingStatus);
+                this.player.writePacketBuffer(packetWriter.getBuffer());
+            }
+            return this;
+        }
         if (this.player.isBot) {
             return this;
         }
@@ -1159,6 +1543,24 @@ public final class PacketSender {
     }
 
     public final PacketSender sendPrivateMessage(long value5, int value6, int value23, int value32, byte[] byteValues2, int value42) {
+        if (ServerSettings.clientBuild == 443) {
+            if (this.player.isBot) return this;
+            String message = ChatTextCodec.decode(byteValues2, value42).replaceAll("\\s+$", "");
+            byte[] body = ChatCodec.get().encode(message);
+            PacketWriter packetWriter = PacketBuffer.allocateWriter(20 + body.length);
+            packetWriter.startVariableBytePacket(this.player.getOutboundCipher(), 25);
+            packetWriter.writeLong(value5);
+            int messageId = this.player.getSocialManager().nextPrivateMessageId();
+            packetWriter.writeShort(messageId >>> 16);
+            packetWriter.writeByte(messageId >>> 16);
+            packetWriter.writeByte(messageId >>> 8);
+            packetWriter.writeByte(messageId);
+            packetWriter.writeByte(value6);
+            packetWriter.writeBytes(body, body.length);
+            packetWriter.finishVariableBytePacket();
+            this.player.writePacketBuffer(packetWriter.getBuffer());
+            return this;
+        }
         if (this.player.isBot) {
             return this;
         }
@@ -1177,6 +1579,17 @@ public final class PacketSender {
 
     public final PacketSender sendInterfaceModel(int interfaceId, int value2, int value32) {
         if (this.player.isBot) {
+            return this;
+        }
+        if (ServerSettings.clientBuild == 443) {
+            interfaceId = InterfaceBridge.translate(interfaceId, "mediaType=" + value2 + " model=" + value32);
+            if (interfaceId == InterfaceBridge.UNMAPPED) return this;
+            PacketWriter packetWriter = PacketBuffer.allocateWriter(11);
+            packetWriter.writeOpcode(this.player.getOutboundCipher(), 137);
+            packetWriter.writeInt(value2);
+            packetWriter.writeInt(interfaceId);
+            packetWriter.writeShort(value32);
+            this.player.writePacketBuffer(packetWriter.getBuffer());
             return this;
         }
         if (interfaceId >= InterfaceDefinition.interfaceCount && interfaceId == 12145) {
@@ -1198,6 +1611,16 @@ public final class PacketSender {
         if (this.player.isBot) {
             return this;
         }
+        if (ServerSettings.clientBuild == 443) {
+            interfaceId = InterfaceBridge.translate(interfaceId, "model=" + value2);
+            if (interfaceId == InterfaceBridge.UNMAPPED) return this;
+            PacketWriter packetWriter = PacketBuffer.allocateWriter(7);
+            packetWriter.writeOpcode(this.player.getOutboundCipher(), 24);
+            packetWriter.writeShort(value2, ByteOrder.LITTLE);
+            packetWriter.writeInt(interfaceId, ByteOrder.MIDDLE);
+            this.player.writePacketBuffer(packetWriter.getBuffer());
+            return this;
+        }
         PacketWriter packetWriter = PacketBuffer.allocateWriter(5);
         packetWriter.writeOpcode(this.player.getOutboundCipher(), 8);
         packetWriter.writeShort(interfaceId, ByteTransform.ADD, ByteOrder.LITTLE);
@@ -1208,6 +1631,11 @@ public final class PacketSender {
 
     public final PacketSender sendStillGraphic(int graphicId, Position position, int value2) {
         if (this.player.isBot) {
+            return this;
+        }
+        if (ServerSettings.clientBuild == 443) {
+            ZonePacket.sendSpotAnimation(this.player, position,
+                    graphicId, 0, value2);
             return this;
         }
         this.sendLocalScenePosition(position);
@@ -1226,9 +1654,16 @@ public final class PacketSender {
         if (this.player.isBot) {
             return this;
         }
-        if (interfaceId >= InterfaceDefinition.interfaceCount) {
+        if (ServerSettings.clientBuild == 443) {
+            interfaceId = InterfaceBridge.translateGroup(interfaceId);
+            if (interfaceId == InterfaceBridge.UNMAPPED) return this;
+            PacketWriter packetWriter = PacketBuffer.allocateWriter(3);
+            packetWriter.writeOpcode(this.player.getOutboundCipher(), 160);
+            packetWriter.writeShort(interfaceId, ByteTransform.ADD);
+            this.player.writePacketBuffer(packetWriter.getBuffer());
             return this;
         }
+        if (interfaceId >= InterfaceDefinition.interfaceCount) return this;
         PacketWriter packetWriter = PacketBuffer.allocateWriter(3);
         packetWriter.writeOpcode(this.player.getOutboundCipher(), 164);
         packetWriter.writeShort(interfaceId, ByteOrder.LITTLE);
@@ -1241,6 +1676,16 @@ public final class PacketSender {
             return this;
         }
         if (interfaceId >= InterfaceDefinition.interfaceCount) {
+            return this;
+        }
+        if (ServerSettings.clientBuild == 443) {
+            interfaceId = InterfaceBridge.translate(interfaceId, "animation=" + value2);
+            if (interfaceId == InterfaceBridge.UNMAPPED) return this;
+            PacketWriter packetWriter = PacketBuffer.allocateWriter(7);
+            packetWriter.writeOpcode(this.player.getOutboundCipher(), 95);
+            packetWriter.writeInt(interfaceId, ByteOrder.LITTLE);
+            packetWriter.writeShort(value2, ByteTransform.ADD, ByteOrder.LITTLE);
+            this.player.writePacketBuffer(packetWriter.getBuffer());
             return this;
         }
         PacketWriter packetWriter = PacketBuffer.allocateWriter(5);
@@ -1259,7 +1704,13 @@ public final class PacketSender {
         if (loadedWorldObject == null) {
             return this;
         }
-        this.sendLocalScenePosition(new Position(objectId, value2, value32));
+        Position position = new Position(objectId, value2, value32);
+        if (ServerSettings.clientBuild == 443) {
+            ObjectPacket.sendAnimation(this.player, position,
+                    loadedWorldObject.getOrientation(), loadedWorldObject.getType(), value42);
+            return this;
+        }
+        this.sendLocalScenePosition(position);
         PacketWriter packetWriter = PacketBuffer.allocateWriter(5);
         packetWriter.writeOpcode(this.player.getOutboundCipher(), 160);
         packetWriter.writeByte(0, ByteTransform.SUBTRACT);
@@ -1271,6 +1722,15 @@ public final class PacketSender {
 
     public final PacketSender sendPlayerHeadOnInterface(int interfaceId) {
         if (this.player.isBot) {
+            return this;
+        }
+        if (ServerSettings.clientBuild == 443) {
+            interfaceId = InterfaceBridge.translate(interfaceId);
+            if (interfaceId == InterfaceBridge.UNMAPPED) return this;
+            PacketWriter packetWriter = PacketBuffer.allocateWriter(5);
+            packetWriter.writeOpcode(this.player.getOutboundCipher(), 31);
+            packetWriter.writeInt(interfaceId, ByteOrder.LITTLE);
+            this.player.writePacketBuffer(packetWriter.getBuffer());
             return this;
         }
         PacketWriter packetWriter = PacketBuffer.allocateWriter(3);
@@ -1285,6 +1745,16 @@ public final class PacketSender {
             return this;
         }
         if (value2 >= InterfaceDefinition.interfaceCount) {
+            return this;
+        }
+        if (ServerSettings.clientBuild == 443) {
+            interfaceId = InterfaceBridge.translate(interfaceId);
+            if (interfaceId == InterfaceBridge.UNMAPPED) return this;
+            PacketWriter packetWriter = PacketBuffer.allocateWriter(7);
+            packetWriter.writeOpcode(this.player.getOutboundCipher(), 227);
+            packetWriter.writeShort(value2);
+            packetWriter.writeInt(interfaceId);
+            this.player.writePacketBuffer(packetWriter.getBuffer());
             return this;
         }
         PacketWriter packetWriter = PacketBuffer.allocateWriter(5);
@@ -1302,6 +1772,19 @@ public final class PacketSender {
         if (soundId < 0) {
             return this;
         }
+        if (ServerSettings.clientBuild == 443) {
+            soundId = AudioIds443.sound(soundId);
+            if (soundId < 0) {
+                return this;
+            }
+            PacketWriter packetWriter = PacketBuffer.allocateWriter(6);
+            packetWriter.writeOpcode(this.player.getOutboundCipher(), 81);
+            packetWriter.writeShort(soundId);
+            packetWriter.writeByte(value2);
+            packetWriter.writeShort(value32);
+            this.player.writePacketBuffer(packetWriter.getBuffer());
+            return this;
+        }
         PacketWriter packetWriter = PacketBuffer.allocateWriter(7);
         packetWriter.writeOpcode(this.player.getOutboundCipher(), 174);
         packetWriter.writeShort(soundId);
@@ -1313,6 +1796,17 @@ public final class PacketSender {
 
     public final PacketSender sendMusicJingle(int value3, int value22) {
         if (this.player.isBot) {
+            return this;
+        }
+        if (ServerSettings.clientBuild == 443) {
+            value3 = AudioIds443.jingle(value3);
+            if (value3 < 0) {
+                return this;
+            }
+            PacketWriter packetWriter = PacketBuffer.allocateWriter(3);
+            packetWriter.writeOpcode(this.player.getOutboundCipher(), 205);
+            packetWriter.writeShort(value3, ByteOrder.LITTLE);
+            this.player.writePacketBuffer(packetWriter.getBuffer());
             return this;
         }
         PacketWriter packetWriter = PacketBuffer.allocateWriter(5);
@@ -1333,6 +1827,16 @@ public final class PacketSender {
             }
             this.player.playerOptionTextCache[value2 - 1] = text2;
         }
+        if (ServerSettings.clientBuild == 443) {
+            PacketWriter packetWriter = PacketBuffer.allocateWriter(text2.length() + 5);
+            packetWriter.startVariableBytePacket(this.player.getOutboundCipher(), 130);
+            packetWriter.writeByte(value2);
+            packetWriter.writeString(text2);
+            packetWriter.writeByte(enabled2 ? 1 : 0, ByteTransform.ADD);
+            packetWriter.finishVariableBytePacket();
+            this.player.writePacketBuffer(packetWriter.getBuffer());
+            return this;
+        }
         PacketWriter packetWriter = PacketBuffer.allocateWriter(text2.length() + 5);
         packetWriter.startVariableBytePacket(this.player.getOutboundCipher(), 104);
         packetWriter.writeByte(value2, ByteTransform.NEGATE);
@@ -1344,7 +1848,9 @@ public final class PacketSender {
     }
 
     public final PacketSender sendPlayerIndex() {
-        if (this.player.isBot) {
+        if (this.player.isBot || ServerSettings.clientBuild == 443) {
+            // The revision 443 login success frame already contains this index.
+            // Opcode 249 is the older game's separate index packet.
             return this;
         }
         PacketWriter packetWriter = PacketBuffer.allocateWriter(4);
@@ -1359,6 +1865,13 @@ public final class PacketSender {
         if (this.player.isBot) {
             return this;
         }
+        if (ServerSettings.clientBuild == 443) {
+            PacketWriter packetWriter = PacketBuffer.allocateWriter(2);
+            packetWriter.writeOpcode(this.player.getOutboundCipher(), 226);
+            packetWriter.writeByte(this.player.getRunEnergyPercent());
+            this.player.writePacketBuffer(packetWriter.getBuffer());
+            return this;
+        }
         PacketWriter packetWriter = PacketBuffer.allocateWriter(2);
         packetWriter.writeOpcode(this.player.getOutboundCipher(), 110);
         packetWriter.writeByte(this.player.getRunEnergyPercent());
@@ -1370,6 +1883,13 @@ public final class PacketSender {
         if (this.player.isBot) {
             return this;
         }
+        if (ServerSettings.clientBuild == 443) {
+            PacketWriter packetWriter = PacketBuffer.allocateWriter(3);
+            packetWriter.writeOpcode(this.player.getOutboundCipher(), 72);
+            packetWriter.writeShort((int)Math.floor(this.player.carriedWeight));
+            this.player.writePacketBuffer(packetWriter.getBuffer());
+            return this;
+        }
         PacketWriter packetWriter = PacketBuffer.allocateWriter(3);
         packetWriter.writeOpcode(this.player.getOutboundCipher(), 240);
         Player player = this.player;
@@ -1379,6 +1899,14 @@ public final class PacketSender {
     }
 
     public final void refreshAutocastConfig() {
+        if (ServerSettings.clientBuild == 443) {
+            // The native staff interface selects its spell attack with varp 43
+            // and reads autocast state from varbit 2668 (varp 439, bit 8).
+            // Legacy autocast varp 108 has no native 443 counterpart.
+            this.sendConfig(439, this.player.isAutocastEnabled() ? 256 : 0);
+            this.sendConfig(43, this.player.isAutocastEnabled() ? 3 : this.player.getFightMode());
+            return;
+        }
         if (this.player.getAutocastSpell() == null) {
             this.sendConfig(108, 0);
             this.sendConfig(43, this.player.getFightMode());
@@ -1391,6 +1919,16 @@ public final class PacketSender {
 
     public final PacketSender setInterfaceHiddenFlag(int interfaceId, int value2) {
         if (this.player.isBot) {
+            return this;
+        }
+        if (ServerSettings.clientBuild == 443) {
+            value2 = InterfaceBridge.translate(value2, "hidden=" + (interfaceId != 0));
+            if (value2 == InterfaceBridge.UNMAPPED) return this;
+            PacketWriter packetWriter = PacketBuffer.allocateWriter(6);
+            packetWriter.writeOpcode(this.player.getOutboundCipher(), 234);
+            packetWriter.writeByte(interfaceId, ByteTransform.ADD);
+            packetWriter.writeInt(value2, ByteOrder.INVERSE_MIDDLE);
+            this.player.writePacketBuffer(packetWriter.getBuffer());
             return this;
         }
         if (!PacketSender.isClientInterfaceIdSupported(value2)) {
@@ -1406,6 +1944,23 @@ public final class PacketSender {
 
     public final PacketSender sendCameraShake(int value5, int value22, int value32, int value42) {
         if (this.player.isBot) {
+            return this;
+        }
+        if (ServerSettings.clientBuild == 443) {
+            PacketWriter packetWriter = PacketBuffer.allocateWriter(7);
+            packetWriter.writeOpcode(this.player.getOutboundCipher(), 96);
+            packetWriter.writeByte(value5);
+            if (value5 == 1 || value5 == 2 || value5 == 3 || value5 == 4
+                    || value5 == 5 || value5 == 6 || value5 == 10) {
+                if (value5 == 1 || value5 == 10) {
+                    packetWriter.writeShort(value22);
+                } else {
+                    packetWriter.writeShort(value22);
+                    packetWriter.writeShort(value32);
+                    packetWriter.writeByte(value42);
+                }
+            }
+            this.player.writePacketBuffer(packetWriter.getBuffer());
             return this;
         }
         PacketWriter packetWriter = PacketBuffer.allocateWriter(5);
@@ -1425,6 +1980,16 @@ public final class PacketSender {
         if (interfaceId >= InterfaceDefinition.interfaceCount) {
             return this;
         }
+        if (ServerSettings.clientBuild == 443) {
+            interfaceId = InterfaceBridge.translate(interfaceId, "visible=" + interfaceId2);
+            if (interfaceId == InterfaceBridge.UNMAPPED) return this;
+            PacketWriter packetWriter = PacketBuffer.allocateWriter(6);
+            packetWriter.writeOpcode(this.player.getOutboundCipher(), 234);
+            packetWriter.writeByte(interfaceId2 ? 0 : 1, ByteTransform.ADD);
+            packetWriter.writeInt(interfaceId, ByteOrder.INVERSE_MIDDLE);
+            this.player.writePacketBuffer(packetWriter.getBuffer());
+            return this;
+        }
         PacketWriter packetWriter = PacketBuffer.allocateWriter(4);
         packetWriter.writeOpcode(this.player.getOutboundCipher(), 171);
         packetWriter.writeByte(interfaceId2 ? 0 : 1);
@@ -1435,6 +2000,17 @@ public final class PacketSender {
 
     public final PacketSender sendInterfacePosition(int interfaceId, int value2, int value32) {
         if (this.player.isBot) {
+            return this;
+        }
+        if (ServerSettings.clientBuild == 443) {
+            interfaceId = InterfaceBridge.translate(interfaceId, "x=" + value2 + " y=" + value32);
+            if (interfaceId == InterfaceBridge.UNMAPPED) return this;
+            PacketWriter packetWriter = PacketBuffer.allocateWriter(9);
+            packetWriter.writeOpcode(this.player.getOutboundCipher(), 232);
+            packetWriter.writeShort(value2, ByteTransform.ADD);
+            packetWriter.writeShort(value32, ByteTransform.ADD, ByteOrder.LITTLE);
+            packetWriter.writeInt(interfaceId, ByteOrder.INVERSE_MIDDLE);
+            this.player.writePacketBuffer(packetWriter.getBuffer());
             return this;
         }
         if (interfaceId >= InterfaceDefinition.interfaceCount && interfaceId == 12145) {
@@ -1471,6 +2047,8 @@ public final class PacketSender {
             PacketSender packetSender2 = this;
             if (packetSender2.player.isBot) {
                 packetSender = packetSender2;
+            } else if (ServerSettings.clientBuild == 443) {
+                packetSender = packetSender2.sendInterfacePosition(value3, value4, 0);
             } else {
                 PacketWriter packetWriter = PacketBuffer.allocateWriter(7);
                 packetWriter.writeOpcode(packetSender2.player.getOutboundCipher(), 70);
@@ -1489,6 +2067,17 @@ public final class PacketSender {
         if (this.player.isBot) {
             return;
         }
+        if (ServerSettings.clientBuild == 443) {
+            PacketWriter packetWriter = PacketBuffer.allocateWriter(7);
+            packetWriter.writeOpcode(this.player.getOutboundCipher(), 111);
+            packetWriter.writeByte(value6 / 64);
+            packetWriter.writeByte(value22 / 64);
+            packetWriter.writeShort(value32);
+            packetWriter.writeByte(value42);
+            packetWriter.writeByte(value52);
+            this.player.writePacketBuffer(packetWriter.getBuffer());
+            return;
+        }
         PacketWriter packetWriter = PacketBuffer.allocateWriter(7);
         packetWriter.writeOpcode(this.player.getOutboundCipher(), 177);
         packetWriter.writeByte(value6 / 64);
@@ -1501,6 +2090,17 @@ public final class PacketSender {
 
     public final void sendCameraLookAt(int value6, int value22, int value32, int value42, int value52) {
         if (this.player.isBot) {
+            return;
+        }
+        if (ServerSettings.clientBuild == 443) {
+            PacketWriter packetWriter = PacketBuffer.allocateWriter(7);
+            packetWriter.writeOpcode(this.player.getOutboundCipher(), 241);
+            packetWriter.writeByte(value6 / 64);
+            packetWriter.writeByte(value22 / 64);
+            packetWriter.writeShort(value32);
+            packetWriter.writeByte(value42);
+            packetWriter.writeByte(value52);
+            this.player.writePacketBuffer(packetWriter.getBuffer());
             return;
         }
         PacketWriter packetWriter = PacketBuffer.allocateWriter(7);
@@ -1518,7 +2118,7 @@ public final class PacketSender {
             return;
         }
         PacketWriter packetWriter = PacketBuffer.allocateWriter(1);
-        packetWriter.writeOpcode(this.player.getOutboundCipher(), 107);
+        packetWriter.writeOpcode(this.player.getOutboundCipher(), ServerSettings.clientBuild == 443 ? 242 : 107);
         this.player.writePacketBuffer(packetWriter.getBuffer());
         this.player.getUpdateState().setUpdateRequired(true);
     }

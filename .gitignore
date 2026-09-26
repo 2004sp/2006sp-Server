@@ -11,3 +11,4 @@ config/server.cfg.bak
 config/server.cfg
 data/messageOfTheWeek.dat
 /build
+/.idea

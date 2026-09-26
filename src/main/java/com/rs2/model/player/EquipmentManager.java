@@ -606,8 +606,13 @@ public final class EquipmentManager {
             ((EquipmentManager)value).player.setFightMode(2);
         }
         value = this.player;
-        ((Player)value).packetSender.sendConfig(43, this.player.getFightMode());
-        if (weaponProfile.getInterfaceDefinition().getWeaponModelWidgetId() != -1) {
+        if (ServerSettings.clientBuild == 443) {
+            this.player.packetSender.refreshAutocastConfig();
+        } else {
+            ((Player)value).packetSender.sendConfig(43, this.player.getFightMode());
+        }
+        if (weaponProfile.getInterfaceDefinition().getWeaponModelWidgetId() != -1
+                && ServerSettings.clientBuild != 443) {
             value = this.player;
             ((Player)value).packetSender.sendInterfaceModel(weaponProfile.getInterfaceDefinition().getWeaponModelWidgetId(), 200, itemStack.getId());
         }

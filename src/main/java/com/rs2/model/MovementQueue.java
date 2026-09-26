@@ -151,13 +151,19 @@ public final class MovementQueue {
                         this.setRunning(false);
                     }
                     value = entity;
-                    ((Player)value).packetSender.sendRunEnergy();
+                    if (ServerSettings.clientBuild != 443 || ((Player)value).isBot) {
+                        ((Player)value).packetSender.sendRunEnergy();
+                    }
                 }
             }
             this.entity.getPosition().translate(value3, value2);
             this.entity.recordMovementTick();
             this.entity.setRunDirection(movementStep.getDirection());
             this.stepHistory.add(movementStep);
+        }
+        if (this.entity.isPlayer() && ServerSettings.clientBuild == 443
+                && !((Player)this.entity).isBot) {
+            return;
         }
         if (this.entity.isPlayer()) {
             Player player = (Player)this.entity;
@@ -171,7 +177,9 @@ public final class MovementQueue {
                 EntityTargetMovement.clearMovementTarget(player);
                 this.clear();
             }
-            GameplayHelper.refreshPlayerAreaOverlay(player);
+            if (ServerSettings.clientBuild != 443 || player.isBot) {
+                GameplayHelper.refreshPlayerAreaOverlay(player);
+            }
             player.getQuestManager().handleMovementStep();
             DesertHeatManager.updateDesertHeatHazard(player);
             CaveLightManager.updateCaveLightHazards(player);

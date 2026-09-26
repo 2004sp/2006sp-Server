@@ -19,6 +19,9 @@ import java.util.ArrayList;
 public final class LoginProtocol {
     public static ArrayList activeLoginUsernames = new ArrayList();
     public static boolean processLoginBuffer(Player player, ByteBuffer byteBuffer2) {
+        if (ServerSettings.clientBuild == 443) {
+            return ModernLoginProtocol.processLoginBuffer(player, byteBuffer2);
+        }
         switch (player.getConnectionState()) {
             case HANDSHAKE: {
                 int handshakeBytesAvailable = ((Buffer)byteBuffer2).remaining();

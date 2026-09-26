@@ -3,6 +3,8 @@ package com.rs2.model.npc;
 import com.rs2.ServerSettings;
 import com.rs2.cache.CacheArchive;
 import com.rs2.cache.CacheStore;
+import com.rs2.cache.js5.ConfigReader;
+import com.rs2.cache.js5.Definitions;
 import com.rs2.model.World;
 import com.rs2.model.npc.combat.NpcCombatDefinition;
 import com.rs2.model.npc.combat.NpcDefinitionAttackStyleCombatDefinition;
@@ -10,6 +12,7 @@ import com.rs2.model.npc.combat.NpcDefinitionMeleeCombatDefinition;
 import com.rs2.util.ByteArrayReader;
 import com.rs2.util.FileUtil;
 import java.io.IOException;
+import java.util.Map;
 
 public final class NpcDefinition {
     private static int customDefinitionCount = 0;
@@ -189,6 +192,17 @@ public final class NpcDefinition {
         catch (Exception exception) {
             value6 = exception;
             exception.printStackTrace();
+        }
+        if (ServerSettings.cacheVersion == 443) {
+            try {
+                loadRevision443();
+            } catch (IOException exception) {
+                throw new IllegalStateException("Unable to load revision 443 NPC definitions", exception);
+            }
+            NpcDefinition.initializeCombatDefinitions();
+            NpcDefinition.copyDefinition(2257, 2258);
+            NpcDefinition.copyDefinition(2260, 2261);
+            return;
         }
         value6 = CacheStore.getInstance();
         ByteArrayReader byteArrayReader = null;
@@ -514,7 +528,102 @@ public final class NpcDefinition {
     }
 
     public static boolean isDefined(int value2) {
-        return value2 < cacheDefinitionCount;
+        return value2 >= 0 && (value2 < cacheDefinitionCount || value2 < customDefinitionCount);
+    }
+
+    /** Applies stock 443 display data over the server's combat/shop metadata. */
+    public static void loadRevision443() throws IOException {
+        Map<Integer, byte[]> files = Definitions.readGroup(9);
+        int maxId = -1;
+        for (Integer id : files.keySet()) maxId = Math.max(maxId, id);
+        cacheDefinitionCount = maxId + 1;
+        if (cacheDefinitionCount > World.getNpcDefinitions().length) {
+            throw new IOException("443 NPC definitions exceed world capacity");
+        }
+        for (Map.Entry<Integer, byte[]> entry : files.entrySet()) {
+            int id = entry.getKey();
+            NpcDefinition definition = World.getNpcDefinitions()[id];
+            if (definition == null) {
+                definition = createFallback(id);
+                World.getNpcDefinitions()[id] = definition;
+            }
+            definition.actions = new String[5];
+            definition.size = 1;
+            definition.combatLevel = 0;
+            definition.attackable = false;
+            decodeRevision443(definition, entry.getValue());
+        }
+    }
+
+    private static void decodeRevision443(NpcDefinition definition, byte[] data)
+            throws IOException {
+        ConfigReader reader = new ConfigReader(data);
+        while (reader.position() < reader.length()) {
+            int opcode = reader.readUnsignedByte();
+            if (opcode == 0) {
+                if (reader.position() != reader.length()) {
+                    throw new IOException("Trailing bytes in 443 NPC " + definition.id);
+                }
+                return;
+            }
+            if (opcode == 1 || opcode == 60) {
+                int count = reader.readUnsignedByte();
+                reader.skip(count * 2);
+            } else if (opcode == 2) {
+                definition.name = reader.readString();
+            } else if (opcode == 3) {
+                reader.readString();
+            } else if (opcode == 12) {
+                definition.size = reader.readUnsignedByte();
+                if (definition.id == 1431 || definition.id == 1432) definition.size = 1;
+            } else if (opcode == 13 || opcode == 14 || opcode == 90 || opcode == 91
+                    || opcode == 92 || opcode == 97 || opcode == 98 || opcode == 103) {
+                reader.readUnsignedShort();
+            } else if (opcode == 17) {
+                reader.skip(8);
+            } else if (opcode >= 30 && opcode < 35) {
+                String action = reader.readString();
+                if (!"hidden".equalsIgnoreCase(action)) {
+                    definition.actions[opcode - 30] = action;
+                    if ("attack".equalsIgnoreCase(action) && definition.hitpoints > 0) {
+                        definition.attackable = true;
+                    }
+                }
+            } else if (opcode == 40 || opcode == 41) {
+                int count = reader.readUnsignedByte();
+                reader.skip(count * 4);
+            } else if (opcode == 93 || opcode == 99 || opcode == 107 || opcode == 109
+                    || opcode == 111) {
+                // Boolean config flags.
+            } else if (opcode == 95) {
+                definition.combatLevel = reader.readUnsignedShort();
+            } else if (opcode == 100 || opcode == 101) {
+                reader.readByte();
+            } else if (opcode == 102) {
+                int icon = reader.readUnsignedShort();
+                definition.protectedFromMelee = icon == 0;
+                definition.protectedFromRanged = icon == 1 || icon == 6;
+                definition.protectedFromMagic = icon == 2 || icon == 6;
+            } else if (opcode == 106 || opcode == 118) {
+                reader.readUnsignedShort();
+                reader.readUnsignedShort();
+                if (opcode == 118) reader.readUnsignedShort();
+                int count = reader.readUnsignedByte();
+                reader.skip((count + 1) * 2);
+            } else if (opcode == 249) {
+                int count = reader.readUnsignedByte();
+                for (int i = 0; i < count; i++) {
+                    boolean stringValue = reader.readUnsignedByte() == 1;
+                    reader.skip(3);
+                    if (stringValue) reader.readString(); else reader.readInt();
+                }
+            } else {
+                throw new IOException("Unsupported 443 NPC opcode " + opcode
+                        + " for NPC " + definition.id + " at byte "
+                        + (reader.position() - 1));
+            }
+        }
+        throw new IOException("Unterminated 443 NPC " + definition.id);
     }
 
     public static NpcDefinition forId(int value2) {

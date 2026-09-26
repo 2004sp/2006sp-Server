@@ -1,6 +1,7 @@
 package com.rs2.cache;
 
 import com.rs2.ServerSettings;
+import com.rs2.cache.js5.Interfaces;
 import com.rs2.cache.CacheArchive;
 import com.rs2.cache.CacheStore;
 import com.rs2.net.packet.PacketBuffer;
@@ -71,6 +72,14 @@ public final class InterfaceDefinition {
     }
 
     public static void loadDefinitions() {
+        if (ServerSettings.cacheVersion == 443) {
+            try {
+                Interfaces.load();
+            } catch (java.io.IOException exception) {
+                throw new IllegalStateException("Unable to load revision 443 interfaces", exception);
+            }
+            return;
+        }
         try {
             Object instance = new CacheArchive(CacheStore.getInstance().readFile(0, 3));
             instance = PacketBuffer.wrapReader(((CacheArchive)instance).getFileBuffer("data"));

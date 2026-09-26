@@ -14,13 +14,23 @@ import com.rs2.net.packet.ByteOrder;
 import com.rs2.net.packet.ByteTransform;
 import com.rs2.net.packet.IncomingPacket;
 import com.rs2.net.packet.PacketHandler;
+import com.rs2.net.packet.ClientPackets;
+import com.rs2.net.packet.SpellWidgets;
 import com.rs2.util.GameUtil;
+import com.rs2.util.GameplayTrace;
 
 public final class PlayerInteractionPacketHandler
 implements PacketHandler {
     @Override
     public final void handle(Player player, IncomingPacket incomingPacket) {
         if (player.isActionLocked()) {
+            return;
+        }
+        if (ServerSettings.clientBuild == 443
+                && (ClientPackets.isPlayerOption(incomingPacket.getOpcode())
+                || incomingPacket.getOpcode() == ClientPackets.ITEM_ON_PLAYER
+                || incomingPacket.getOpcode() == ClientPackets.SPELL_ON_PLAYER)) {
+            handleRevision443(player, incomingPacket);
             return;
         }
         player.packetSender.closeInterfaces();
@@ -186,6 +196,157 @@ implements PacketHandler {
                 int actionSequence = player.nextActionSequence();
                 World.scheduleTickTask(new FollowPlayerTask(this, 1, targetPlayer, player, actionSequence));
                 return;
+            }
+        }
+    }
+
+    private static void handleRevision443(Player player, IncomingPacket packet) {
+        int opcode = packet.getOpcode();
+        int option = ClientPackets.getPlayerOption(opcode);
+        if (option != -1) {
+            int targetIndex;
+            switch (option) {
+                case 1:
+                case 2:
+                case 4:
+                    targetIndex = packet.getReader().readSignedShort(ByteTransform.ADD, ByteOrder.LITTLE) & 0xFFFF;
+                    break;
+                case 3:
+                    targetIndex = packet.getReader().readSignedShort(ByteTransform.ADD) & 0xFFFF;
+                    break;
+                default:
+                    targetIndex = packet.getReader().readSignedShort() & 0xFFFF;
+                    break;
+            }
+            Player target = targetIndex < World.getPlayers().length ? World.getPlayers()[targetIndex] : null;
+            if (GameplayTrace.enabled()) {
+                GameplayTrace.log("443 player-option-" + option + " decoded player="
+                        + GameplayTrace.describe(player) + " targetIndex=" + targetIndex
+                        + " target=" + (target == null ? "null" : GameplayTrace.describe(target)));
+            }
+            if (player.isInteractionDebugEnabled()) {
+                player.packetSender.sendGameMessage("443 player option " + option
+                        + " decoded: target=" + targetIndex);
+            }
+            if (target == null || target == player || !isWithinCombatInteractionRange(player, target)) return;
+            String label = player.playerOptionTextCache[option - 1];
+            if (label == null || "null".equalsIgnoreCase(label)) return;
+            player.packetSender.closeInterfaces();
+            player.resetInteractionState();
+            if ("Follow".equalsIgnoreCase(label)) {
+                player.setInteractionTarget(target);
+                player.setAttackRange(1);
+                player.setMovementTarget(target);
+                World.scheduleTickTask(new FollowPlayerTask(null, 1, target, player, player.nextActionSequence()));
+            } else if ("Trade with".equalsIgnoreCase(label)) {
+                if (target.getTradePartner() == player) GameplayHelper.declineTrade(player);
+                else if (target.getOpenInterfaceId() > 0) {
+                    player.packetSender.sendGameMessage("This player is busy.");
+                    return;
+                }
+                player.setInteractionTarget(target);
+                player.setAttackRange(1);
+                player.setMovementTarget(target);
+                World.scheduleTickTask(new TradeRequestTask(null, 1, target, player, player.nextActionSequence()));
+            } else if ("Attack".equalsIgnoreCase(label) || "Challenge".equalsIgnoreCase(label)) {
+                player.setQueuedCombatSpell(null);
+                player.getUpdateState().setFaceEntity(target.getEncodedIndex());
+                boolean castleWars = CastleWarsManager.isInGame(player) || CastleWarsManager.isInGame(target);
+                if (castleWars) {
+                    if (!CastleWarsManager.areOpponents(player, target)) {
+                        player.packetSender.sendGameMessage("That player is not your Castle Wars opponent.");
+                        return;
+                    }
+                } else if (!player.isInDuelArena() && !player.isInWilderness()) {
+                    if (ServerSettings.duelingDisabled) {
+                        player.packetSender.sendGameMessage("This feature is currently disabled.");
+                        return;
+                    }
+                    if (target.getOpenInterfaceId() > 0) {
+                        player.packetSender.sendGameMessage("This player is busy.");
+                        return;
+                    }
+                    player.setInteractionTarget(target);
+                    player.setAttackRange(1);
+                    player.setMovementTarget(target);
+                    World.scheduleTickTask(new DuelRequestTask(null, 1, target, player, player.nextActionSequence()));
+                    return;
+                }
+                CombatManager.startCombat(player, target);
+            }
+            return;
+        }
+
+        if (opcode == ClientPackets.ITEM_ON_PLAYER) {
+            int packedInterface = ClientPackets.readIntInverseMiddle(packet.getReader());
+            int inventorySlot = packet.getReader().readSignedShort(ByteTransform.ADD, ByteOrder.LITTLE) & 0xFFFF;
+            int targetIndex = packet.getReader().readSignedShort(ByteOrder.LITTLE) & 0xFFFF;
+            int itemId = packet.getReader().readSignedShort(ByteTransform.ADD, ByteOrder.LITTLE) & 0xFFFF;
+            if (targetIndex >= World.getPlayers().length || inventorySlot >= 28) return;
+            Player target = World.getPlayers()[targetIndex];
+            if (target == null || !GameUtil.isWithinDistance(player.getPosition(), target.getPosition(), 15)) return;
+            ItemStack item = player.getInventoryManager().getContainer().getItemAt(inventorySlot);
+            if (item == null || item.getId() != itemId) return;
+            player.packetSender.closeInterfaces();
+            player.resetInteractionState();
+            player.setSelectedItemInterfaceId(packedInterface);
+            player.setSelectedItemSlot(inventorySlot);
+            player.setSelectedItemId(itemId);
+            int actionSequence = player.nextActionSequence();
+            if (target.getOpenInterfaceId() > 0) {
+                player.packetSender.sendGameMessage("This player is busy.");
+                return;
+            }
+            player.setInteractionTarget(target);
+            player.setAttackRange(1);
+            player.setMovementTarget(target);
+            if (GameplayTrace.enabled()) {
+                GameplayTrace.log("443 item-on-player decoded player=" + GameplayTrace.describe(player)
+                        + " target=" + GameplayTrace.describe(target) + " targetIndex=" + targetIndex
+                        + " itemId=" + itemId + " slot=" + inventorySlot
+                        + " interface=" + packedInterface);
+            }
+            World.scheduleTickTask(new ItemOnPlayerTask(null, 1, target, player,
+                    actionSequence, item, inventorySlot));
+            return;
+        }
+
+        if (opcode == ClientPackets.SPELL_ON_PLAYER) {
+            int targetIndex = packet.getReader().readSignedShort(ByteTransform.ADD) & 0xFFFF;
+            int spellChild = packet.getReader().readSignedShort(ByteTransform.ADD) & 0xFFFF;
+            int spellInterface = ClientPackets.readIntLittle(packet.getReader());
+            if (GameplayTrace.enabled()) {
+                GameplayTrace.log("443 spell-on-player decoded player=" + GameplayTrace.describe(player)
+                        + " targetIndex=" + targetIndex + " spell=" + spellInterface + ":" + spellChild);
+            }
+            if (player.isInteractionDebugEnabled()) {
+                player.packetSender.sendGameMessage("443 spell-on-player decoded: spell="
+                        + spellInterface + ":" + spellChild + " target=" + targetIndex);
+            }
+            if (!SpellWidgets.isSpellWidget(spellInterface)
+                    || targetIndex >= World.getPlayers().length) return;
+            Player target = World.getPlayers()[targetIndex];
+            if (target == null || target == player
+                    || !isWithinCombatInteractionRange(player, target)) return;
+            SpellDefinition spell = Spellbook.getSpellForButtonId(player, spellChild);
+            if (spell == null) return;
+            if (!player.isInMageArena()) {
+                if (spell == SpellDefinition.SARADOMIN_STRIKE && player.mageArenaSaradominStrikeCastsRemaining > 0
+                        || spell == SpellDefinition.FLAMES_OF_ZAMORAK && player.mageArenaFlamesOfZamorakCastsRemaining > 0
+                        || spell == SpellDefinition.CLAWS_OF_GUTHIX && player.mageArenaClawsOfGuthixCastsRemaining > 0) {
+                    player.packetSender.sendGameMessage("You need to cast this spell at Mage arena first.");
+                    return;
+                }
+            }
+            player.packetSender.closeInterfaces();
+            player.resetInteractionState();
+            player.setQueuedCombatSpell(spell);
+            if (spell == SpellDefinition.TELEOTHER_CAMELOT
+                    || spell == SpellDefinition.TELEOTHER_FALADOR
+                    || spell == SpellDefinition.TELEOTHER_LUMBRIDGE) {
+                MagicSpellAction.castTeleotherSpell(player, target, spell);
+            } else {
+                CombatManager.startCombat(player, target);
             }
         }
     }

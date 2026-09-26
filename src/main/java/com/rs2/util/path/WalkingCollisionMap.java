@@ -1,7 +1,9 @@
 package com.rs2.util.path;
 
+import com.rs2.ServerSettings;
 import com.rs2.cache.CacheArchive;
 import com.rs2.cache.CacheStore;
+import com.rs2.cache.js5.WorldMaps;
 import com.rs2.model.GameplayHelper;
 import com.rs2.model.Position;
 import com.rs2.model.World;
@@ -644,9 +646,12 @@ public final class WalkingCollisionMap {
     public static void loadCollisionMaps() {
         try {
             CacheStore cacheStore = CacheStore.getInstance();
-            byte[] fileBytes = new CacheArchive(cacheStore.readFile(0, 5)).getFileBytes("map_index");
-            Object value = new ByteArrayReader(fileBytes);
-            int value2 = fileBytes.length / 7;
+            WorldMaps.Square[] revision443 = ServerSettings.cacheVersion == 443
+                    ? WorldMaps.load() : null;
+            byte[] fileBytes = revision443 == null
+                    ? new CacheArchive(cacheStore.readFile(0, 5)).getFileBytes("map_index") : null;
+            Object value = fileBytes == null ? null : new ByteArrayReader(fileBytes);
+            int value2 = revision443 == null ? fileBytes.length / 7 : revision443.length;
             regions = new WalkingCollisionMap[value2];
             regionLookup = new WalkingCollisionMap[65536];
             regionIds = new int[value2];
@@ -654,10 +659,14 @@ public final class WalkingCollisionMap {
             int[] integerValues2 = new int[value2];
             int index = 0;
             while (index < value2) {
-                WalkingCollisionMap.regionIds[index] = ((ByteArrayReader)value).readUnsignedShort();
-                integerValues[index] = ((ByteArrayReader)value).readUnsignedShort();
-                integerValues2[index] = ((ByteArrayReader)value).readUnsignedShort();
-                ((ByteArrayReader)value).readUnsignedByte();
+                if (revision443 != null) {
+                    WalkingCollisionMap.regionIds[index] = revision443[index].regionId;
+                } else {
+                    WalkingCollisionMap.regionIds[index] = ((ByteArrayReader)value).readUnsignedShort();
+                    integerValues[index] = ((ByteArrayReader)value).readUnsignedShort();
+                    integerValues2[index] = ((ByteArrayReader)value).readUnsignedShort();
+                    ((ByteArrayReader)value).readUnsignedByte();
+                }
                 ++index;
             }
             index = 0;
@@ -669,8 +678,12 @@ public final class WalkingCollisionMap {
             }
             index = 0;
             while (index < value2) {
-                value = GameplayHelper.inflateGzipCacheFile(cacheStore.readFile(4, integerValues2[index]));
-                Object value3 = GameplayHelper.inflateGzipCacheFile(cacheStore.readFile(4, integerValues[index]));
+                value = revision443 == null
+                        ? GameplayHelper.inflateGzipCacheFile(cacheStore.readFile(4, integerValues2[index]))
+                        : revision443[index].locations;
+                Object value3 = revision443 == null
+                        ? GameplayHelper.inflateGzipCacheFile(cacheStore.readFile(4, integerValues[index]))
+                        : revision443[index].terrain;
                 if (value != null && value3 != null) {
                     try {
                         int value4;
@@ -738,10 +751,10 @@ public final class WalkingCollisionMap {
                                 int value10 = ((MapDataReader)value3).readUnsignedByte();
                                 int value11 = value10 >> 2;
                                 value10 &= 3;
-                                if (index2 >= 137 && index2 <= 145) {
+                                if (revision443 == null && index2 >= 137 && index2 <= 145) {
                                     value11 = 0;
                                 }
-                                if (index2 == 2646) {
+                                if (revision443 == null && index2 == 2646) {
                                     value11 = 0;
                                 }
                                 if (value9 < 0 || value9 >= 64 || value6 < 0 || value6 >= 64) continue;

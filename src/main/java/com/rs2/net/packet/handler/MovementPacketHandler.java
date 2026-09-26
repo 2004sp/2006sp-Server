@@ -1,5 +1,6 @@
 package com.rs2.net.packet.handler;
 
+import com.rs2.ServerSettings;
 import com.rs2.model.Position;
 import com.rs2.model.gameplay.duel.DuelRule;
 import com.rs2.model.player.Player;
@@ -16,8 +17,11 @@ public final class MovementPacketHandler
 implements PacketHandler {
     @Override
     public final void handle(Player player, IncomingPacket incomingPacket) {
+        int opcode = incomingPacket.getOpcode();
+        boolean revision443Movement = ServerSettings.clientBuild == 443
+                && (opcode == 99 || opcode == 80 || opcode == 81);
         int packetLength = incomingPacket.getLength();
-        if (incomingPacket.getOpcode() == 248) {
+        if (opcode == 248 || (revision443Movement && opcode == 80)) {
             packetLength -= 14;
         }
         if (player.isDead() || player.isActionLocked()) {
@@ -38,7 +42,7 @@ implements PacketHandler {
         if (GameplayTrace.enabled()) {
             GameplayTrace.log("movement packet opcode=" + incomingPacket.getOpcode() + " rawLength=" + incomingPacket.getLength() + " adjustedLength=" + packetLength + " player=" + GameplayTrace.describe(player));
         }
-        if (incomingPacket.getOpcode() != 98) {
+        if (opcode != 98 && (!revision443Movement || opcode != 81)) {
             player.resetInteractionState();
             if (player.getQuestState(0) != 1) {
                 player.packetSender.closeInterfaces();
@@ -72,14 +76,26 @@ implements PacketHandler {
         int[][] pathSteps = new int[pathLength][2];
         int baseX = incomingPacket.getReader().readSignedShort(ByteTransform.ADD, ByteOrder.LITTLE);
         int index = 0;
-        while (index < pathLength) {
-            pathSteps[index][0] = incomingPacket.getReader().readSignedByte();
-            pathSteps[index][1] = incomingPacket.getReader().readSignedByte();
-            ++index;
+        int baseY;
+        boolean runPath;
+        if (revision443Movement) {
+            runPath = incomingPacket.getReader().readSignedByte(ByteTransform.NEGATE) == 1;
+            baseY = incomingPacket.getReader().readSignedShort(ByteOrder.LITTLE);
+            while (index < pathLength) {
+                pathSteps[index][0] = incomingPacket.getReader().readSignedByte();
+                pathSteps[index][1] = (byte) incomingPacket.getReader().readByte(false, ByteTransform.SUBTRACT);
+                ++index;
+            }
+        } else {
+            while (index < pathLength) {
+                pathSteps[index][0] = incomingPacket.getReader().readSignedByte();
+                pathSteps[index][1] = incomingPacket.getReader().readSignedByte();
+                ++index;
+            }
+            baseY = incomingPacket.getReader().readSignedShort(ByteOrder.LITTLE);
+            runPath = incomingPacket.getReader().readSignedByte(ByteTransform.NEGATE) == 1;
         }
-        int baseY = incomingPacket.getReader().readSignedShort(ByteOrder.LITTLE);
         player.getMovementQueue().clear();
-        boolean runPath = incomingPacket.getReader().readSignedByte(ByteTransform.NEGATE) == 1;
         player.getMovementQueue().setRunPath(runPath);
         if (GameplayTrace.enabled()) {
             int finalX = baseX;

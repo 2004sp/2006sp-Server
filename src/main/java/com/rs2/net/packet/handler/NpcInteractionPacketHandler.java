@@ -15,6 +15,8 @@ import com.rs2.net.packet.ByteOrder;
 import com.rs2.net.packet.ByteTransform;
 import com.rs2.net.packet.IncomingPacket;
 import com.rs2.net.packet.PacketHandler;
+import com.rs2.net.packet.ClientPackets;
+import com.rs2.net.packet.SpellWidgets;
 import com.rs2.util.GameplayTrace;
 
 public final class NpcInteractionPacketHandler implements PacketHandler {
@@ -24,6 +26,14 @@ public final class NpcInteractionPacketHandler implements PacketHandler {
             if (GameplayTrace.enabled()) {
                 GameplayTrace.log("npc packet ignored action-locked player=" + GameplayTrace.describe(player) + " opcode=" + packet.getOpcode());
             }
+            return;
+        }
+        if (ServerSettings.clientBuild == 443
+                && (ClientPackets.isNpcOption(packet.getOpcode())
+                || packet.getOpcode() == ClientPackets.NPC_EXAMINE
+                || packet.getOpcode() == ClientPackets.ITEM_ON_NPC
+                || packet.getOpcode() == ClientPackets.SPELL_ON_NPC)) {
+            handleRevision443(player, packet);
             return;
         }
         player.packetSender.closeInterfaces();
@@ -247,6 +257,136 @@ public final class NpcInteractionPacketHandler implements PacketHandler {
                 InteractionDispatcher.setCurrentInteractionType(InteractionType.ITEM_ON_NPC);
                 InteractionDispatcher.dispatchCurrentInteraction(player);
             }
+        }
+    }
+
+    private static void handleRevision443(Player player, IncomingPacket packet) {
+        int opcode = packet.getOpcode();
+        int option = ClientPackets.getNpcOption(opcode);
+        if (option != -1) {
+            int index = (option == 3 || option == 4)
+                    ? packet.getReader().readSignedShort(ByteTransform.ADD, ByteOrder.LITTLE) & 0xFFFF
+                    : packet.getReader().readSignedShort() & 0xFFFF;
+            Npc npc = getInteractableNpc(index);
+            if (npc == null) return;
+            String action = npc.getDefinition().getAction(option - 1);
+            if (GameplayTrace.enabled()) {
+                GameplayTrace.log("443 npc-option-" + option + " decoded player="
+                        + GameplayTrace.describe(player) + " npc=" + GameplayTrace.describe(npc)
+                        + " index=" + index + " action=" + action);
+            }
+            player.packetSender.closeInterfaces();
+            player.resetInteractionState();
+            setNpcInteractionTarget(player, npc, index);
+            if (action != null && action.equalsIgnoreCase("attack")) {
+                player.setQueuedCombatSpell(null);
+                if (npc.getOwnerPlayer() != null && npc.getOwnerPlayer() != player) {
+                    player.packetSender.sendGameMessage(npc.getDefinition().getName()
+                            + " is not interested in interacting with you right now.");
+                    return;
+                }
+                if (npc.getDefinition().isAttackable() || npc.isDoorSupportNpc()) {
+                    if (player.gangAffiliation != 2 || npc.getDefinition().getId() != 643) {
+                        CombatManager.startCombat(player, npc);
+                        return;
+                    }
+                }
+                player.packetSender.sendGameMessage("You cannot attack that npc!");
+                return;
+            }
+            InteractionType type = option == 1 ? InteractionType.FIRST_NPC
+                    : option == 2 ? InteractionType.SECOND_NPC
+                    : option == 3 ? InteractionType.THIRD_NPC
+                    : option == 4 ? InteractionType.FOURTH_NPC : null;
+            if (type != null) {
+                InteractionDispatcher.setCurrentInteractionType(type);
+                InteractionDispatcher.dispatchCurrentInteraction(player);
+            } else if (player.isInteractionDebugEnabled()) {
+                player.packetSender.sendGameMessage("443 NPC option 5 decoded: "
+                        + npc.getDefinition().getName() + " action=" + action);
+            }
+            return;
+        }
+
+        if (opcode == ClientPackets.NPC_EXAMINE) {
+            int npcDefinitionId = packet.getReader().readSignedShort() & 0xFFFF;
+            if (GameplayTrace.enabled()) {
+                GameplayTrace.log("443 npc examine player=" + GameplayTrace.describe(player)
+                        + " npcDefinitionId=" + npcDefinitionId);
+            }
+            if (player.isInteractionDebugEnabled()) {
+                player.packetSender.sendGameMessage("443 examine NPC: " + npcDefinitionId);
+            }
+            return;
+        }
+
+        if (opcode == ClientPackets.ITEM_ON_NPC) {
+            int packedInterface = ClientPackets.readIntMiddle(packet.getReader());
+            int itemId = packet.getReader().readSignedShort() & 0xFFFF;
+            int itemSlot = packet.getReader().readSignedShort() & 0xFFFF;
+            int npcIndex = packet.getReader().readSignedShort(ByteTransform.ADD, ByteOrder.LITTLE) & 0xFFFF;
+            if (itemSlot >= 28) return;
+            ItemStack item = player.getInventoryManager().getContainer().getItemAt(itemSlot);
+            if (item == null || item.getId() != itemId) return;
+            Npc npc = getInteractableNpc(npcIndex);
+            if (npc == null) return;
+            player.packetSender.closeInterfaces();
+            player.resetInteractionState();
+            player.setSelectedItemInterfaceId(packedInterface);
+            player.setSelectedItemSlot(itemSlot);
+            player.setSelectedItemId(itemId);
+            setNpcInteractionTarget(player, npc, npcIndex);
+            if (GameplayTrace.enabled()) {
+                GameplayTrace.log("443 item-on-npc decoded player=" + GameplayTrace.describe(player)
+                        + " npc=" + GameplayTrace.describe(npc) + " index=" + npcIndex
+                        + " itemId=" + itemId + " slot=" + itemSlot
+                        + " interface=" + packedInterface);
+            }
+            InteractionDispatcher.setCurrentInteractionType(InteractionType.ITEM_ON_NPC);
+            InteractionDispatcher.dispatchCurrentInteraction(player);
+            return;
+        }
+
+        if (opcode == ClientPackets.SPELL_ON_NPC) {
+            int spellChild = packet.getReader().readSignedShort(ByteOrder.LITTLE) & 0xFFFF;
+            int spellInterface = ClientPackets.readIntLittle(packet.getReader());
+            int npcIndex = packet.getReader().readSignedShort() & 0xFFFF;
+            if (GameplayTrace.enabled()) {
+                GameplayTrace.log("443 spell-on-npc decoded player=" + GameplayTrace.describe(player)
+                        + " npcIndex=" + npcIndex + " spell=" + spellInterface + ":" + spellChild);
+            }
+            if (player.isInteractionDebugEnabled()) {
+                player.packetSender.sendGameMessage("443 spell-on-NPC decoded: spell="
+                        + spellInterface + ":" + spellChild + " npcIndex=" + npcIndex);
+            }
+            if (!SpellWidgets.isSpellWidget(spellInterface)) return;
+            Npc npc = getInteractableNpc(npcIndex);
+            if (npc == null) return;
+            if (npc.getOwnerPlayer() != null && npc.getOwnerPlayer() != player) {
+                player.packetSender.sendGameMessage(npc.getDefinition().getName()
+                        + " is not interested in interacting with you right now.");
+                return;
+            }
+            SpellDefinition spell = Spellbook.getSpellForButtonId(player, spellChild);
+            if (spell == null) return;
+            if (!player.isInMageArena()) {
+                if (spell == SpellDefinition.SARADOMIN_STRIKE && player.mageArenaSaradominStrikeCastsRemaining > 0
+                        || spell == SpellDefinition.FLAMES_OF_ZAMORAK && player.mageArenaFlamesOfZamorakCastsRemaining > 0
+                        || spell == SpellDefinition.CLAWS_OF_GUTHIX && player.mageArenaClawsOfGuthixCastsRemaining > 0) {
+                    player.packetSender.sendGameMessage("You need to cast this spell at Mage arena first.");
+                    return;
+                }
+            }
+            if (spell == SpellDefinition.TELEOTHER_CAMELOT || spell == SpellDefinition.TELEOTHER_FALADOR
+                    || spell == SpellDefinition.TELEOTHER_LUMBRIDGE || spell == SpellDefinition.TELE_BLOCK) {
+                player.packetSender.sendGameMessage("Nothing interesting happens.");
+                return;
+            }
+            player.packetSender.closeInterfaces();
+            player.resetInteractionState();
+            player.getMovementQueue().clear();
+            player.setQueuedCombatSpell(spell);
+            CombatManager.startCombat(player, npc);
         }
     }
 

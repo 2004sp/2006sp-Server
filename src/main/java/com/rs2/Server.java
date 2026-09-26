@@ -306,7 +306,9 @@ implements Runnable {
             Object value8 = new SaveAllPlayersShutdownHook();
             Runtime.getRuntime().addShutdownHook((Thread)value8);
             PacketDispatcher.registerHandlers();
-            CacheStore.initializeCacheStore();
+            if (ServerSettings.cacheVersion != 443) {
+                CacheStore.initializeCacheStore();
+            }
             ProjectileDefinition.registerNpcCombatDefinitions();
             QuestDefinition.loadDefinitions();
             ItemDefinition.loadDefinitions();
@@ -349,7 +351,9 @@ implements Runnable {
             GrandExchangePriceSample.loadPriceSamples();
             new NoopStartupHook();
             value8 = CacheStore.getInstance();
-            ((CacheStore)value8).close();
+            if (value8 != null) {
+                ((CacheStore)value8).close();
+            }
             AlchemistPlaygroundController.startCupboardRotation();
             EnchantmentChamberController.startBonusColorCycle();
             CreatureGraveyardController.startFallingBoneHazards();
@@ -770,7 +774,8 @@ implements Runnable {
             } else {
                 long loadPercent = 100L + (Math.abs(remainingMillis) - (long)this.cycleMillis) / 6L;
                 System.out.println("[WARNING] Server Load is at " + loadPercent + "%");
-                ProfilerRegistry.resetAll();
+                System.out.println("[PROFILE] cycle=" + elapsedMillis
+                        + "ms phases={" + ProfilerRegistry.formatSnapshot() + "}");
                 System.out.println();
             }
         }
@@ -786,6 +791,7 @@ implements Runnable {
                 packetTimer.reset();
                 ++packetId;
             }
+            ProfilerRegistry.resetAll();
         }
     }
 

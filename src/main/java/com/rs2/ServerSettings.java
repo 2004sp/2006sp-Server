@@ -20,7 +20,7 @@ public final class ServerSettings {
     public static boolean broadcastCheatUsageEnabled = true;
     public static int defaultMovementSystem = 1;
     public static String serverVersion = "v1.0";
-    public static final int cacheVersion = 377;
+    public static final int cacheVersion = Integer.getInteger("prs.cacheVersion", 443);
     public static boolean skipUndefinedNpcSpawns = true;
     public static int maxLevel = 99;
     public static boolean capXpAtMaxLevel = false;
@@ -96,6 +96,8 @@ public final class ServerSettings {
     public static String databasePassword;
     public static boolean sqlitePlayerSaveEnabled;
     public static boolean debugModeEnabled;
+    /** Strict diagnostics for legacy 377-era behaviour crossing the 443 compatibility layer. */
+    public static boolean revision443AuditMode = Boolean.parseBoolean(System.getProperty("prs.audit443", "false"));
     public static boolean developModeEnabled;
     public static boolean controlPanelHiscoresEnabled;
     public static boolean adminInteractionsAllowed;
@@ -165,8 +167,8 @@ public final class ServerSettings {
         adminInteractionsAllowed = true;
         serverPort = 43594;
         loginRestrictionMode = 0;
-        rsaEnabled = false;
-        clientBuild = 317;
+        rsaEnabled = true;
+        clientBuild = 443;
         rsaModulusString = "126281243334509621910786157961571648139029640444686961553514423188662257084412132099345405190869140255510782101811050242941632064063371431334829733868500675557132805905863594614007916107891529024023784039950030199813062171961096886168210646453313260607895180672957089197913358703168034604511968295223858703073";
         rsaPrivateExponentString = "30652639256685216982113709825788207861142309232862050206651318249008028834075838037084192223878820867367525545502695992564741792805897626221439361069016103707546910916876758973004891298232729104728327473982300624040057756427674392115989911877923828003372350341670381425233062849579939381994254110724498182865";
         rsaModulus = new BigInteger(rsaModulusString);

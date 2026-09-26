@@ -77,13 +77,20 @@ import com.rs2.net.packet.ByteOrder;
 import com.rs2.net.packet.ByteTransform;
 import com.rs2.net.packet.IncomingPacket;
 import com.rs2.net.packet.PacketHandler;
+import com.rs2.net.packet.PacketBuffer;
 import com.rs2.net.packet.PacketReader;
+import com.rs2.net.packet.PacketWriter;
 import com.rs2.net.packet.PacketSender;
+import com.rs2.net.packet.ClientPackets;
+import com.rs2.net.packet.ItemOnItem;
+import com.rs2.net.packet.InterfaceBridge;
+import com.rs2.net.packet.SpellWidgets;
 import com.rs2.net.packet.handler.DigSearchTask;
 import com.rs2.net.packet.handler.GroundItemFiremakingTask;
 import com.rs2.net.packet.handler.TinderboxOnGroundItemTask;
 import com.rs2.util.GameplayTrace;
 import com.rs2.util.GameUtil;
+import java.nio.ByteBuffer;
 
 public final class ItemActionPacketHandler
 implements PacketHandler {
@@ -96,6 +103,16 @@ implements PacketHandler {
     @Override
     public final void handle(Player player, IncomingPacket packet) {
         if (player.isActionLocked()) {
+            if (isInventoryItemActionPacket(packet.getOpcode())) {
+                GameplayTrace.logInteraction(player, "[item-debug] outcome=blocked action=packet player="
+                        + GameplayTrace.describe(player) + " opcode=" + packet.getOpcode()
+                        + " detail=player-action-locked");
+            }
+            return;
+        }
+        if (ServerSettings.clientBuild == 443
+                && isRevision443ItemPacket(packet.getOpcode())) {
+            handleRevision443ItemPacket(player, packet);
             return;
         }
         switch (packet.getOpcode()) {
@@ -310,6 +327,482 @@ implements PacketHandler {
         }
     }
 
+    private static boolean isRevision443ItemPacket(int opcode) {
+        return ClientPackets.isGroundItemOption(opcode)
+                || ClientPackets.isItemOption(opcode)
+                || ClientPackets.isWidgetItemOption(opcode)
+                || opcode == ClientPackets.ITEM_ON_GROUND_ITEM
+                || opcode == ClientPackets.SPELL_ON_GROUND_ITEM
+                || opcode == ClientPackets.ITEM_ON_ITEM
+                || opcode == ClientPackets.SPELL_ON_ITEM
+                || opcode == ClientPackets.ITEM_EXAMINE;
+    }
+
+    private static boolean isInventoryItemActionPacket(int opcode) {
+        return opcode == 41 || opcode == 122 || opcode == 16 || opcode == 75 || opcode == 87
+                || ClientPackets.isItemOption(opcode)
+                || ClientPackets.isWidgetItemOption(opcode);
+    }
+
+    private void handleRevision443ItemPacket(Player player, IncomingPacket packet) {
+        int opcode = packet.getOpcode();
+        int groundOption = ClientPackets.getGroundItemOption(opcode);
+        if (groundOption != -1) {
+            handleRevision443GroundItemOption(player, packet, groundOption);
+            return;
+        }
+        if (opcode == ClientPackets.ITEM_ON_GROUND_ITEM) {
+            handleRevision443ItemOnGroundItem(player, packet);
+            return;
+        }
+        if (opcode == ClientPackets.SPELL_ON_GROUND_ITEM) {
+            int targetItemId = packet.getReader().readSignedShort(ByteTransform.ADD, ByteOrder.LITTLE) & 0xFFFF;
+            int spellInterface = ClientPackets.readIntInverseMiddle(packet.getReader());
+            int y = packet.getReader().readSignedShort() & 0xFFFF;
+            int x = packet.getReader().readSignedShort(ByteTransform.ADD, ByteOrder.LITTLE) & 0xFFFF;
+            int spellChild = packet.getReader().readSignedShort(ByteTransform.ADD, ByteOrder.LITTLE) & 0xFFFF;
+            traceRevision443Item(player, "spell-on-ground-item", targetItemId, -1,
+                    spellInterface, spellChild, x, y);
+            if (!SpellWidgets.isSpellWidget(spellInterface)) return;
+            PacketWriter writer = PacketBuffer.allocateWriter(8);
+            writer.writeShort(y, ByteOrder.LITTLE);
+            writer.writeShort(targetItemId);
+            writer.writeShort(x, ByteOrder.LITTLE);
+            writer.writeShort(spellChild, ByteTransform.ADD);
+            player.resetInteractionState();
+            handleMagicOnGroundItem(player, legacyItemPacket(181, writer));
+            return;
+        }
+        if (opcode == ClientPackets.ITEM_EXAMINE) {
+            int itemId = packet.getReader().readSignedShort(ByteTransform.ADD) & 0xFFFF;
+            traceRevision443Item(player, "item-examine", itemId, -1, -1, -1, -1, -1);
+            if (player.isInteractionDebugEnabled()) {
+                player.packetSender.sendGameMessage("443 examine item: " + itemId);
+            }
+            return;
+        }
+
+        int itemOption = ClientPackets.getItemOption(opcode);
+        if (itemOption != -1) {
+            handleRevision443InventoryItemOption(player, packet, itemOption, false);
+            return;
+        }
+        int widgetItemOption = ClientPackets.getWidgetItemOption(opcode);
+        if (widgetItemOption != -1) {
+            handleRevision443InventoryItemOption(player, packet, widgetItemOption, true);
+            return;
+        }
+        if (opcode == ClientPackets.ITEM_ON_ITEM) {
+            ItemOnItem decoded = ItemOnItem.decode(packet.getReader());
+            int selectedSlot = decoded.selectedSlot;
+            int selectedItemId = decoded.selectedItemId;
+            int targetItemId = decoded.targetItemId;
+            int targetInterface = decoded.targetWidgetId;
+            int selectedInterface = decoded.selectedWidgetId;
+            int targetSlot = decoded.targetSlot;
+            if (selectedSlot >= 28 || targetSlot >= 28) return;
+            ItemStack selected = player.getInventoryManager().getContainer().getItemAt(selectedSlot);
+            ItemStack target = player.getInventoryManager().getContainer().getItemAt(targetSlot);
+            if (selected == null || target == null
+                    || selected.getId() != selectedItemId || target.getId() != targetItemId) return;
+            player.resetInteractionState();
+            player.setSelectedItemInterfaceId(selectedInterface);
+            player.setSelectedItemSlot(selectedSlot);
+            player.setSelectedItemId(selectedItemId);
+            if (GameplayTrace.enabled()) {
+                GameplayTrace.log("443 item-on-item opcode=147 player=" + GameplayTrace.describe(player)
+                        + " selectedWidget=" + selectedInterface + " selectedSlot=" + selectedSlot
+                        + " selectedItem=" + selectedItemId + " targetWidget=" + targetInterface
+                        + " targetSlot=" + targetSlot + " targetItem=" + targetItemId);
+            }
+            handleItemOnItem(player, selectedSlot, targetSlot);
+            return;
+        }
+        if (opcode == ClientPackets.SPELL_ON_ITEM) {
+            int targetInterface = packet.getReader().readInt();
+            int targetSlot = packet.getReader().readSignedShort(ByteTransform.ADD) & 0xFFFF;
+            int spellInterface = ClientPackets.readIntInverseMiddle(packet.getReader());
+            int targetItemId = packet.getReader().readSignedShort(ByteTransform.ADD, ByteOrder.LITTLE) & 0xFFFF;
+            int spellChild = packet.getReader().readSignedShort(ByteOrder.LITTLE) & 0xFFFF;
+            traceRevision443Item(player, "spell-on-item", targetItemId, targetSlot,
+                    targetInterface, spellInterface, spellChild, -1);
+            if (!SpellWidgets.isSpellWidget(spellInterface)
+                    || targetSlot >= 28
+                    || InterfaceBridge.toLegacyComponent(targetInterface) != 3214) return;
+            PacketWriter writer = PacketBuffer.allocateWriter(8);
+            writer.writeShort(targetSlot);
+            writer.writeShort(targetItemId, ByteTransform.ADD);
+            writer.writeShort(3214);
+            writer.writeShort(spellChild, ByteTransform.ADD);
+            player.resetInteractionState();
+            handleMagicOnItem(player, legacyItemPacket(237, writer));
+        }
+    }
+
+    private void handleRevision443GroundItemOption(Player player, IncomingPacket packet, int option) {
+        int itemId;
+        int x;
+        int y;
+        switch (option) {
+            case 1:
+                x = packet.getReader().readSignedShort(ByteTransform.ADD, ByteOrder.LITTLE) & 0xFFFF;
+                y = packet.getReader().readSignedShort(ByteTransform.ADD, ByteOrder.LITTLE) & 0xFFFF;
+                itemId = packet.getReader().readSignedShort() & 0xFFFF;
+                break;
+            case 2:
+                itemId = packet.getReader().readSignedShort(ByteTransform.ADD, ByteOrder.LITTLE) & 0xFFFF;
+                x = packet.getReader().readSignedShort(ByteTransform.ADD, ByteOrder.LITTLE) & 0xFFFF;
+                y = packet.getReader().readSignedShort(ByteTransform.ADD, ByteOrder.LITTLE) & 0xFFFF;
+                break;
+            case 3:
+                y = packet.getReader().readSignedShort(ByteTransform.ADD) & 0xFFFF;
+                x = packet.getReader().readSignedShort(ByteTransform.ADD, ByteOrder.LITTLE) & 0xFFFF;
+                itemId = packet.getReader().readSignedShort(ByteTransform.ADD, ByteOrder.LITTLE) & 0xFFFF;
+                break;
+            case 4:
+                itemId = packet.getReader().readSignedShort(ByteOrder.LITTLE) & 0xFFFF;
+                y = packet.getReader().readSignedShort(ByteTransform.ADD) & 0xFFFF;
+                x = packet.getReader().readSignedShort() & 0xFFFF;
+                break;
+            default:
+                x = packet.getReader().readSignedShort(ByteTransform.ADD) & 0xFFFF;
+                itemId = packet.getReader().readSignedShort(ByteOrder.LITTLE) & 0xFFFF;
+                y = packet.getReader().readSignedShort() & 0xFFFF;
+                break;
+        }
+        player.resetInteractionState();
+        player.setInteractionTargetX(x);
+        player.setInteractionTargetY(y);
+        player.setInteractionTargetId(itemId);
+        player.setInteractionTargetPlane(player.getPosition().getPlane());
+        traceRevision443Item(player, "ground-item-option-" + option, itemId, -1, -1, -1, x, y);
+        // The 443 menu builder installs "Take" in ground-item action slot 3 when the cache action is absent.
+        if (option == 3) {
+            handleRevision443GroundItemPickup(player, itemId, x, y);
+        } else if (player.isInteractionDebugEnabled()) {
+            player.packetSender.sendGameMessage("443 ground item option " + option
+                    + " decoded: item=" + itemId + " x=" + x + " y=" + y);
+        }
+    }
+
+    private static void handleRevision443GroundItemPickup(Player player, int itemId, int x, int y) {
+        if (itemId == 6888 && player.getTelekineticTheatreController().isInsideTheatre()) {
+            player.getTelekineticTheatreController().handleMazeItemPickupAttempt();
+            return;
+        }
+        Position itemPosition = new Position(x, y, player.getPosition().getPlane());
+        GroundItem groundItem = GroundItemManager.findVisibleItem(player, itemId, itemPosition);
+        if (groundItem == null || !CastleWarsManager.isDroppedFlagGroundItem(groundItem)
+                && !player.getInventoryManager().canAddItem(groundItem.getItem())) return;
+        if (player.ownsClueScroll()
+                && new ItemStack(itemId).getDefinition().getName().toLowerCase().contains("clue scroll")) {
+            player.getPacketSender().sendGameMessage("You can only have one scroll at a time.");
+            return;
+        }
+        if (((Boolean) player.getAttributes().get("canPickup")).booleanValue()) {
+            ItemService.getInstance().pickupItem(player, itemId, itemPosition);
+        }
+    }
+
+    private void handleRevision443ItemOnGroundItem(Player player, IncomingPacket packet) {
+        int selectedItemId = packet.getReader().readSignedShort(ByteOrder.LITTLE) & 0xFFFF;
+        int y = packet.getReader().readSignedShort(ByteTransform.ADD) & 0xFFFF;
+        int selectedInterface = packet.getReader().readInt();
+        int x = packet.getReader().readSignedShort(ByteTransform.ADD) & 0xFFFF;
+        int targetItemId = packet.getReader().readSignedShort(ByteOrder.LITTLE) & 0xFFFF;
+        int selectedSlot = packet.getReader().readSignedShort(ByteTransform.ADD, ByteOrder.LITTLE) & 0xFFFF;
+        if (selectedSlot >= 28) return;
+        ItemStack selected = player.getInventoryManager().getContainer().getItemAt(selectedSlot);
+        if (selected == null || selected.getId() != selectedItemId) return;
+        player.resetInteractionState();
+        player.setSelectedItemInterfaceId(selectedInterface);
+        player.setSelectedItemSlot(selectedSlot);
+        player.setSelectedItemId(selectedItemId);
+        player.setInteractionTargetId(targetItemId);
+        player.setInteractionTargetX(x);
+        player.setInteractionTargetY(y);
+        player.setInteractionTargetPlane(player.getPosition().getPlane());
+        traceRevision443Item(player, "item-on-ground-item", targetItemId, selectedSlot,
+                selectedInterface, selectedItemId, x, y);
+        if (selectedItemId == 590) {
+            int actionSequence = player.nextActionSequence();
+            player.setActiveCycleEvent(new TinderboxOnGroundItemTask(this, player, actionSequence));
+            CycleEventHandler.getInstance().schedule(player, player.getActiveCycleEvent(), 1);
+        }
+    }
+
+    private void handleRevision443InventoryItemOption(Player player, IncomingPacket packet,
+                                                              int option, boolean widgetOption) {
+        int slot;
+        int itemId;
+        int packedInterface;
+        if (!widgetOption) {
+            switch (option) {
+                case 1:
+                    slot = packet.getReader().readSignedShort(ByteOrder.LITTLE) & 0xFFFF;
+                    itemId = packet.getReader().readSignedShort() & 0xFFFF;
+                    packedInterface = ClientPackets.readIntLittle(packet.getReader());
+                    break;
+                case 2:
+                    packedInterface = ClientPackets.readIntMiddle(packet.getReader());
+                    itemId = packet.getReader().readSignedShort() & 0xFFFF;
+                    slot = packet.getReader().readSignedShort(ByteTransform.ADD) & 0xFFFF;
+                    break;
+                case 3:
+                    slot = packet.getReader().readSignedShort(ByteTransform.ADD) & 0xFFFF;
+                    packedInterface = ClientPackets.readIntMiddle(packet.getReader());
+                    itemId = packet.getReader().readSignedShort(ByteOrder.LITTLE) & 0xFFFF;
+                    break;
+                case 4:
+                    itemId = packet.getReader().readSignedShort(ByteOrder.LITTLE) & 0xFFFF;
+                    slot = packet.getReader().readSignedShort() & 0xFFFF;
+                    packedInterface = ClientPackets.readIntLittle(packet.getReader());
+                    break;
+                default:
+                    slot = packet.getReader().readSignedShort(ByteTransform.ADD, ByteOrder.LITTLE) & 0xFFFF;
+                    itemId = packet.getReader().readSignedShort(ByteTransform.ADD) & 0xFFFF;
+                    packedInterface = ClientPackets.readIntMiddle(packet.getReader());
+                    break;
+            }
+        } else {
+            switch (option) {
+                case 1:
+                    slot = packet.getReader().readSignedShort(ByteTransform.ADD, ByteOrder.LITTLE) & 0xFFFF;
+                    packedInterface = packet.getReader().readInt();
+                    itemId = packet.getReader().readSignedShort(ByteOrder.LITTLE) & 0xFFFF;
+                    break;
+                case 2:
+                    packedInterface = ClientPackets.readIntInverseMiddle(packet.getReader());
+                    itemId = packet.getReader().readSignedShort(ByteOrder.LITTLE) & 0xFFFF;
+                    slot = packet.getReader().readSignedShort(ByteTransform.ADD, ByteOrder.LITTLE) & 0xFFFF;
+                    break;
+                case 3:
+                    slot = packet.getReader().readSignedShort(ByteTransform.ADD, ByteOrder.LITTLE) & 0xFFFF;
+                    itemId = packet.getReader().readSignedShort(ByteTransform.ADD, ByteOrder.LITTLE) & 0xFFFF;
+                    packedInterface = ClientPackets.readIntMiddle(packet.getReader());
+                    break;
+                case 4:
+                    packedInterface = ClientPackets.readIntInverseMiddle(packet.getReader());
+                    slot = packet.getReader().readSignedShort(ByteTransform.ADD, ByteOrder.LITTLE) & 0xFFFF;
+                    itemId = packet.getReader().readSignedShort() & 0xFFFF;
+                    break;
+                default:
+                    slot = packet.getReader().readSignedShort(ByteTransform.ADD) & 0xFFFF;
+                    packedInterface = packet.getReader().readInt();
+                    itemId = packet.getReader().readSignedShort(ByteOrder.LITTLE) & 0xFFFF;
+                    break;
+            }
+        }
+        traceRevision443Item(player, widgetOption ? "widget-item-option-" + option : "item-option-" + option,
+                itemId, slot, packedInterface, -1, -1, -1);
+        int interfaceId = InterfaceBridge.toLegacyComponent(packedInterface);
+        if (interfaceId == InterfaceBridge.UNMAPPED) {
+            debugItemAction(player, "rejected", "443-option-" + option, packedInterface, slot,
+                    itemId, null, "unmapped-widget");
+            return;
+        }
+        if (slot >= 32768) {
+            debugItemAction(player, "rejected", "443-option-" + option, interfaceId, slot,
+                    itemId, null, "invalid-slot");
+            return;
+        }
+        if (widgetOption && handleRevision443BankShopItemOption(player, packedInterface, slot, itemId, option)) {
+            return;
+        }
+        // Revision 443 sends inventory clicks as widget-item options. Route the
+        // inventory widget through the inventory actions (including first-option
+        // item actions such as burying bones), not the generic widget actions
+        // used by bank/shop interfaces.
+        if (widgetOption && interfaceId == 3214 && slot < 28) {
+            ItemStack item = player.getInventoryManager().getContainer().getItemAt(slot);
+            if (item == null || item.getId() != itemId) {
+                debugItemAction(player, "rejected", "443-option-" + option, interfaceId, slot,
+                        itemId, item, "inventory-item-mismatch");
+                return;
+            }
+            handleRevision443LegacyInventoryItem(player, interfaceId, slot, itemId, option);
+            return;
+        }
+        if (widgetOption) {
+            handleRevision443LegacyWidgetItem(player, interfaceId, slot, itemId, option);
+            return;
+        }
+        if (interfaceId == 3214 && slot < 28) {
+            ItemStack item = player.getInventoryManager().getContainer().getItemAt(slot);
+            if (item == null || item.getId() != itemId) {
+                debugItemAction(player, "rejected", "443-option-" + option, interfaceId, slot,
+                        itemId, item, "inventory-item-mismatch");
+                return;
+            }
+            handleRevision443LegacyInventoryItem(player, interfaceId, slot, itemId, option);
+            return;
+        }
+        debugItemAction(player, "unhandled", "443-option-" + option, interfaceId, slot,
+                itemId, null, widgetOption ? "unsupported-widget-item-option" : "unsupported-item-widget");
+        if (player.isInteractionDebugEnabled()) {
+            player.packetSender.sendGameMessage("443 " + (widgetOption ? "widget item" : "item")
+                    + " option " + option + ": item=" + itemId + " slot=" + slot
+                    + " widget=" + packedInterface);
+        }
+    }
+
+    private void handleRevision443LegacyInventoryItem(Player player, int widget, int slot,
+                                                       int item, int option) {
+        PacketWriter writer = PacketBuffer.allocateWriter(6);
+        int legacyOpcode;
+        switch (option) {
+            case 1:
+                legacyOpcode = 122;
+                writer.writeShort(widget, ByteTransform.ADD, ByteOrder.LITTLE);
+                writer.writeShort(slot, ByteTransform.ADD);
+                writer.writeShort(item, ByteOrder.LITTLE);
+                break;
+            case 2:
+                legacyOpcode = 41;
+                writer.writeShort(item);
+                writer.writeShort(slot, ByteTransform.ADD);
+                writer.writeShort(widget, ByteTransform.ADD);
+                break;
+            case 3:
+                legacyOpcode = 16;
+                writer.writeShort(item, ByteTransform.ADD);
+                writer.writeShort(slot, ByteTransform.ADD, ByteOrder.LITTLE);
+                writer.writeShort(widget, ByteTransform.ADD, ByteOrder.LITTLE);
+                break;
+            case 4:
+                legacyOpcode = 75;
+                writer.writeShort(widget, ByteTransform.ADD, ByteOrder.LITTLE);
+                writer.writeShort(slot, ByteOrder.LITTLE);
+                writer.writeShort(item, ByteTransform.ADD);
+                break;
+            case 5:
+                legacyOpcode = 87;
+                writer.writeShort(item, ByteTransform.ADD);
+                writer.writeShort(widget);
+                writer.writeShort(slot, ByteTransform.ADD);
+                break;
+            default: return;
+        }
+        handle(player, legacyItemPacket(legacyOpcode, writer));
+    }
+
+    private void handleRevision443LegacyWidgetItem(Player player, int widget, int slot,
+                                                    int item, int option) {
+        PacketWriter writer = PacketBuffer.allocateWriter(6);
+        int legacyOpcode;
+        switch (option) {
+            case 1:
+                legacyOpcode = 145;
+                writer.writeShort(widget, ByteTransform.ADD);
+                writer.writeShort(slot, ByteTransform.ADD);
+                writer.writeShort(item, ByteTransform.ADD);
+                break;
+            case 2:
+                legacyOpcode = 117;
+                writer.writeShort(widget, ByteTransform.ADD, ByteOrder.LITTLE);
+                writer.writeShort(item, ByteTransform.ADD, ByteOrder.LITTLE);
+                writer.writeShort(slot, ByteOrder.LITTLE);
+                break;
+            case 3:
+                legacyOpcode = 43;
+                writer.writeShort(widget, ByteOrder.LITTLE);
+                writer.writeShort(item, ByteTransform.ADD);
+                writer.writeShort(slot, ByteTransform.ADD);
+                break;
+            case 4:
+                legacyOpcode = 129;
+                writer.writeShort(slot, ByteTransform.ADD);
+                writer.writeShort(widget);
+                writer.writeShort(item, ByteTransform.ADD);
+                break;
+            default: return;
+        }
+        handle(player, legacyItemPacket(legacyOpcode, writer));
+    }
+
+    private static IncomingPacket legacyItemPacket(int opcode, PacketWriter writer) {
+        ByteBuffer buffer = writer.getBuffer();
+        buffer.flip();
+        return new IncomingPacket(opcode, buffer.remaining(), PacketBuffer.wrapReader(buffer));
+    }
+
+
+    private static boolean handleRevision443BankShopItemOption(Player player, int packedInterface,
+                                                                  int slot, int itemId, int option) {
+        int interfaceId = InterfaceBridge.toLegacyComponent(packedInterface);
+        if (interfaceId != 5064 && interfaceId != 5382
+                && interfaceId != 3900 && interfaceId != 3823) {
+            return false;
+        }
+        InterfaceDefinition definition = InterfaceDefinition.forId(interfaceId);
+        if (!isItemActionInterfaceOpen(player, interfaceId, definition)) {
+            return true;
+        }
+        player.setSelectedItemSlot(slot);
+        if (interfaceId == 5064) {
+            if (option == 5) {
+                player.setSelectedInterfaceSlot(slot);
+                player.setSelectedInterfaceItemId(itemId);
+                player.packetSender.sendEnterInputPrompt(5064);
+                return true;
+            }
+            int amount = option == 1 ? 1 : option == 2 ? 5 : option == 3 ? 10
+                    : option == 4 ? player.getInventoryManager().getContainer().getItemAmount(itemId) : 0;
+            if (amount > 0) BankManager.depositInventoryItem(player, slot, itemId, amount);
+            return true;
+        }
+        if (interfaceId == 5382) {
+            if (option == 5) {
+                player.setSelectedInterfaceSlot(slot);
+                player.setSelectedInterfaceItemId(itemId);
+                player.packetSender.sendEnterInputPrompt(5382);
+                return true;
+            }
+            int amount = option == 1 ? 1 : option == 2 ? 5 : option == 3 ? 10
+                    : option == 4 ? BankManager.getRevision443BankSlotAmount(player, slot, itemId) : 0;
+            if (amount > 0) BankManager.withdrawRevision443Item(player, slot, itemId, amount);
+            return true;
+        }
+        if (interfaceId == 3900) {
+            if (option == 1) ShopManager.sendBuyPrice(player, itemId);
+            else if (option == 2) ShopManager.buyItem(player, slot, itemId, 1);
+            else if (option == 3) ShopManager.buyItem(player, slot, itemId, 5);
+            else if (option == 4) ShopManager.buyItem(player, slot, itemId, 10);
+            return true;
+        }
+        if (option == 1) ShopManager.sendSellPrice(player, itemId);
+        else if (option == 2) ShopManager.sellItem(player, slot, itemId, 1);
+        else if (option == 3) ShopManager.sellItem(player, slot, itemId, 5);
+        else if (option == 4) ShopManager.sellItem(player, slot, itemId, 10);
+        return true;
+    }
+
+    private static void traceRevision443Item(Player player, String action, int itemId, int slot,
+                                             int interfaceA, int value, int x, int y) {
+        if (!GameplayTrace.enabled()) return;
+        GameplayTrace.log("443 " + action + " player=" + GameplayTrace.describe(player)
+                + " itemId=" + itemId + " slot=" + slot + " interface=" + interfaceA
+                + " value=" + value + " x=" + x + " y=" + y);
+    }
+
+    private static void debugItemAction(Player player, String outcome, String action, int interfaceId,
+                                        int slot, int requestedItemId, ItemStack actualItem, String detail) {
+        String requestedName;
+        try {
+            requestedName = ItemService.getItemName(requestedItemId);
+        }
+        catch (Exception exception) {
+            requestedName = "?";
+        }
+        String actual = actualItem == null ? "empty"
+                : actualItem.getId() + ":" + actualItem.getDefinition().getName();
+        GameplayTrace.logInteraction(player, "[item-debug] outcome=" + outcome + " action=" + action
+                + " player=" + GameplayTrace.describe(player)
+                + " requested=" + requestedItemId + ":" + requestedName
+                + " actual=" + actual + " slot=" + slot + " interface=" + interfaceId
+                + " openInterface=" + player.getOpenInterfaceId() + " detail=" + detail);
+    }
+
     private static boolean hasEitherItem(int firstItemId, int secondItemId, int itemId) {
         return firstItemId == itemId || secondItemId == itemId;
     }
@@ -323,7 +816,11 @@ implements PacketHandler {
         int firstSlot = packet.getReader().readSignedShort(ByteTransform.ADD);
         packet.getReader().readSignedShort();
         packet.getReader().readSignedShort();
-        if (firstSlot > 28 || secondSlot > 28) {
+        handleItemOnItem(player, firstSlot, secondSlot);
+    }
+
+    private void handleItemOnItem(Player player, int firstSlot, int secondSlot) {
+        if (firstSlot < 0 || secondSlot < 0 || firstSlot >= 28 || secondSlot >= 28) {
             return;
         }
         ItemStack firstItem = player.getInventoryManager().getContainer().getItemAt(firstSlot);
@@ -940,7 +1437,7 @@ implements PacketHandler {
             return;
         }
         if (player.getInventoryManager().getContainer().containsItem(itemStack.getId())) {
-            player.packetSender.sendSoundEffect(376, 1, 0);
+            player.packetSender.sendSoundEffect(356, 1, 0);
             if (!ServerSettings.adminInteractionsAllowed && player.getPlayerRights() >= 2) {
                 player.packetSender.sendGameMessage("Your item disappears because you're an administrator.");
             } else if (itemStack.getId() == 11283) {
@@ -1279,17 +1776,29 @@ implements PacketHandler {
         player.setSelectedItemSlot(incomingPacket.getReader().readSignedShort(ByteTransform.ADD));
         int itemId = incomingPacket.getReader().readSignedShort(ByteOrder.LITTLE);
         InterfaceDefinition interfaceDefinition = InterfaceDefinition.forId(interfaceId);
+        ItemStack selectedItem = player.getInventoryManager().getContainer().getItemAt(player.getSelectedItemSlot());
+        debugItemAction(player, "received", "first-option", interfaceId, player.getSelectedItemSlot(),
+                itemId, selectedItem, "decoded");
+        boolean interfaceOpen = interfaceId == 3214
+                || isItemActionInterfaceOpen(player, interfaceId, interfaceDefinition);
         if (GameplayTrace.enabled()) {
-            GameplayTrace.log("item first-option decoded player=" + GameplayTrace.describe(player) + " interfaceId=" + interfaceId + " slot=" + player.getSelectedItemSlot() + " itemId=" + itemId + " interfaceOpen=" + player.isInterfaceOpen(interfaceDefinition));
+            GameplayTrace.log("item first-option decoded player=" + GameplayTrace.describe(player)
+                    + " interfaceId=" + interfaceId
+                    + " slot=" + player.getSelectedItemSlot()
+                    + " itemId=" + itemId
+                    + " interfaceOpen=" + interfaceOpen);
         }
-        if (!player.isInterfaceOpen(interfaceDefinition)) {
+        if (!interfaceOpen) {
+            debugItemAction(player, "rejected", "first-option", interfaceId, player.getSelectedItemSlot(),
+                    itemId, selectedItem, "interface-not-open");
             return;
         }
-        ItemStack selectedItem = player.getInventoryManager().getContainer().getItemAt(player.getSelectedItemSlot());
         if (GameplayTrace.enabled()) {
             GameplayTrace.log("item first-option selected player=" + GameplayTrace.describe(player) + " slot=" + player.getSelectedItemSlot() + " selected=" + (selectedItem == null ? "null" : selectedItem.getId() + ":" + selectedItem.getDefinition().getName()));
         }
         if (selectedItem == null || selectedItem.getId() != itemId) {
+            debugItemAction(player, "rejected", "first-option", interfaceId, player.getSelectedItemSlot(),
+                    itemId, selectedItem, "inventory-item-mismatch");
             return;
         }
         if (new ItemStack(itemId).getDefinition().isMembersOnly() && !player.isMember() && itemId != 7999) {
@@ -1547,6 +2056,8 @@ implements PacketHandler {
                 return;
             }
         }
+        debugItemAction(player, "unhandled", "first-option", interfaceId, player.getSelectedItemSlot(),
+                itemId, selectedItem, "no-item-handler");
         player.packetSender.sendGameMessage("Nothing interesting happens.");
     }
 
@@ -1555,11 +2066,18 @@ implements PacketHandler {
         player.setSelectedItemSlot(incomingPacket.getReader().readSignedShort(ByteTransform.ADD, ByteOrder.LITTLE));
         int reader2 = incomingPacket.getReader().readSignedShort(ByteTransform.ADD, ByteOrder.LITTLE);
         Object value = InterfaceDefinition.forId(reader2);
+        ItemStack selectedItem = player.getInventoryManager().getContainer().getItemAt(player.getSelectedItemSlot());
+        debugItemAction(player, "received", "second-option", reader2, player.getSelectedItemSlot(),
+                reader, selectedItem, "decoded");
         if (!player.isInterfaceOpen((InterfaceDefinition)value)) {
+            debugItemAction(player, "rejected", "second-option", reader2, player.getSelectedItemSlot(),
+                    reader, selectedItem, "interface-not-open");
             return;
         }
         value = player.getInventoryManager().getContainer().getItemAt(player.getSelectedItemSlot());
         if (value == null || ((ItemStack)value).getId() != reader) {
+            debugItemAction(player, "rejected", "second-option", reader2, player.getSelectedItemSlot(),
+                    reader, (ItemStack)value, "inventory-item-mismatch");
             return;
         }
         if (new ItemStack(reader).getDefinition().isMembersOnly() && !player.isMember()) {
@@ -1609,6 +2127,7 @@ implements PacketHandler {
                 ItemService.getInstance();
                 packetSender.sendGameMessage(stringBuilder.append(ItemService.getItemName(value3)).append(" is empty.").toString());
             }
+            return;
         }
         switch (reader) {
             case 11283: 
@@ -1652,6 +2171,8 @@ implements PacketHandler {
                 return;
             }
         }
+        debugItemAction(player, "unhandled", "second-option", reader2, player.getSelectedItemSlot(),
+                reader, (ItemStack)value, "no-item-handler");
     }
 
     private static void handleInventoryItemThirdOption(Player player, IncomingPacket incomingPacket) {
@@ -1659,11 +2180,17 @@ implements PacketHandler {
         player.setSelectedItemSlot(incomingPacket.getReader().readSignedShort(ByteOrder.LITTLE));
         player.setSelectedItemId(incomingPacket.getReader().readSignedShort(true, ByteTransform.ADD));
         InterfaceDefinition interfaceDefinition = InterfaceDefinition.forId(interfaceId);
+        ItemStack itemStack = player.getInventoryManager().getContainer().getItemAt(player.getSelectedItemSlot());
+        debugItemAction(player, "received", "third-option", interfaceId, player.getSelectedItemSlot(),
+                player.getSelectedItemId(), itemStack, "decoded");
         if (!player.isInterfaceOpen(interfaceDefinition)) {
+            debugItemAction(player, "rejected", "third-option", interfaceId, player.getSelectedItemSlot(),
+                    player.getSelectedItemId(), itemStack, "interface-not-open");
             return;
         }
-        ItemStack itemStack = player.getInventoryManager().getContainer().getItemAt(player.getSelectedItemSlot());
         if (itemStack == null || itemStack.getId() != player.getSelectedItemId()) {
+            debugItemAction(player, "rejected", "third-option", interfaceId, player.getSelectedItemSlot(),
+                    player.getSelectedItemId(), itemStack, "inventory-item-mismatch");
             return;
         }
         if (itemStack.getDefinition().isMembersOnly() && !player.isMember()) {
@@ -1726,6 +2253,8 @@ implements PacketHandler {
                 DialogueManager.startDialogue(player, 10002);
             }
         }
+        debugItemAction(player, "unhandled", "third-option", interfaceId, player.getSelectedItemSlot(),
+                player.getSelectedItemId(), itemStack, "no-item-handler");
     }
 
     private static void handleEquipItem(Player player, IncomingPacket incomingPacket) {
@@ -1734,17 +2263,23 @@ implements PacketHandler {
         player.setSelectedItemSlot(incomingPacket.getReader().readSignedShort(ByteTransform.ADD));
         player.setSelectedItemInterfaceId(incomingPacket.getReader().readSignedShort(ByteTransform.ADD));
         InterfaceDefinition interfaceDefinition = InterfaceDefinition.forId(player.getSelectedItemInterfaceId());
+        ItemStack itemStack = player.getInventoryManager().getContainer().getItemAt(player.getSelectedItemSlot());
+        debugItemAction(player, "received", "equip-option", player.getSelectedItemInterfaceId(),
+                player.getSelectedItemSlot(), itemId, itemStack, "decoded");
         if (GameplayTrace.enabled()) {
             GameplayTrace.log("item equip decoded player=" + GameplayTrace.describe(player) + " interfaceId=" + player.getSelectedItemInterfaceId() + " slot=" + player.getSelectedItemSlot() + " itemId=" + itemId + " interfaceOpen=" + player.isInterfaceOpen(interfaceDefinition));
         }
         if (!player.isInterfaceOpen(interfaceDefinition)) {
+            debugItemAction(player, "rejected", "equip-option", player.getSelectedItemInterfaceId(),
+                    player.getSelectedItemSlot(), itemId, itemStack, "interface-not-open");
             return;
         }
-        ItemStack itemStack = player.getInventoryManager().getContainer().getItemAt(player.getSelectedItemSlot());
         if (GameplayTrace.enabled()) {
             GameplayTrace.log("item equip selected player=" + GameplayTrace.describe(player) + " slot=" + player.getSelectedItemSlot() + " selected=" + (itemStack == null ? "null" : itemStack.getId() + ":" + itemStack.getDefinition().getName() + " equipSlot=" + itemStack.getDefinition().getEquipmentSlot()));
         }
         if (itemStack == null || itemStack.getId() != itemId || !itemStack.isValid()) {
+            debugItemAction(player, "rejected", "equip-option", player.getSelectedItemInterfaceId(),
+                    player.getSelectedItemSlot(), itemId, itemStack, "inventory-item-mismatch-or-invalid");
             return;
         }
         EssencePouchDefinition essencePouchDefinition = EssencePouchDefinition.forItemOrIndex(itemId);
@@ -1801,6 +2336,8 @@ implements PacketHandler {
             }
         }
         if (new ItemStack(itemId).getDefinition().getEquipmentSlot() == -1) {
+            debugItemAction(player, "unhandled", "equip-option", player.getSelectedItemInterfaceId(),
+                    player.getSelectedItemSlot(), itemId, itemStack, "item-has-no-equipment-slot");
             if (GameplayTrace.enabled()) {
                 GameplayTrace.log("item equip ignored not-equipment player=" + GameplayTrace.describe(player) + " itemId=" + itemId + " item=" + itemStack.getDefinition().getName());
             }
@@ -1813,6 +2350,8 @@ implements PacketHandler {
         if (GameplayTrace.enabled()) {
             GameplayTrace.log("item equip dispatch player=" + GameplayTrace.describe(player) + " slot=" + player.getSelectedItemSlot() + " itemId=" + itemId + " item=" + itemStack.getDefinition().getName() + " equipSlot=" + itemStack.getDefinition().getEquipmentSlot());
         }
+        debugItemAction(player, "handled", "equip-option", player.getSelectedItemInterfaceId(),
+                player.getSelectedItemSlot(), itemId, itemStack, "dispatch-equip");
         player.getEquipmentManager().equipFromInventorySlot(player.getSelectedItemSlot());
     }
 

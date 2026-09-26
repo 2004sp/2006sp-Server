@@ -3,12 +3,15 @@ package com.rs2.model.item;
 import com.rs2.ServerSettings;
 import com.rs2.cache.CacheArchive;
 import com.rs2.cache.CacheStore;
+import com.rs2.cache.js5.ConfigReader;
+import com.rs2.cache.js5.Definitions;
 import com.rs2.model.quest.QuestDefinition;
 import com.rs2.model.skill.runecrafting.RunecraftingHandler;
 import com.rs2.util.ByteArrayReader;
 import com.rs2.util.FileUtil;
 import java.io.IOException;
 import java.util.ArrayList;
+import java.util.Map;
 import java.util.logging.Logger;
 
 public class ItemDefinition {
@@ -16,6 +19,7 @@ public class ItemDefinition {
     public ArrayList grandExchangePriceSamples = new ArrayList();
     private static ItemDefinition[] definitionsById;
     private static int definitionCount;
+    private static int customDefinitionCount;
     private boolean destroyOption;
     private int id;
     private String name;
@@ -106,6 +110,7 @@ public class ItemDefinition {
             byte[] byteValues = FileUtil.readBytes("./data/content/itemDefinitions.dat");
             byteArrayReader = new ByteArrayReader(byteValues);
             int value3 = byteArrayReader.readUnsignedShort();
+            customDefinitionCount = value3;
             int index = 0;
             while (index < value3) {
                 value2 = ItemDefinition.forId(index);
@@ -235,6 +240,14 @@ public class ItemDefinition {
         catch (Exception exception) {
             Exception exception2 = exception;
             exception.printStackTrace();
+        }
+        if (ServerSettings.cacheVersion == 443) {
+            try {
+                loadRevision443();
+            } catch (IOException exception) {
+                throw new IllegalStateException("Unable to load revision 443 item definitions", exception);
+            }
+            return;
         }
         CacheStore cacheStore = CacheStore.getInstance();
         byteArrayReader = null;
@@ -449,7 +462,111 @@ public class ItemDefinition {
 
     public static boolean isDefined(int value2) {
         return value2 >= 0 && value2 < definitionsById.length
-                && (value2 < definitionCount || value2 == DRAGON_CLAWS_ID);
+                && (value2 < definitionCount || value2 < customDefinitionCount
+                    || value2 == DRAGON_CLAWS_ID);
+    }
+
+    /** Applies stock 443 names, options, prices and note links over server metadata. */
+    public static void loadRevision443() throws IOException {
+        Map<Integer, byte[]> files = Definitions.readGroup(10);
+        int maxId = -1;
+        for (Integer id : files.keySet()) maxId = Math.max(maxId, id);
+        definitionCount = maxId + 1;
+        for (Map.Entry<Integer, byte[]> entry : files.entrySet()) {
+            int id = entry.getKey();
+            ItemDefinition definition = definitionsById[id];
+            if (definition == null) {
+                definition = forId(id);
+                definitionsById[id] = definition;
+            }
+            definition.stackable = false;
+            definition.note = false;
+            definition.hasNote = false;
+            definition.membersOnly = false;
+            definition.destroyOption = false;
+            definition.unnotedId = -1;
+            definition.notedId = -1;
+            decodeRevision443(definition, entry.getValue());
+        }
+        for (Map.Entry<Integer, byte[]> entry : files.entrySet()) {
+            ItemDefinition definition = definitionsById[entry.getKey()];
+            if (definition.note && definition.unnotedId >= 0
+                    && definition.unnotedId < definitionsById.length) {
+                ItemDefinition original = definitionsById[definition.unnotedId];
+                if (original != null) {
+                    original.hasNote = true;
+                    original.notedId = definition.id;
+                }
+            }
+        }
+    }
+
+    private static void decodeRevision443(ItemDefinition definition, byte[] data)
+            throws IOException {
+        ConfigReader reader = new ConfigReader(data);
+        while (reader.position() < reader.length()) {
+            int opcode = reader.readUnsignedByte();
+            if (opcode == 0) {
+                if (reader.position() != reader.length()) {
+                    throw new IOException("Trailing bytes in 443 item " + definition.id);
+                }
+                return;
+            }
+            if (opcode == 1 || opcode == 4 || opcode == 5 || opcode == 6
+                    || opcode == 7 || opcode == 8 || opcode == 10 || opcode == 24
+                    || opcode == 26 || opcode == 78 || opcode == 79
+                    || opcode == 90 || opcode == 91 || opcode == 92 || opcode == 93
+                    || opcode == 95 || opcode == 98 || opcode == 110 || opcode == 111
+                    || opcode == 112 || opcode == 121 || opcode == 122) {
+                reader.readUnsignedShort();
+            } else if (opcode == 2) {
+                definition.name = reader.readString();
+            } else if (opcode == 3) {
+                definition.description = reader.readString();
+            } else if (opcode == 11) {
+                definition.stackable = true;
+            } else if (opcode == 12) {
+                int price = reader.readInt();
+                if (definition.shopValue == 0) definition.shopValue = price;
+            } else if (opcode == 16) {
+                definition.membersOnly = true;
+            } else if (opcode == 23 || opcode == 25) {
+                reader.readUnsignedShort();
+                reader.readByte();
+            } else if (opcode >= 30 && opcode < 35) {
+                reader.readString();
+            } else if (opcode >= 35 && opcode < 40) {
+                if ("destroy".equalsIgnoreCase(reader.readString())) {
+                    definition.destroyOption = true;
+                }
+            } else if (opcode == 40 || opcode == 41 || opcode == 140) {
+                int count = reader.readUnsignedByte();
+                reader.skip(count * 4);
+            } else if (opcode == 97) {
+                definition.note = true;
+                definition.unnotedId = reader.readUnsignedShort();
+            } else if (opcode >= 100 && opcode < 110) {
+                reader.skip(4);
+            } else if (opcode == 113 || opcode == 114) {
+                reader.readByte();
+            } else if (opcode == 115) {
+                reader.readUnsignedByte();
+            } else if (opcode == 177) {
+                // Placeholder flag without a payload in this revision.
+            } else if (opcode == 249) {
+                int count = reader.readUnsignedByte();
+                for (int i = 0; i < count; i++) {
+                    boolean stringValue = reader.readUnsignedByte() == 1;
+                    reader.skip(3);
+                    if (stringValue) reader.readString(); else reader.readInt();
+                }
+            } else {
+                throw new IOException("Unsupported 443 item opcode " + opcode
+                        + " for item " + definition.id + " at byte "
+                        + (reader.position() - 1));
+            }
+        }
+        throw new IOException("Unterminated 443 item " + definition.id);
     }
 
     private ItemDefinition(int id, String name, String description, String text32, boolean enabled6, boolean enabled22, boolean enabled32, int value22, int value32, boolean enabled42, int value42, int value52, int value62, int value72, int[] bonuses, int value82, int[] requiredLevels, int value92, boolean[] blArray, double value12, int value103, int value112, boolean enabled52) {

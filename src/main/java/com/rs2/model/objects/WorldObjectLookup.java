@@ -1,6 +1,7 @@
 package com.rs2.model.objects;
 
 import com.rs2.cache.CacheStore;
+import com.rs2.ServerSettings;
 import com.rs2.model.GameplayHelper;
 import com.rs2.model.Position;
 import com.rs2.model.World;
@@ -16,6 +17,10 @@ public class WorldObjectLookup {
     }
 
     public static void loadWorldObjects() {
+        if (ServerSettings.cacheVersion == 443) {
+            GameplayHelper.loadObjectDefinitions();
+            return;
+        }
         Object instance = CacheStore.getInstance();
         try {
             ((CacheStore)instance).getDefinitionIndex().getObjectDefinitionEntries();

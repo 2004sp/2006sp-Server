@@ -164,16 +164,26 @@ public final class BankManager {
         }
         ItemStack[] inventoryItems = player.getInventoryManager().getContainer().getRawItems();
         int tabIndex = 0;
-        while (tabIndex < bankOwner.getBankContainer().getTabLimit()) {
-            try {
-                bankOwner.getBankContainer().compactTab(tabIndex);
-                ItemStack[] tabItems = bankOwner.getBankContainer().getTabItems(tabIndex);
-                player.packetSender.sendItemContainer(bankTabUpdateTasks[tabIndex].itemContainerInterfaceId, tabItems);
+        if (ServerSettings.clientBuild == 443) {
+            while (tabIndex < bankOwner.getBankContainer().getTabLimit()) {
+                bankOwner.getBankContainer().compactTab(tabIndex++);
             }
-            catch (Exception exception) {
-                exception.printStackTrace();
+            // Stock revision 443 exposes one 8x50 bank container. Preserve the
+            // server's internal tab model by presenting it as one flattened view.
+            player.packetSender.sendItemContainer(mainBankContainerInterfaceId,
+                    bankOwner.getBankContainer().getItems());
+        } else {
+            while (tabIndex < bankOwner.getBankContainer().getTabLimit()) {
+                try {
+                    bankOwner.getBankContainer().compactTab(tabIndex);
+                    ItemStack[] tabItems = bankOwner.getBankContainer().getTabItems(tabIndex);
+                    player.packetSender.sendItemContainer(bankTabUpdateTasks[tabIndex].itemContainerInterfaceId, tabItems);
+                }
+                catch (Exception exception) {
+                    exception.printStackTrace();
+                }
+                ++tabIndex;
             }
-            ++tabIndex;
         }
         player.packetSender.sendItemContainer(5064, inventoryItems);
         player.packetSender.showInterfaceWithInventory(5292, 5063);
@@ -663,10 +673,77 @@ public final class BankManager {
     }
 
     private static void refreshBankTabs(Player player) {
+        if (ServerSettings.clientBuild == 443) {
+            int tab = 0;
+            while (tab < player.getBankContainer().getTabLimit()) {
+                player.getBankContainer().compactTab(tab++);
+            }
+            player.packetSender.sendItemContainer(mainBankContainerInterfaceId,
+                    player.getBankContainer().getItems());
+            return;
+        }
         int index = 0;
         while (index < player.getBankContainer().getTabLimit()) {
             BankManager.sendBankTab(player, index);
             ++index;
+        }
+    }
+
+    public static int getRevision443BankSlotAmount(Player player, int flatSlot, int itemId) {
+        BankSlot slot = resolveRevision443BankSlot(player, flatSlot);
+        return slot == null || slot.item == null || slot.item.getId() != itemId
+                ? 0 : slot.item.getAmount();
+    }
+
+    public static void withdrawRevision443Item(Player player, int flatSlot, int itemId, int amount) {
+        BankSlot slot = resolveRevision443BankSlot(player, flatSlot);
+        if (slot == null || slot.item == null || slot.item.getId() != itemId || amount <= 0) {
+            return;
+        }
+        BankManager.withdrawItemFromTab(player, slot.slot, itemId, amount,
+                bankTabUpdateTasks[slot.tab].itemContainerInterfaceId);
+    }
+
+    public static void rearrangeRevision443BankItem(Player player, int sourceFlatSlot, int targetFlatSlot) {
+        BankSlot source = resolveRevision443BankSlot(player, sourceFlatSlot);
+        BankSlot target = resolveRevision443BankSlot(player, targetFlatSlot);
+        if (source == null || target == null) {
+            return;
+        }
+        BankManager.rearrangeBankItem(player, source.slot, target.slot,
+                bankTabUpdateTasks[source.tab].itemContainerInterfaceId,
+                bankTabUpdateTasks[target.tab].itemContainerInterfaceId);
+    }
+
+    private static BankSlot resolveRevision443BankSlot(Player player, int flatSlot) {
+        if (flatSlot < 0) return null;
+        int flatIndex = 0;
+        int tab = 0;
+        while (tab < player.getBankContainer().getTabCount()) {
+            player.getBankContainer().compactTab(tab);
+            ItemStack[] items = player.getBankContainer().getTabItems(tab);
+            int slot = 0;
+            while (slot < items.length) {
+                ItemStack item = items[slot];
+                if (item != null && item.getId() != -1) {
+                    if (flatIndex == flatSlot) return new BankSlot(tab, slot, item);
+                    ++flatIndex;
+                }
+                ++slot;
+            }
+            ++tab;
+        }
+        return null;
+    }
+
+    private static final class BankSlot {
+        final int tab;
+        final int slot;
+        final ItemStack item;
+        BankSlot(int tab, int slot, ItemStack item) {
+            this.tab = tab;
+            this.slot = slot;
+            this.item = item;
         }
     }
 
@@ -736,12 +813,7 @@ public final class BankManager {
             player.getBankContainer().swapTabSlots(sourceSlot, targetSlot, sourceTab, targetTab);
         }
         player.getBankContainer().removeEmptyTabs();
-        index = 0;
-        while (index < player.getBankContainer().getTabLimit()) {
-            player.getBankContainer().compactTab(index);
-            BankManager.sendBankTab(player, index);
-            ++index;
-        }
+        BankManager.refreshBankTabs(player);
     }
 
     private static void equipBotInventoryItems(Player player) {

@@ -95,7 +95,8 @@ public final class MusicTrackDefinition {
         if (trackId < 0) {
             trackId = 1;
         }
-        if ((musicTrackDefinition = definitionsByTrackId[trackId]) == null) {
+        if (trackId >= definitionsByTrackId.length
+                || (musicTrackDefinition = definitionsByTrackId[trackId]) == null) {
             musicTrackDefinition = new MusicTrackDefinition(trackId, " ", -1, -1, -1);
         }
         return musicTrackDefinition;

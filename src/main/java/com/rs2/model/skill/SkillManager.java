@@ -34,7 +34,7 @@ public final class SkillManager {
             SkillManager.experienceForLevel[initialValue] = value = (int)Math.floor(index / 4);
             ++initialValue;
         }
-        SKILL_NAMES = new String[]{"Attack", "Defence", "Strength", "Hitpoints", "Ranged", "Prayer", "Magic", "Cooking", "Woodcutting", "Fletching", "Fishing", "Firemaking", "Crafting", "Smithing", "Mining", "Herblore", "Agility", "Thieving", "Slayer", "Farming", "Runecrafting"};
+        SKILL_NAMES = new String[]{"Attack", "Defence", "Strength", "Hitpoints", "Ranged", "Prayer", "Magic", "Cooking", "Woodcutting", "Fletching", "Fishing", "Firemaking", "Crafting", "Smithing", "Mining", "Herblore", "Agility", "Thieving", "Slayer", "Farming", "Runecrafting", "Construction"};
         maxCombatLevel = 126;
     }
 
@@ -263,7 +263,7 @@ public final class SkillManager {
     public final int getTotalLevel() {
         int index = 0;
         int index2 = 0;
-        while (index2 < 21) {
+        while (index2 < 22) {
             if (!(index2 == 18 && ServerSettings.cacheVersion < 319 || index2 == 19 && ServerSettings.cacheVersion < 336)) {
                 index += this.getBaseLevel(index2);
             }
@@ -278,7 +278,7 @@ public final class SkillManager {
     public final long getTotalExperience() {
         long value = 0L;
         int index = 0;
-        while (index < 21) {
+        while (index < 22) {
             SkillManager skillManager = this;
             value = (long)((double)value + skillManager.experience[index]);
             ++index;
@@ -447,17 +447,28 @@ public final class SkillManager {
         nArrayArray[18] = new int[]{18, 12123, 12124, 12122, 275, 276, 380, 380};
         nArrayArray[19] = new int[]{19, 313, 312, 310, 422, 424, 320, 175};
         nArrayArray[20] = new int[]{20, 4268, 4269, 4267, 194, 200, 320, 320};
-        nArrayArray[21] = new int[]{21, -1, -1, -1, -1, -1, -1, -1};
+        nArrayArray[21] = new int[]{21, 19567, 19568, 19566, 656, 657, 256, 256};
         nArrayArray[22] = new int[]{22, 19567, 19568, 19566, 656, 657, 256, 256};
         int[][] nArrayArray2 = nArrayArray;
-        if (interfaceId == nArrayArray2[interfaceId][0]) {
-            this.player.currentLevelUpSkillId = interfaceId;
-            Player player = this.player;
-            player.packetSender.sendInterfaceText("@dbl@Congratulations, you just advanced a " + SKILL_NAMES[interfaceId] + " level!", nArrayArray2[interfaceId][1]);
-            player = this.player;
-            player.packetSender.sendInterfaceText("Your " + SKILL_NAMES[interfaceId] + " level is now " + this.getBaseLevel(interfaceId) + ".", nArrayArray2[interfaceId][2]);
-            player = this.player;
-            player.packetSender.sendGameMessage("You've just advanced a " + SKILL_NAMES[interfaceId] + " level! You have reached level " + this.getBaseLevel(interfaceId) + ".");
+        if (ServerSettings.clientBuild == 443) {
+            player.packetSender.sendInterfaceText(
+                    "@dbl@Congratulations, you just advanced a "
+                            + SKILL_NAMES[interfaceId] + " level!",
+                    19582);
+            player.packetSender.sendInterfaceText(
+                    "Your " + SKILL_NAMES[interfaceId] + " level is now "
+                            + this.getBaseLevel(interfaceId) + ".",
+                    19583);
+        } else {
+            player.packetSender.sendInterfaceText(
+                    "@dbl@Congratulations, you just advanced a "
+                            + SKILL_NAMES[interfaceId] + " level!",
+                    nArrayArray2[interfaceId][1]);
+            player.packetSender.sendInterfaceText(
+                    "Your " + SKILL_NAMES[interfaceId] + " level is now "
+                            + this.getBaseLevel(interfaceId) + ".",
+                    nArrayArray2[interfaceId][2]);
+        }
             if (ServerSettings.progressiveXpMode != 0) {
                 int baseLevel = this.getBaseLevel(interfaceId);
                 int value2 = this.player.temporaryActionValue;
@@ -483,40 +494,38 @@ public final class SkillManager {
                 value = this.player;
                 ((Player)value).packetSender.sendInterfaceModel(311, 200, 5340);
             }
-            value = this;
-            if (SkillManager.getLevelForExperience(((SkillManager)value).experience[interfaceId]) == ServerSettings.maxLevel) {
-                value = this.player;
-                ((Player)value).packetSender.sendGameMessage("Well done! You've achieved the highest possible level in this skill!");
+            if (SkillManager.getLevelForExperience(this.experience[interfaceId])
+                    == ServerSettings.maxLevel) {
+                this.player.packetSender.sendGameMessage(
+                        "Well done! You've achieved the highest possible level in this skill!");
             }
-            value = this.player;
-            ((Player)value).packetSender.showChatboxInterface(nArrayArray2[interfaceId][3]);
-            this.player.getDialogueManager().finishDialogue();
-        }
+        this.player.packetSender.showChatboxInterface(
+                ServerSettings.clientBuild == 443
+                        ? 19580
+                        : nArrayArray2[interfaceId][3]);
         this.player.setAppearanceUpdateRequired(true);
-        value = this.player;
-        ((Player)value).packetSender.sendInterfaceText("Total Lvl: " + this.getTotalLevel(), 3984);
+        if (ServerSettings.clientBuild != 443) {
+            value = this.player;
+            ((Player)value).packetSender.sendInterfaceText("Total Lvl: " + this.getTotalLevel(), 3984);
+        }
     }
 
     public final int getCombatLevel() {
-        double value;
-        int levelForExperience = SkillManager.getLevelForExperience(this.experience[0]);
-        int levelForExperience2 = SkillManager.getLevelForExperience(this.experience[1]);
-        int levelForExperience3 = SkillManager.getLevelForExperience(this.experience[2]);
-        int levelForExperience4 = SkillManager.getLevelForExperience(this.experience[3]);
-        int levelForExperience5 = SkillManager.getLevelForExperience(this.experience[5]);
-        int levelForExperience6 = SkillManager.getLevelForExperience(this.experience[4]);
-        int levelForExperience7 = SkillManager.getLevelForExperience(this.experience[6]);
-        double value2 = levelForExperience2 + levelForExperience4 + levelForExperience5 / 2;
-        double value3 = (value2 + 1.3 * (1.5 * (double)levelForExperience7)) / 4.0;
-        double value4 = (value2 + 1.3 * (1.5 * (double)levelForExperience6)) / 4.0;
-        double value5 = (value2 + 1.3 * (double)(levelForExperience + levelForExperience3)) / 4.0;
-        if (value5 >= value4 && value5 >= value3) {
-            return (int)value5;
-        }
-        if (value4 >= value5 && value4 >= value3) {
-            return (int)value4;
-        }
-        return (int)value3;
+        int attack = SkillManager.getLevelForExperience(this.experience[0]);
+        int defence = SkillManager.getLevelForExperience(this.experience[1]);
+        int strength = SkillManager.getLevelForExperience(this.experience[2]);
+        int hitpoints = SkillManager.getLevelForExperience(this.experience[3]);
+        int ranged = SkillManager.getLevelForExperience(this.experience[4]);
+        int prayer = SkillManager.getLevelForExperience(this.experience[5]);
+        int magic = SkillManager.getLevelForExperience(this.experience[6]);
+
+        int base = defence + hitpoints + prayer / 2;
+        int melee = attack + strength;
+        int rangedStyle = ranged * 3 / 2;
+        int magicStyle = magic * 3 / 2;
+        int offensive = Math.max(melee, Math.max(rangedStyle, magicStyle));
+
+        return (10 * base + 13 * offensive) / 40;
     }
 
     public static int getMaxCombatLevel() {
