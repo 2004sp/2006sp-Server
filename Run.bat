@@ -21,7 +21,7 @@ if not exist "dist\server.jar" (
 )
 
 echo Revision 443 audit: %PRS_AUDIT443%
-java -Xmx1024m -Dprs.audit443=%PRS_AUDIT443% -jar "dist\server.jar"
+java -Xmx1024m -Dprs.audit443=%PRS_AUDIT443% -Dprs.traceGameplay=true -jar "dist\server.jar"
 set "EXIT_CODE=%ERRORLEVEL%"
 echo.
 echo Server exited with code %EXIT_CODE%.

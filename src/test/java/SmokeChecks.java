@@ -15,9 +15,11 @@ import com.rs2.net.packet.RegionPacket;
 import com.rs2.model.Position;
 import com.rs2.model.World;
 import com.rs2.model.item.ItemDefinition;
+import com.rs2.model.item.ItemStack;
 import com.rs2.model.music.MusicTrackDefinition;
 import com.rs2.model.player.Player;
 import com.rs2.net.packet.handler.CommandPacketHandler;
+import com.rs2.net.packet.handler.ItemActionPacketHandler;
 import com.rs2.model.quest.QuestDefinition;
 import com.rs2.util.ChatTextCodec;
 import com.rs2.util.ChatCodec;
@@ -102,6 +104,7 @@ public final class SmokeChecks {
         checkRevision443DebugCommand();
         checkRevision443WireTransforms();
         checkRevision443PostLoginInterfaces();
+        checkRevision443ItemInterfaceOpenState();
         checkRevision443RegionPacket();
         checkRevision443AudioIds();
         try (Js5CacheStore js5 = new Js5CacheStore(new File("cache"))) {
@@ -234,6 +237,45 @@ public final class SmokeChecks {
         require(InterfaceBridge.translate(19103) == 19103
                         && InterfaceBridge.translate(19497) == 19497,
                 "443 custom quest-journal rows should retain legacy-flat ids");
+    }
+
+    private static void checkRevision443ItemInterfaceOpenState() {
+        Player player = new Player(null);
+        require(player.isInterfaceIdOpen(3214),
+                "443 inventory container was not recognized as an open sidebar component");
+        require(player.isInterfaceIdOpen(1688),
+                "443 equipment container was not recognized as an open sidebar component");
+        require(!player.isInterfaceIdOpen(5382),
+                "443 bank container was accepted while the bank was closed");
+        player.setSidebarInterfaceId(3, -1);
+        require(!player.isInterfaceIdOpen(3214),
+                "443 inventory container remained open after its sidebar was closed");
+
+        player.setSidebarInterfaceId(3, 3213);
+        player.isBot = true;
+        player.setQuestState(0, 1);
+        player.getInventoryManager().getContainer().setItem(0, new ItemStack(1205));
+        ItemActionPacketHandler handler = new ItemActionPacketHandler();
+        byte[] equipPayload = {
+                0, 0, 0, (byte) 149,
+                0x04, (byte) 0xb5,
+                0, (byte) 0x80
+        };
+        handler.handle(player, new IncomingPacket(ClientPackets.ITEM_OPTION_2,
+                equipPayload.length, PacketBuffer.wrapReader(ByteBuffer.wrap(equipPayload))));
+        ItemStack equipped = player.getEquipmentManager().getContainer().getItemAt(3);
+        require(equipped != null && equipped.getId() == 1205,
+                "443 inventory option 2 did not equip the selected item");
+
+        byte[] unequipPayload = {
+                (byte) 0x83, 0,
+                0x01, (byte) 0x83, 0, 0x19,
+                (byte) 0xb5, 0x04
+        };
+        handler.handle(player, new IncomingPacket(ClientPackets.WIDGET_ITEM_OPTION_1,
+                unequipPayload.length, PacketBuffer.wrapReader(ByteBuffer.wrap(unequipPayload))));
+        require(player.getEquipmentManager().getContainer().getItemAt(3) == null,
+                "443 equipment option 1 did not unequip the selected item");
     }
 
     private static void checkRevision443NamedTable() throws Exception {

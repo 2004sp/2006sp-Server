@@ -141,6 +141,7 @@ import com.rs2.net.LoginProtocol;
 import com.rs2.net.packet.IncomingPacket;
 import com.rs2.net.packet.PacketBuffer;
 import com.rs2.net.packet.PacketDispatcher;
+import com.rs2.net.packet.InterfaceBridge;
 import com.rs2.net.packet.PacketReader;
 import com.rs2.net.packet.PacketSender;
 import com.rs2.net.packet.PacketWriter;
@@ -5258,6 +5259,22 @@ extends Entity {
         InterfaceDefinition interfaceDefinition = InterfaceDefinition.forId(interfaceId);
         if (interfaceDefinition != null) {
             return this.isInterfaceOpen(interfaceDefinition);
+        }
+        if (ServerSettings.clientBuild == 443) {
+            Integer packedComponentId = InterfaceBridge.componentMappings().get(interfaceId);
+            if (packedComponentId != null) {
+                int mappedGroupId = packedComponentId >> 16;
+                Map<Integer, Integer> groupMappings = InterfaceBridge.groupMappings();
+                if (Integer.valueOf(mappedGroupId).equals(groupMappings.get(this.openInterfaceId))
+                        || Integer.valueOf(mappedGroupId).equals(groupMappings.get(this.inventoryOverlayInterfaceId))) {
+                    return true;
+                }
+                for (int sidebarInterfaceId : this.sidebarInterfaceIds) {
+                    if (Integer.valueOf(mappedGroupId).equals(groupMappings.get(sidebarInterfaceId))) {
+                        return true;
+                    }
+                }
+            }
         }
         if (interfaceId >= 18890 && interfaceId <= 19102) {
             return this.openInterfaceId >= 18890 && this.openInterfaceId <= 19102

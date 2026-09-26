@@ -2266,10 +2266,11 @@ implements PacketHandler {
         ItemStack itemStack = player.getInventoryManager().getContainer().getItemAt(player.getSelectedItemSlot());
         debugItemAction(player, "received", "equip-option", player.getSelectedItemInterfaceId(),
                 player.getSelectedItemSlot(), itemId, itemStack, "decoded");
+        boolean interfaceOpen = isItemActionInterfaceOpen(player, player.getSelectedItemInterfaceId(), interfaceDefinition);
         if (GameplayTrace.enabled()) {
-            GameplayTrace.log("item equip decoded player=" + GameplayTrace.describe(player) + " interfaceId=" + player.getSelectedItemInterfaceId() + " slot=" + player.getSelectedItemSlot() + " itemId=" + itemId + " interfaceOpen=" + player.isInterfaceOpen(interfaceDefinition));
+            GameplayTrace.log("item equip decoded player=" + GameplayTrace.describe(player) + " interfaceId=" + player.getSelectedItemInterfaceId() + " slot=" + player.getSelectedItemSlot() + " itemId=" + itemId + " interfaceOpen=" + interfaceOpen);
         }
-        if (!player.isInterfaceOpen(interfaceDefinition)) {
+        if (!interfaceOpen) {
             debugItemAction(player, "rejected", "equip-option", player.getSelectedItemInterfaceId(),
                     player.getSelectedItemSlot(), itemId, itemStack, "interface-not-open");
             return;
