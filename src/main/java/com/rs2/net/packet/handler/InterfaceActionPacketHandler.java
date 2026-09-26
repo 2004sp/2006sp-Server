@@ -21,6 +21,67 @@ import com.rs2.util.GameplayTrace;
  */
 public final class InterfaceActionPacketHandler implements PacketHandler {
     private final ButtonClickPacketHandler buttonHandler = new ButtonClickPacketHandler();
+
+    private boolean handleAdditionalSkillGuideButton(Player player, int packedWidgetId,
+                                                     int operation, int parameter) {
+        if ((packedWidgetId >>> 16) != 320
+                || (operation != -1 && parameter != 0)) {
+            return false;
+        }
+
+        int child = packedWidgetId & 0xFFFF;
+        // Native skill-tab child 148 is Construction; 149 is Hunter.
+        if (child == 148) {
+            player.getSkillGuideManager().selectedSkillIndex = 22;
+            player.getSkillGuideManager().showConstructionGuide(1);
+            return true;
+        }
+        if (child == 149) {
+            player.getSkillGuideManager().selectedSkillIndex = 21;
+            player.getSkillGuideManager().showHunterGuide(1);
+            return true;
+        }
+        return false;
+    }
+
+    private boolean handleSkillGuideCategory(Player player, int packedWidgetId,
+                                             int operation, int parameter) {
+        if ((packedWidgetId >>> 16) != 308) {
+            return false;
+        }
+
+        int child = packedWidgetId & 0xFFFF;
+
+        // Normal button packet is operation == -1. Keep parameter == 0
+        // compatible with interface-operation packets too.
+        if (operation != -1 && parameter != 0) {
+            return false;
+        }
+
+        int category;
+        switch (child) {
+            case 131: category = 1; break;
+            case 108: category = 2; break;
+            case 109: category = 3; break;
+            case 112: category = 4; break;
+            case 122: category = 5; break;
+            case 125: category = 6; break;
+            case 128: category = 7; break;
+            case 143: category = 8; break;
+            case 146: category = 9; break;
+            case 149: category = 10; break;
+            case 159: category = 11; break;
+            case 162: category = 12; break;
+            case 165: category = 13; break;
+            default: return false;
+        }
+
+        System.out.println("[SKILL GUIDE] category click group=" + (packedWidgetId >>> 16)
+                + " child=" + child + " category=" + category);
+        player.getSkillGuideManager().showSelectedSkillCategory(category);
+        return true;
+    }
+
     @Override
     public void handle(Player player, IncomingPacket packet) {
         int opcode = packet.getOpcode();
@@ -116,6 +177,11 @@ public final class InterfaceActionPacketHandler implements PacketHandler {
             parameter = packet.getReader().readSignedShort();
         }
 
+        if (handleAdditionalSkillGuideButton(player, packedWidgetId, operation, parameter)
+                || handleSkillGuideCategory(player, packedWidgetId, operation, parameter)) {
+            return;
+        }
+
         if (GameplayTrace.enabled()) {
             GameplayTrace.log("443 interface action player=" + GameplayTrace.describe(player)
                     + " opcode=" + opcode
@@ -138,6 +204,15 @@ public final class InterfaceActionPacketHandler implements PacketHandler {
             return;
         }
         int legacyButtonId = InterfaceBridge.toLegacyComponent(packedWidgetId);
+
+        System.out.println(
+                "[SKILL DEBUG] packed=" + packedWidgetId
+                        + " group=" + (packedWidgetId >>> 16)
+                        + " child=" + (packedWidgetId & 0xFFFF)
+                        + " legacy=" + legacyButtonId
+                        + " operation=" + operation
+                        + " parameter=" + parameter
+        );
         if (legacyButtonId != InterfaceBridge.UNMAPPED
                 && legacyButtonId != 3214 && legacyButtonId != 1688
                 && (operation == -1 || parameter == 0)) {

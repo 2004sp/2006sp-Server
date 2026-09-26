@@ -209,6 +209,11 @@ public final class PacketDispatcher {
         if (((IncomingPacket)packetId).getOpcode() < 0) {
             return;
         }
+        boolean traceLatency = GameplayTrace.enabled()
+                && (packetHandler instanceof MovementPacketHandler
+                || packetHandler instanceof ButtonClickPacketHandler
+                || packetHandler instanceof InterfaceActionPacketHandler);
+        long dispatchStartedNanos = traceLatency ? System.nanoTime() : 0L;
         try {
             if (GameplayTrace.enabled() && PacketDispatcher.isGameplayTraceOpcode(((IncomingPacket)packetId).getOpcode())) {
                 GameplayTrace.log("packet dispatch opcode=" + ((IncomingPacket)packetId).getOpcode() + " length=" + ((IncomingPacket)packetId).getLength() + " player=" + GameplayTrace.describe(player));
@@ -227,6 +232,14 @@ public final class PacketDispatcher {
             exception.printStackTrace();
             player.disconnect();
             return;
+        } finally {
+            if (traceLatency) {
+                long elapsedNanos = Math.max(0L, System.nanoTime() - dispatchStartedNanos);
+                GameplayTrace.log("packet handler timing opcode="
+                        + ((IncomingPacket)packetId).getOpcode()
+                        + " elapsed=" + elapsedNanos + "ns player="
+                        + GameplayTrace.describe(player));
+            }
         }
     }
     public static final void flushOutgoing(Player player) {

@@ -167,6 +167,7 @@ implements PacketHandler {
                 break;
             }
             case 8654: {
+                System.out.println("[SKILL DEBUG] opening Attack guide");
                 player.getSkillGuideManager().showAttackGuide(1);
                 player.getSkillGuideManager().selectedSkillIndex = 0;
                 return;

@@ -5,12 +5,15 @@ import com.rs2.model.item.ItemStack;
 import com.rs2.model.player.Player;
 import com.rs2.model.skill.guide.SkillGuideCategory;
 import com.rs2.model.skill.guide.SkillGuideEntry;
+import com.rs2.ServerSettings;
 import java.util.ArrayList;
 
 public final class SkillGuideManager {
+    private static final int REVISION_443_MAX_ITEM_ID = 10886;
     private Player player;
     public int selectedSkillIndex;
     private int[] displayItemIds = new int[40];
+    private int displayedEntryCount;
     private static ArrayList attackCategories = new ArrayList();
     private static ArrayList hitpointsCategories = new ArrayList();
     private static ArrayList miningCategories = new ArrayList();
@@ -32,6 +35,8 @@ public final class SkillGuideManager {
     private static ArrayList runecraftingCategories = new ArrayList();
     private static ArrayList slayerCategories = new ArrayList();
     private static ArrayList farmingCategories = new ArrayList();
+    private static ArrayList hunterCategories = new ArrayList();
+    private static ArrayList constructionCategories = new ArrayList();
 
     public SkillGuideManager(Player player) {
         this.player = player;
@@ -283,32 +288,107 @@ public final class SkillGuideManager {
         }
         if (this.selectedSkillIndex == 20) {
             this.showFarmingGuide(skillId);
+            return;
+        }
+        if (this.selectedSkillIndex == 21) {
+            this.showHunterGuide(skillId);
+            return;
+        }
+        if (this.selectedSkillIndex == 22) {
+            this.showConstructionGuide(skillId);
         }
     }
 
-    private void sendGuideFrame(String title, String subtitle, String category0, String category1, String category2, String category3, String category4, String category5, String category6, String category7, String category8, String category9, String category10, String category11, String category12) {
-        int[] hiddenComponentIds = new int[]{8844, 8813, 8813, 8825, 8828, 8838, 8841, 8850, 8860, 8863, 15294, 15304, 15307};
-        int[] textComponentIds = new int[]{8846, 8823, 8824, 8827, 8837, 8840, 8843, 8859, 8862, 8865, 15303, 15306, 15309};
-        String[] categories = new String[]{category0, category1, category2, category3, category4, category5, category6, category7, category8, category9, category10, category11, category12};
+    private void sendGuideFrame(
+            String title,
+            String subtitle,
+            String category0,
+            String category1,
+            String category2,
+            String category3,
+            String category4,
+            String category5,
+            String category6,
+            String category7,
+            String category8,
+            String category9,
+            String category10,
+            String category11,
+            String category12) {
+
+        int[] hiddenComponentIds = {
+                8844, 8813, 8813, 8825, 8828, 8838, 8841,
+                8850, 8860, 8863, 15294, 15304, 15307
+        };
+
+        int[] textComponentIds = {
+                8846, 8823, 8824, 8827, 8837, 8840, 8843,
+                8859, 8862, 8865, 15303, 15306, 15309
+        };
+
+        String[] categories = {
+                category0, category1, category2, category3,
+                category4, category5, category6, category7,
+                category8, category9, category10, category11,
+                category12
+        };
+
         this.player.packetSender.sendInterfaceScrollPosition(8717, 0);
-        this.player.packetSender.setInterfaceHiddenFlag(categories[1] == "" ? 1 : 0, 8800);
-        this.player.packetSender.setInterfaceHiddenFlag(categories[1] == "" ? 1 : 0, hiddenComponentIds[0]);
-        this.player.packetSender.setInterfaceHiddenFlag(categories[1] == "" ? 1 : 0, hiddenComponentIds[1]);
-        if (categories[2] == "") {
+
+        // The legacy guide expects this placeholder, but native 443 should
+        // leave absent categories empty so their widgets can be hidden.
+        if (ServerSettings.clientBuild != 443
+                && (categories[2] == null || categories[2].isEmpty())) {
             categories[2] = "Milestones";
         }
-        int categoryIndex = 3;
-        while (categoryIndex < 13) {
-            this.player.packetSender.setInterfaceHiddenFlag(categories[categoryIndex] == "" ? 1 : 0, hiddenComponentIds[categoryIndex]);
-            ++categoryIndex;
+
+        if (ServerSettings.clientBuild == 443) {
+            /*
+             * On native group 308 the category text itself is optionType 6.
+             * Sending an empty string does not disable its click rectangle;
+             * hide the clickable widget itself.
+             */
+            for (int i = 0; i < categories.length; i++) {
+                boolean hidden = categories[i] == null || categories[i].isEmpty();
+                this.player.packetSender.setInterfaceHiddenFlag(
+                        hidden ? 1 : 0,
+                        textComponentIds[i]
+                );
+            }
+        } else {
+            this.player.packetSender.setInterfaceHiddenFlag(
+                    categories[1].isEmpty() ? 1 : 0,
+                    8800
+            );
+            this.player.packetSender.setInterfaceHiddenFlag(
+                    categories[1].isEmpty() ? 1 : 0,
+                    hiddenComponentIds[0]
+            );
+            this.player.packetSender.setInterfaceHiddenFlag(
+                    categories[1].isEmpty() ? 1 : 0,
+                    hiddenComponentIds[1]
+            );
+
+            for (int i = 3; i < 13; i++) {
+                this.player.packetSender.setInterfaceHiddenFlag(
+                        categories[i].isEmpty() ? 1 : 0,
+                        hiddenComponentIds[i]
+                );
+            }
         }
+
         this.player.packetSender.sendInterfaceText(title, 8716);
-        this.player.packetSender.sendInterfaceText(subtitle, 8849);
-        categoryIndex = 0;
-        while (categoryIndex < 13) {
-            this.player.packetSender.sendInterfaceText(categories[categoryIndex], textComponentIds[categoryIndex]);
-            ++categoryIndex;
+        if (ServerSettings.clientBuild != 443) {
+            this.player.packetSender.sendInterfaceText(subtitle, 8849);
         }
+
+        for (int i = 0; i < categories.length; i++) {
+            this.player.packetSender.sendInterfaceText(
+                    categories[i] == null ? "" : categories[i],
+                    textComponentIds[i]
+            );
+        }
+
         this.player.resetInteractionState();
         this.player.packetSender.showInterface(8714);
     }
@@ -319,29 +399,30 @@ public final class SkillGuideManager {
         player = this.player;
         player.packetSender.sendInterfaceText(text3, value22 + 8720);
         this.displayItemIds[value22 + 0] = value3;
-        this.sendItemContainer(this.displayItemIds);
+        this.displayedEntryCount = Math.max(this.displayedEntryCount, value22 + 1);
     }
 
     private void clearEntryRows() {
-        int index = 0;
-        while (index < 40) {
+        for (int index = 0; index < this.displayItemIds.length; index++) {
             this.displayItemIds[index] = -1;
-            ++index;
         }
-        index = 8720;
-        while (index < 8799) {
-            Player player = this.player;
-            player.packetSender.sendInterfaceText("", index);
-            ++index;
+        for (int index = 0; index < this.displayedEntryCount; index++) {
+            this.player.packetSender.sendInterfaceText("", 8720 + index);
+            this.player.packetSender.sendInterfaceText("", 8760 + index);
         }
+        this.displayedEntryCount = 0;
     }
 
     private void sendItemContainer(int[] itemIds) {
         ItemStack[] itemStackArray = new ItemStack[itemIds.length];
-        int index = 0;
-        while (index < itemIds.length) {
-            itemStackArray[index] = new ItemStack(itemIds[index]);
-            ++index;
+        for (int index = 0; index < itemIds.length; index++) {
+            int itemId = itemIds[index];
+            if (ServerSettings.clientBuild == 443
+                    && (itemId < 0 || itemId > REVISION_443_MAX_ITEM_ID)) {
+                itemStackArray[index] = new ItemStack(-1);
+            } else {
+                itemStackArray[index] = new ItemStack(itemId);
+            }
         }
         this.player.packetSender.sendItemContainer(8847, itemStackArray);
     }
@@ -350,7 +431,6 @@ public final class SkillGuideManager {
         String subtitle = "";
         if (skillId >= arrayList.size()) {
             this.clearEntryRows();
-            this.sendItemContainer(this.displayItemIds);
         } else {
             SkillGuideCategory category = (SkillGuideCategory)arrayList.get(skillId);
             subtitle = category.name;
@@ -381,6 +461,7 @@ public final class SkillGuideManager {
                 ++entryIndex;
             }
         }
+        this.sendItemContainer(this.displayItemIds);
         String[] categoryNames = new String[13];
         int categoryIndex = 0;
         while (categoryIndex < 13) {
@@ -479,6 +560,14 @@ public final class SkillGuideManager {
         this.showSkillGuide("Farming", farmingCategories, value2 - 1);
     }
 
+    public final void showHunterGuide(int value2) {
+        this.showSkillGuide("Hunter", hunterCategories, value2 - 1);
+    }
+
+    public final void showConstructionGuide(int value2) {
+        this.showSkillGuide("Construction", constructionCategories, value2 - 1);
+    }
+
     public static ArrayList getCategoriesForSkillId(int skillId) {
         if (skillId == 0) {
             return attackCategories;
@@ -542,6 +631,12 @@ public final class SkillGuideManager {
         }
         if (skillId == 19) {
             return farmingCategories;
+        }
+        if (skillId == 21) {
+            return constructionCategories;
+        }
+        if (skillId == 22) {
+            return hunterCategories;
         }
         return null;
     }
@@ -983,6 +1078,240 @@ public final class SkillGuideManager {
         SkillGuideManager.initializeRunecraftingCategories();
         SkillGuideManager.initializeSlayerCategories();
         SkillGuideManager.initializeFarmingCategories();
+        SkillGuideManager.initializeHunterCategories();
+        SkillGuideManager.initializeConstructionCategories();
+    }
+
+    private static void initializeHunterCategories() {
+        SkillGuideCategory category = new SkillGuideCategory("Tracking");
+        category.addEntry(new SkillGuideEntry(1, "Polar kebbit", 10117));
+        category.addEntry(new SkillGuideEntry(3, "Common kebbit", 10121));
+        category.addEntry(new SkillGuideEntry(7, "Feldip weasel", 10119));
+        category.addEntry(new SkillGuideEntry(13, "Desert devil", 10123));
+        category.addEntry(new SkillGuideEntry(49, "Razor-backed kebbit", 10107));
+        hunterCategories.add(category);
+
+        category = new SkillGuideCategory("Birds");
+        category.addEntry(new SkillGuideEntry(1, "Crimson swift", 9965));
+        category.addEntry(new SkillGuideEntry(5, "Golden warbler", 9968));
+        category.addEntry(new SkillGuideEntry(9, "Copper longtail", 9966));
+        category.addEntry(new SkillGuideEntry(11, "Cerulean twitch", 9967));
+        category.addEntry(new SkillGuideEntry(19, "Tropical wagtail", 9969));
+        hunterCategories.add(category);
+
+        category = new SkillGuideCategory("Butterflies");
+        category.addEntry(new SkillGuideEntry(15, "Ruby harvest", 10020));
+        category.addEntry(new SkillGuideEntry(25, "Sapphire glacialis", 10018));
+        category.addEntry(new SkillGuideEntry(35, "Snowy knight", 10016));
+        category.addEntry(new SkillGuideEntry(45, "Black warlock", 10014));
+        hunterCategories.add(category);
+
+        category = new SkillGuideCategory("Deadfall");
+        category.addEntry(new SkillGuideEntry(23, "Wild kebbit", 10113));
+        category.addEntry(new SkillGuideEntry(33, "Barb-tailed kebbit", 10129));
+        category.addEntry(new SkillGuideEntry(37, "Prickly kebbit", 10105));
+        category.addEntry(new SkillGuideEntry(51, "Sabre-toothed kebbit", 10109));
+        hunterCategories.add(category);
+
+        category = new SkillGuideCategory("Box Traps");
+        category.addEntry(new SkillGuideEntry(27, "Ferret", 10092));
+        category.addEntry(new SkillGuideEntry(53, "Chinchompa", 9976));
+        category.addEntry(new SkillGuideEntry(63, "Red chinchompa", 9977));
+        hunterCategories.add(category);
+
+        category = new SkillGuideCategory("Net Traps");
+        category.addEntry(new SkillGuideEntry(29, "Swamp lizard", 10149));
+        category.addEntry(new SkillGuideEntry(47, "Orange salamander", 10146));
+        category.addEntry(new SkillGuideEntry(59, "Red salamander", 10147));
+        category.addEntry(new SkillGuideEntry(67, "Black salamander", 10148));
+        hunterCategories.add(category);
+
+        category = new SkillGuideCategory("Pitfall Traps");
+        category.addEntry(new SkillGuideEntry(31, "Spined larupia", 10095));
+        category.addEntry(new SkillGuideEntry(41, "Horned graahk", 10099));
+        category.addEntry(new SkillGuideEntry(55, "Sabre-toothed kyatt", 10103));
+        hunterCategories.add(category);
+
+        category = new SkillGuideCategory("Falconry");
+        category.addEntry(new SkillGuideEntry(43, "Spotted kebbit", 10125));
+        category.addEntry(new SkillGuideEntry(57, "Dark kebbit", 10115));
+        category.addEntry(new SkillGuideEntry(69, "Dashing kebbit", 10127));
+        hunterCategories.add(category);
+
+        category = new SkillGuideCategory("Impetuous Imps");
+        category.addEntry(new SkillGuideEntry(17, "Baby impling", 9952));
+        category.addEntry(new SkillGuideEntry(22, "Young impling", 9952));
+        category.addEntry(new SkillGuideEntry(28, "Gourmet impling", 9952));
+        category.addEntry(new SkillGuideEntry(36, "Earth impling", 9952));
+        category.addEntry(new SkillGuideEntry(42, "Essence impling", 9952));
+        category.addEntry(new SkillGuideEntry(50, "Eclectic impling", 9952));
+        category.addEntry(new SkillGuideEntry(58, "Nature impling", 9952));
+        category.addEntry(new SkillGuideEntry(65, "Magpie impling", 9952));
+        category.addEntry(new SkillGuideEntry(74, "Ninja impling", 9952));
+        category.addEntry(new SkillGuideEntry(83, "Dragon impling", 9952));
+        hunterCategories.add(category);
+    }
+
+    private static void initializeConstructionCategories() {
+        SkillGuideCategory category = new SkillGuideCategory("Room Creation");
+        category.addEntry(new SkillGuideEntry(1, "Garden", 8415));
+        category.addEntry(new SkillGuideEntry(1, "Parlour", 8395));
+        category.addEntry(new SkillGuideEntry(5, "Kitchen", 8396));
+        category.addEntry(new SkillGuideEntry(10, "Dining Room", 8397));
+        category.addEntry(new SkillGuideEntry(15, "Workshop", 8406));
+        category.addEntry(new SkillGuideEntry(20, "Bedroom", 8398));
+        category.addEntry(new SkillGuideEntry(25, "Skill Hall", 8401));
+        category.addEntry(new SkillGuideEntry(30, "Games Room", 8399));
+        category.addEntry(new SkillGuideEntry(32, "Combat Room", 8400));
+        category.addEntry(new SkillGuideEntry(35, "Quest Hall", 8402));
+        category.addEntry(new SkillGuideEntry(40, "Study", 8407));
+        category.addEntry(new SkillGuideEntry(42, "Costume Room", 8614));
+        category.addEntry(new SkillGuideEntry(45, "Chapel", 8405));
+        category.addEntry(new SkillGuideEntry(50, "Portal Chamber", 8408));
+        category.addEntry(new SkillGuideEntry(55, "Formal Garden", 8416));
+        category.addEntry(new SkillGuideEntry(60, "Throne Room", 8409));
+        category.addEntry(new SkillGuideEntry(65, "Oubliette", 8410));
+        category.addEntry(new SkillGuideEntry(70, "Dungeon", 8411));
+        category.addEntry(new SkillGuideEntry(75, "Treasure Room", 8414));
+        constructionCategories.add(category);
+
+        category = new SkillGuideCategory("Garden");
+        category.addEntry(new SkillGuideEntry(1, "Exit portal", 8168));
+        category.addEntry(new SkillGuideEntry(5, "Tree", 8173));
+        category.addEntry(new SkillGuideEntry(10, "Pond", 8170));
+        category.addEntry(new SkillGuideEntry(15, "Imp statue", 8171));
+        category.addEntry(new SkillGuideEntry(30, "Willow tree", 8176));
+        category.addEntry(new SkillGuideEntry(45, "Maple tree", 8177));
+        category.addEntry(new SkillGuideEntry(60, "Yew tree", 8178));
+        category.addEntry(new SkillGuideEntry(70, "Dungeon entrance", 8172));
+        category.addEntry(new SkillGuideEntry(75, "Magic tree", 8179));
+        constructionCategories.add(category);
+
+        category = new SkillGuideCategory("Parlour");
+        category.addEntry(new SkillGuideEntry(1, "Crude wooden chair", 8309));
+        category.addEntry(new SkillGuideEntry(2, "Brown rug and torn curtains", 8316));
+        category.addEntry(new SkillGuideEntry(3, "Clay fireplace", 8325));
+        category.addEntry(new SkillGuideEntry(4, "Wooden bookcase", 8319));
+        category.addEntry(new SkillGuideEntry(19, "Oak chair", 8312));
+        category.addEntry(new SkillGuideEntry(29, "Oak bookcase", 8320));
+        category.addEntry(new SkillGuideEntry(40, "Mahogany bookcase", 8321));
+        category.addEntry(new SkillGuideEntry(63, "Marble fireplace", 8327));
+        category.addEntry(new SkillGuideEntry(65, "Opulent rug", 8318));
+        constructionCategories.add(category);
+
+        category = new SkillGuideCategory("Kitchen");
+        category.addEntry(new SkillGuideEntry(5, "Firepit", 8216));
+        category.addEntry(new SkillGuideEntry(7, "Pump and drain; beer barrel", 8230));
+        category.addEntry(new SkillGuideEntry(9, "Wooden larder", 8233));
+        category.addEntry(new SkillGuideEntry(24, "Small oven", 8219));
+        category.addEntry(new SkillGuideEntry(29, "Large oven", 8220));
+        category.addEntry(new SkillGuideEntry(33, "Oak larder", 8234));
+        category.addEntry(new SkillGuideEntry(34, "Steel range", 8221));
+        category.addEntry(new SkillGuideEntry(47, "Sink", 8232));
+        category.addEntry(new SkillGuideEntry(67, "Teak shelves 2", 8229));
+        constructionCategories.add(category);
+
+        category = new SkillGuideCategory("Dining Room");
+        category.addEntry(new SkillGuideEntry(10, "Wood dining table and bench", 8548));
+        category.addEntry(new SkillGuideEntry(26, "Rope bell-pull", 8099));
+        category.addEntry(new SkillGuideEntry(31, "Carved oak bench and table", 8566));
+        category.addEntry(new SkillGuideEntry(45, "Carved teak table", 8556));
+        category.addEntry(new SkillGuideEntry(52, "Mahogany bench and table", 8572));
+        category.addEntry(new SkillGuideEntry(61, "Gilded bench", 8574));
+        category.addEntry(new SkillGuideEntry(72, "Opulent table", 8560));
+        constructionCategories.add(category);
+
+        category = new SkillGuideCategory("Workshop");
+        category.addEntry(new SkillGuideEntry(15, "Repair bench and tool store 1", 8389));
+        category.addEntry(new SkillGuideEntry(17, "Wooden workbench", 8375));
+        category.addEntry(new SkillGuideEntry(32, "Oak workbench", 8376));
+        category.addEntry(new SkillGuideEntry(42, "Crafting table 4", 8383));
+        category.addEntry(new SkillGuideEntry(46, "Steel-framed bench", 8377));
+        category.addEntry(new SkillGuideEntry(55, "Tool store 5 and armour stand", 8391));
+        category.addEntry(new SkillGuideEntry(62, "Bench with vice", 8378));
+        category.addEntry(new SkillGuideEntry(77, "Bench with lathe", 8379));
+        constructionCategories.add(category);
+
+        category = new SkillGuideCategory("Bedroom");
+        category.addEntry(new SkillGuideEntry(20, "Shoe box and wooden bed", 8610));
+        category.addEntry(new SkillGuideEntry(25, "Oak clock", 8590));
+        category.addEntry(new SkillGuideEntry(27, "Oak drawers", 8612));
+        category.addEntry(new SkillGuideEntry(30, "Oak bed", 8578));
+        category.addEntry(new SkillGuideEntry(34, "Large oak bed", 8580));
+        category.addEntry(new SkillGuideEntry(40, "Teak bed", 8582));
+        category.addEntry(new SkillGuideEntry(51, "Teak drawers", 8616));
+        category.addEntry(new SkillGuideEntry(53, "Four-poster bed", 8586));
+        category.addEntry(new SkillGuideEntry(60, "Gilded four-poster bed", 8588));
+        category.addEntry(new SkillGuideEntry(75, "Mahogany wardrobe", 8620));
+        constructionCategories.add(category);
+
+        category = new SkillGuideCategory("Skill Hall");
+        category.addEntry(new SkillGuideEntry(25, "Skill hall", 8401));
+        category.addEntry(new SkillGuideEntry(27, "Oak staircase", 8250));
+        category.addEntry(new SkillGuideEntry(28, "Mounted armour", 8273));
+        category.addEntry(new SkillGuideEntry(41, "Rune case", 8276));
+        category.addEntry(new SkillGuideEntry(48, "Teak staircase", 8252));
+        category.addEntry(new SkillGuideEntry(67, "Spiral staircase", 8258));
+        category.addEntry(new SkillGuideEntry(82, "Marble staircase", 8255));
+        constructionCategories.add(category);
+
+        category = new SkillGuideCategory("Games Room");
+        category.addEntry(new SkillGuideEntry(30, "Games room", 8399));
+        category.addEntry(new SkillGuideEntry(30, "Hoop and stick", 8162));
+        category.addEntry(new SkillGuideEntry(34, "Oak prize chest", 8165));
+        category.addEntry(new SkillGuideEntry(37, "Magic balance 1", 8156));
+        category.addEntry(new SkillGuideEntry(39, "Clay attack stone and jester", 8153));
+        category.addEntry(new SkillGuideEntry(44, "Teak prize chest", 8166));
+        category.addEntry(new SkillGuideEntry(49, "Treasure hunt", 8160));
+        category.addEntry(new SkillGuideEntry(54, "Dartboard and mahogany prize chest", 8163));
+        category.addEntry(new SkillGuideEntry(57, "Magic balance 2", 8157));
+        category.addEntry(new SkillGuideEntry(59, "Attack stone and hangman", 8154));
+        category.addEntry(new SkillGuideEntry(77, "Magical balance 3", 8158));
+        category.addEntry(new SkillGuideEntry(79, "Marble attack stone", 8155));
+        category.addEntry(new SkillGuideEntry(81, "Archery target", 8164));
+        constructionCategories.add(category);
+
+        category = new SkillGuideCategory("Combat Room");
+        category.addEntry(new SkillGuideEntry(32, "Combat room", 8400));
+        category.addEntry(new SkillGuideEntry(32, "Boxing ring", 8023));
+        category.addEntry(new SkillGuideEntry(34, "Glove rack", 8028));
+        category.addEntry(new SkillGuideEntry(41, "Fencing ring", 8024));
+        category.addEntry(new SkillGuideEntry(44, "Weapons rack", 8029));
+        category.addEntry(new SkillGuideEntry(51, "Combat ring", 8025));
+        category.addEntry(new SkillGuideEntry(54, "Extra weapons rack", 8030));
+        category.addEntry(new SkillGuideEntry(71, "Ranging pedestals", 8026));
+        category.addEntry(new SkillGuideEntry(81, "Balance beam", 8027));
+        constructionCategories.add(category);
+
+        category = new SkillGuideCategory("Quest Hall");
+        category.addEntry(new SkillGuideEntry(35, "Quest hall", 8402));
+        category.addEntry(new SkillGuideEntry(40, "Map of the world", 8294));
+        category.addEntry(new SkillGuideEntry(47, "Mounted quest item", 8090));
+        category.addEntry(new SkillGuideEntry(60, "Mounted mythological creature", 8260));
+        constructionCategories.add(category);
+
+        category = new SkillGuideCategory("Study");
+        category.addEntry(new SkillGuideEntry(40, "Study", 8407));
+        category.addEntry(new SkillGuideEntry(40, "Oak lectern", 8334));
+        category.addEntry(new SkillGuideEntry(41, "Globe", 8341));
+        category.addEntry(new SkillGuideEntry(42, "Crystal ball", 8351));
+        category.addEntry(new SkillGuideEntry(44, "Wooden telescope", 8348));
+        category.addEntry(new SkillGuideEntry(47, "Lecterns", 8336));
+        category.addEntry(new SkillGuideEntry(54, "Elemental sphere", 8352));
+        category.addEntry(new SkillGuideEntry(64, "Teak telescope", 8349));
+        category.addEntry(new SkillGuideEntry(66, "Crystal of power", 8353));
+        constructionCategories.add(category);
+
+        category = new SkillGuideCategory("Other Rooms");
+        category.addEntry(new SkillGuideEntry(42, "Costume room", 8614));
+        category.addEntry(new SkillGuideEntry(45, "Chapel", 8405));
+        category.addEntry(new SkillGuideEntry(50, "Portal chamber", 8408));
+        category.addEntry(new SkillGuideEntry(55, "Formal garden", 8416));
+        category.addEntry(new SkillGuideEntry(60, "Throne room", 8409));
+        category.addEntry(new SkillGuideEntry(65, "Oubliette", 8410));
+        category.addEntry(new SkillGuideEntry(70, "Dungeon", 8411));
+        category.addEntry(new SkillGuideEntry(75, "Treasure room", 8414));
+        constructionCategories.add(category);
     }
 
     private static void initializeFarmingCategories() {

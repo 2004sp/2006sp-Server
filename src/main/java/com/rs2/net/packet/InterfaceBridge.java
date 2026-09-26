@@ -21,6 +21,7 @@ public final class InterfaceBridge {
     private static Map<Integer, Integer> createGroupMappings() {
         Map<Integer, Integer> mappings = new LinkedHashMap<Integer, Integer>();
         mappings.put(3917, 320); // skills
+        mappings.put(8714, 308); // legacy skill guide -> revision 443 skill guide
         mappings.put(638, 274);  // quest journal
         mappings.put(3213, 149); // inventory
         mappings.put(1644, 387); // worn equipment
@@ -86,6 +87,49 @@ public final class InterfaceBridge {
 
     private static Map<Integer, Integer> createComponentMappings() {
         Map<Integer, Integer> mappings = new LinkedHashMap<Integer, Integer>();
+        // Revision 443 Skills tab -> legacy skill-guide buttons.
+        put(mappings, 8654, 320, 123);  // Attack
+        put(mappings, 8655, 320, 124);  // Hitpoints
+        put(mappings, 8656, 320, 125);  // Mining
+        put(mappings, 8657, 320, 126);  // Strength
+        put(mappings, 8658, 320, 127);  // Agility
+        put(mappings, 8659, 320, 128);  // Smithing
+        put(mappings, 8660, 320, 129);  // Defence
+        put(mappings, 8661, 320, 130);  // Herblore
+        put(mappings, 8662, 320, 131);  // Fishing
+        put(mappings, 8663, 320, 132);  // Ranged
+        put(mappings, 8664, 320, 133);  // Thieving
+        put(mappings, 8665, 320, 134);  // Cooking
+        put(mappings, 8666, 320, 135);  // Prayer
+        put(mappings, 8667, 320, 136);  // Crafting
+        put(mappings, 8668, 320, 137);  // Firemaking
+        put(mappings, 8669, 320, 142);  // Magic
+        put(mappings, 8670, 320, 143);  // Fletching
+        put(mappings, 8671, 320, 144);  // Woodcutting
+        put(mappings, 8672, 320, 145);  // Runecrafting
+        put(mappings, 12162, 320, 146); // Slayer
+        put(mappings, 13928, 320, 147); // Farming
+        // Legacy skill guide content -> native revision 443 skill guide (group 308).
+        put(mappings, 8716, 308, 1);   // skill title
+        put(mappings, 8717, 308, 2);   // scroll content
+        putRange(mappings, 8720, 308, 5, 40);  // level rows
+        putRange(mappings, 8760, 308, 45, 40); // advancement rows
+        put(mappings, 8847, 308, 132); // 40-slot item container
+
+        // Category labels are the 13 selectable tabs in the native guide.
+        put(mappings, 8846, 308, 131);
+        put(mappings, 8823, 308, 108);
+        put(mappings, 8824, 308, 109);
+        put(mappings, 8827, 308, 112);
+        put(mappings, 8837, 308, 122);
+        put(mappings, 8840, 308, 125);
+        put(mappings, 8843, 308, 128);
+        put(mappings, 8859, 308, 143);
+        put(mappings, 8862, 308, 146);
+        put(mappings, 8865, 308, 149);
+        put(mappings, 15303, 308, 159);
+        put(mappings, 15306, 308, 162);
+        put(mappings, 15309, 308, 165);
         // Native 443 options panel controls. Keep these mapped to the existing
         // legacy setting actions so the shared settings handler can process them.
         put(mappings, 906, 261, 7);  // brightness 1
@@ -398,6 +442,13 @@ public final class InterfaceBridge {
         mappings.put(legacyId, groupId << 16 | childId);
     }
 
+    private static void putRange(Map<Integer, Integer> mappings, int legacyStart,
+                                 int groupId, int childStart, int count) {
+        for (int offset = 0; offset < count; offset++) {
+            put(mappings, legacyStart + offset, groupId, childStart + offset);
+        }
+    }
+
     public static int translateGroup(int legacyId) {
         return translateGroup(legacyId, null);
     }
@@ -436,6 +487,22 @@ public final class InterfaceBridge {
             } else {
                 reverse.put(entry.getValue(), entry.getKey());
             }
+        }
+        // Native 443 skill-guide category widgets are actionType-6 widgets.
+        // Their legacy destinations are shared text components, so the
+        // component map above intentionally marks them ambiguous. Restore
+        // these verified click targets explicitly for the continue packet.
+        int[] skillGuideCategoryLegacyIds = {
+                8846, 8823, 8824, 8827, 8837, 8840, 8843,
+                8859, 8862, 8865, 15303, 15306, 15309
+        };
+        int[] skillGuideCategoryChildren = {
+                131, 108, 109, 112, 122, 125, 128,
+                143, 146, 149, 159, 162, 165
+        };
+        for (int index = 0; index < skillGuideCategoryLegacyIds.length; index++) {
+            reverse.put(308 << 16 | skillGuideCategoryChildren[index],
+                    skillGuideCategoryLegacyIds[index]);
         }
         for (Integer id : CUSTOM_FLAT_COMPONENTS) reverse.put(id, id);
         return Collections.unmodifiableMap(reverse);
